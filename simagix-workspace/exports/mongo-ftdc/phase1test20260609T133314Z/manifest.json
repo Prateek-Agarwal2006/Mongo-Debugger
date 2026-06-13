@@ -1,0 +1,27 @@
+{
+  "contract_version": "1.0.0",
+  "generated_at": "2026-06-09T13:36:40.052340723Z",
+  "input": "/workspace/simagix-workspace/data/diagnostic.data",
+  "latest": 0,
+  "export_tier": "normalized",
+  "files_considered": 25,
+  "files_exported": 25,
+  "time_range": {
+    "from": "2026-06-02T17:29:03.004Z",
+    "to": "2026-06-03T10:26:44.002Z",
+    "duration_seconds": 61060.998
+  },
+  "mongodb_version": "8.0.17",
+  "host": "qa6-mongo-core12-2-b:53421",
+  "normalized_metric_series": 87,
+  "disk_devices": 4,
+  "replication_lag_series": 2,
+  "server_status_samples": 54872,
+  "system_metrics_samples": 54872,
+  "replset_status_samples": 6168,
+  "diagnosis_findings": 4,
+  "anomaly_events": 164,
+  "raw_metric_series_exported": 0,
+  "raw_values_exported": 0,
+  "files": []
+}

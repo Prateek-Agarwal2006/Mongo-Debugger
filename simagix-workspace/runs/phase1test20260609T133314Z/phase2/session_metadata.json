@@ -1,0 +1,32 @@
+{
+  "run_id": "phase1test20260609T133314Z",
+  "agent_id": "mock-agent-id",
+  "provider": "mock",
+  "last_run_at": 1781349634.774529,
+  "budget": {
+    "max_tool_calls": 12,
+    "tool_calls_used": 3,
+    "remaining_tool_calls": 9,
+    "tool_call_history": [
+      "get_metric_window",
+      "get_metric_window",
+      "get_metric_window"
+    ],
+    "budget_exhausted": false
+  },
+  "tool_usage": {
+    "mcp_evidence_calls": 12,
+    "mcp_budget_max": 12,
+    "total_sdk_calls": 33,
+    "by_category": {
+      "mcp": 12,
+      "web": 2,
+      "local": 19
+    },
+    "tool_call_history": [
+      "get_metric_window",
+      "get_metric_window",
+      "get_metric_window"
+    ]
+  }
+}

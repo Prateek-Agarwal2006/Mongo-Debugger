@@ -1,0 +1,7 @@
+{
+  "explorer.compactFolders": false,
+  "files.exclude": {
+    "docs": false,
+    "**/docs": false
+  }
+}

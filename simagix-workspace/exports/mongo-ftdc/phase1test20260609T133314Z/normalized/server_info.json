@@ -1,0 +1,18 @@
+{
+  "hostInfo": {
+    "os": {
+      "name": "AlmaLinux release 9.4 (Seafoam Ocelot)",
+      "type": "Linux",
+      "version": "Kernel 5.14.0-570.37.1.el9_6.x86_64"
+    },
+    "system": {
+      "cpuArch": "x86_64",
+      "hostname": "qa6-mongo-core12-2-b:53421",
+      "numCores": 8,
+      "memSizeMB": 63784
+    }
+  },
+  "buildInfo": {
+    "version": "8.0.17"
+  }
+}

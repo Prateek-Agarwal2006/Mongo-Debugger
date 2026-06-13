@@ -1,0 +1,1478 @@
+[
+  {
+    "Timestamp": "2026-06-02T17:29:04.003Z",
+    "EndTime": "2026-06-02T17:29:30.004Z",
+    "Duration": 26001000000,
+    "Metric": "cpu_idle",
+    "Peak": 10.35386631716907,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:29:12Z",
+    "EndTime": "2026-06-02T22:51:43Z",
+    "Duration": 19351000000000,
+    "Metric": "repl_lag_host-1",
+    "Peak": 9100,
+    "Threshold": "\u003e 5s",
+    "Severity": "critical"
+  },
+  {
+    "Timestamp": "2026-06-02T17:29:32.003Z",
+    "EndTime": "2026-06-02T17:29:59.004Z",
+    "Duration": 27001000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.8403361344537815,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:30:09.003Z",
+    "EndTime": "2026-06-02T17:31:37.005Z",
+    "Duration": 88002000000,
+    "Metric": "cpu_idle",
+    "Peak": 1.668806161745828,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:31:39.004Z",
+    "EndTime": "2026-06-02T17:31:59.005Z",
+    "Duration": 20001000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.10822510822510822,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:32:04.003Z",
+    "EndTime": "2026-06-02T17:32:17.003Z",
+    "Duration": 13000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.651162790697675,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:32:19.003Z",
+    "EndTime": "2026-06-02T17:33:37.003Z",
+    "Duration": 78000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.26595744680851063,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:34:36.003Z",
+    "EndTime": "2026-06-02T17:39:38.003Z",
+    "Duration": 302000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.11990407673860912,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:43:38.066Z",
+    "EndTime": "2026-06-02T17:49:02.003Z",
+    "Duration": 323937000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.12562814070351758,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:49:26.003Z",
+    "EndTime": "2026-06-02T17:55:05.006Z",
+    "Duration": 339003000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T17:55:07.006Z",
+    "EndTime": "2026-06-02T18:00:07.003Z",
+    "Duration": 299997000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.11848341232227488,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:05:24.004Z",
+    "EndTime": "2026-06-02T18:08:52.015Z",
+    "Duration": 208011000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.14556040756914118,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:08:52.015Z",
+    "EndTime": "2026-06-02T18:09:03.004Z",
+    "Duration": 10989000000,
+    "Metric": "q_queued_write",
+    "Peak": 175,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:08:57.004Z",
+    "EndTime": "2026-06-02T18:10:38.01Z",
+    "Duration": 101006000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:10:38.01Z",
+    "EndTime": "2026-06-02T18:10:55.004Z",
+    "Duration": 16994000000,
+    "Metric": "q_queued_write",
+    "Peak": 176,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:10:43.004Z",
+    "EndTime": "2026-06-02T18:12:27.003Z",
+    "Duration": 103999000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:12:26.003Z",
+    "EndTime": "2026-06-02T18:12:50.003Z",
+    "Duration": 24000000000,
+    "Metric": "q_queued_write",
+    "Peak": 175,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:12:34.003Z",
+    "EndTime": "2026-06-02T18:14:23.022Z",
+    "Duration": 109019000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:14:23.022Z",
+    "EndTime": "2026-06-02T18:14:53.005Z",
+    "Duration": 29983000000,
+    "Metric": "q_queued_write",
+    "Peak": 176,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:14:32.003Z",
+    "EndTime": "2026-06-02T18:15:50.003Z",
+    "Duration": 78000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.12804097311139565,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:18:10.003Z",
+    "EndTime": "2026-06-02T18:18:24.003Z",
+    "Duration": 14000000000,
+    "Metric": "cpu_idle",
+    "Peak": 17.070063694267517,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:19:22.004Z",
+    "EndTime": "2026-06-02T18:19:40.003Z",
+    "Duration": 17999000000,
+    "Metric": "cpu_idle",
+    "Peak": 17.938931297709924,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:20:34.003Z",
+    "EndTime": "2026-06-02T18:20:52.003Z",
+    "Duration": 18000000000,
+    "Metric": "cpu_idle",
+    "Peak": 16.730038022813687,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:21:00.004Z",
+    "EndTime": "2026-06-02T18:21:12.004Z",
+    "Duration": 12000000000,
+    "Metric": "cpu_idle",
+    "Peak": 27.805486284289277,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:21:30.004Z",
+    "EndTime": "2026-06-02T18:21:45.003Z",
+    "Duration": 14999000000,
+    "Metric": "cpu_idle",
+    "Peak": 14.668367346938776,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:21:48.003Z",
+    "EndTime": "2026-06-02T18:22:08.004Z",
+    "Duration": 20001000000,
+    "Metric": "cpu_idle",
+    "Peak": 15.354330708661417,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:23:00.004Z",
+    "EndTime": "2026-06-02T18:23:13.003Z",
+    "Duration": 12999000000,
+    "Metric": "cpu_idle",
+    "Peak": 11.03896103896104,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:24:10.003Z",
+    "EndTime": "2026-06-02T18:24:23.004Z",
+    "Duration": 13001000000,
+    "Metric": "cpu_idle",
+    "Peak": 18.045112781954888,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:25:22.003Z",
+    "EndTime": "2026-06-02T18:25:36.003Z",
+    "Duration": 14000000000,
+    "Metric": "cpu_idle",
+    "Peak": 14.17624521072797,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:26:35.003Z",
+    "EndTime": "2026-06-02T18:28:27.003Z",
+    "Duration": 112000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:28:27.003Z",
+    "EndTime": "2026-06-02T18:28:52.035Z",
+    "Duration": 25032000000,
+    "Metric": "q_queued_write",
+    "Peak": 177,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:28:38.008Z",
+    "EndTime": "2026-06-02T18:30:39.004Z",
+    "Duration": 120996000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:30:38.005Z",
+    "EndTime": "2026-06-02T18:31:04.004Z",
+    "Duration": 25999000000,
+    "Metric": "q_queued_write",
+    "Peak": 179,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:30:57.003Z",
+    "EndTime": "2026-06-02T18:33:07.002Z",
+    "Duration": 129999000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:33:07.002Z",
+    "EndTime": "2026-06-02T18:33:37.004Z",
+    "Duration": 30002000000,
+    "Metric": "q_queued_write",
+    "Peak": 177,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:33:18.003Z",
+    "EndTime": "2026-06-02T18:35:26.01Z",
+    "Duration": 128007000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:35:22.022Z",
+    "EndTime": "2026-06-02T18:35:45.01Z",
+    "Duration": 22988000000,
+    "Metric": "q_queued_write",
+    "Peak": 177,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:35:35.003Z",
+    "EndTime": "2026-06-02T18:37:40.003Z",
+    "Duration": 125000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.1180637544273908,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:37:40.003Z",
+    "EndTime": "2026-06-02T18:37:59.004Z",
+    "Duration": 19001000000,
+    "Metric": "q_queued_write",
+    "Peak": 177,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:37:50.003Z",
+    "EndTime": "2026-06-02T18:40:29.003Z",
+    "Duration": 159000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0.11848341232227488,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:40:27.011Z",
+    "EndTime": "2026-06-02T18:40:59.004Z",
+    "Duration": 31993000000,
+    "Metric": "q_queued_write",
+    "Peak": 178,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:40:36.003Z",
+    "EndTime": "2026-06-02T18:42:00.003Z",
+    "Duration": 84000000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:42:03.003Z",
+    "EndTime": "2026-06-02T18:42:23.003Z",
+    "Duration": 20000000000,
+    "Metric": "cpu_idle",
+    "Peak": 13.843111404087013,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:43:29.004Z",
+    "EndTime": "2026-06-02T18:43:40.003Z",
+    "Duration": 10999000000,
+    "Metric": "cpu_idle",
+    "Peak": 11.710526315789474,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:44:39.004Z",
+    "EndTime": "2026-06-02T18:44:51.003Z",
+    "Duration": 11999000000,
+    "Metric": "cpu_idle",
+    "Peak": 12.319790301441678,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:45:51.003Z",
+    "EndTime": "2026-06-02T18:46:03.003Z",
+    "Duration": 12000000000,
+    "Metric": "cpu_idle",
+    "Peak": 11.432325886990801,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:46:10.003Z",
+    "EndTime": "2026-06-02T18:46:23.004Z",
+    "Duration": 13001000000,
+    "Metric": "cpu_idle",
+    "Peak": 20.234986945169712,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:47:38.003Z",
+    "EndTime": "2026-06-02T18:47:50.003Z",
+    "Duration": 12000000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.875968992248062,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:48:10.003Z",
+    "EndTime": "2026-06-02T18:48:25.003Z",
+    "Duration": 15000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.364569961489089,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:48:56.003Z",
+    "EndTime": "2026-06-02T18:49:06.004Z",
+    "Duration": 10001000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.88659793814433,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:49:08.005Z",
+    "EndTime": "2026-06-02T18:57:05.041Z",
+    "Duration": 477036000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:57:05.041Z",
+    "EndTime": "2026-06-02T18:57:29.009Z",
+    "Duration": 23968000000,
+    "Metric": "q_queued_write",
+    "Peak": 176,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T18:57:33.004Z",
+    "EndTime": "2026-06-02T19:00:31.003Z",
+    "Duration": 177999000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:00:30.004Z",
+    "EndTime": "2026-06-02T19:01:09.006Z",
+    "Duration": 39002000000,
+    "Metric": "q_queued_write",
+    "Peak": 178,
+    "Threshold": "\u003e 10",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:01:02.004Z",
+    "EndTime": "2026-06-02T19:04:17.003Z",
+    "Duration": 194999000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:04:40.004Z",
+    "EndTime": "2026-06-02T19:04:59.004Z",
+    "Duration": 19000000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.3678756476683938,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:05:47.003Z",
+    "EndTime": "2026-06-02T19:05:58.004Z",
+    "Duration": 11001000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.504504504504505,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:06:09.003Z",
+    "EndTime": "2026-06-02T19:06:46.004Z",
+    "Duration": 37001000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.492939666238768,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:06:55.003Z",
+    "EndTime": "2026-06-02T19:07:26.003Z",
+    "Duration": 31000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.336399474375821,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:07:36.004Z",
+    "EndTime": "2026-06-02T19:07:56.003Z",
+    "Duration": 19999000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.397622192866579,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:08:26.004Z",
+    "EndTime": "2026-06-02T19:08:45.003Z",
+    "Duration": 18999000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.633802816901408,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:08:47.003Z",
+    "EndTime": "2026-06-02T19:08:58.003Z",
+    "Duration": 11000000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.850707850707851,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:09:00.004Z",
+    "EndTime": "2026-06-02T19:09:12.003Z",
+    "Duration": 11999000000,
+    "Metric": "cpu_idle",
+    "Peak": 9.278350515463918,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:09:34.004Z",
+    "EndTime": "2026-06-02T19:09:56.003Z",
+    "Duration": 21999000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.096774193548387,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:10:18.003Z",
+    "EndTime": "2026-06-02T19:10:30.003Z",
+    "Duration": 12000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.767955801104972,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:10:50.003Z",
+    "EndTime": "2026-06-02T19:11:02.003Z",
+    "Duration": 12000000000,
+    "Metric": "cpu_idle",
+    "Peak": 8.81578947368421,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:11:04.003Z",
+    "EndTime": "2026-06-02T19:11:14.003Z",
+    "Duration": 10000000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.850707850707851,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:11:34.004Z",
+    "EndTime": "2026-06-02T19:11:45.003Z",
+    "Duration": 10999000000,
+    "Metric": "cpu_idle",
+    "Peak": 10.714285714285714,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:12:09.003Z",
+    "EndTime": "2026-06-02T19:12:19.003Z",
+    "Duration": 10000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.242966751918159,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:13:27.004Z",
+    "EndTime": "2026-06-02T19:13:44.003Z",
+    "Duration": 16999000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.633204633204633,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:14:25.003Z",
+    "EndTime": "2026-06-02T19:14:39.004Z",
+    "Duration": 14001000000,
+    "Metric": "cpu_idle",
+    "Peak": 10.505836575875486,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:14:41.003Z",
+    "EndTime": "2026-06-02T19:15:16.004Z",
+    "Duration": 35001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.54796320630749,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:15:53.004Z",
+    "EndTime": "2026-06-02T19:16:25.003Z",
+    "Duration": 31999000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.7989821882951653,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:16:51.004Z",
+    "EndTime": "2026-06-02T19:17:02.003Z",
+    "Duration": 10999000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.392996108949417,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:17:04.003Z",
+    "EndTime": "2026-06-02T19:17:55.004Z",
+    "Duration": 51001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.58974358974359,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:18:16.004Z",
+    "EndTime": "2026-06-02T19:18:28.003Z",
+    "Duration": 11999000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.216494845360825,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:18:30.003Z",
+    "EndTime": "2026-06-02T19:18:53.005Z",
+    "Duration": 23002000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.980842911877395,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:19:04.004Z",
+    "EndTime": "2026-06-02T19:19:30.003Z",
+    "Duration": 25999000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.1005291005291005,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:19:37.003Z",
+    "EndTime": "2026-06-02T19:19:56.003Z",
+    "Duration": 19000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.455862977602108,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:20:31.003Z",
+    "EndTime": "2026-06-02T19:20:46.003Z",
+    "Duration": 15000000000,
+    "Metric": "cpu_idle",
+    "Peak": 8.538163001293661,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:21:07.003Z",
+    "EndTime": "2026-06-02T19:21:24.003Z",
+    "Duration": 17000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.229591836734694,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:22:17.003Z",
+    "EndTime": "2026-06-02T19:22:28.003Z",
+    "Duration": 11000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.405405405405405,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:22:30.006Z",
+    "EndTime": "2026-06-02T19:22:49.003Z",
+    "Duration": 18997000000,
+    "Metric": "cpu_idle",
+    "Peak": 8.097686375321336,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:23:02.005Z",
+    "EndTime": "2026-06-02T19:23:15.004Z",
+    "Duration": 12999000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.802340702210663,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:23:27.003Z",
+    "EndTime": "2026-06-02T19:23:55.003Z",
+    "Duration": 28000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.172413793103448,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:24:27.003Z",
+    "EndTime": "2026-06-02T19:24:38.003Z",
+    "Duration": 11000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.701030927835052,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:24:40.003Z",
+    "EndTime": "2026-06-02T19:25:38.004Z",
+    "Duration": 58001000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.290322580645161,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:25:52.003Z",
+    "EndTime": "2026-06-02T19:26:04.003Z",
+    "Duration": 12000000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.142857142857143,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:26:26.003Z",
+    "EndTime": "2026-06-02T19:26:52.003Z",
+    "Duration": 26000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.526992287917738,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:26:58.003Z",
+    "EndTime": "2026-06-02T19:28:24.003Z",
+    "Duration": 86000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.7375160051216385,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:28:58.003Z",
+    "EndTime": "2026-06-02T19:29:24.003Z",
+    "Duration": 26000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.028833551769331,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:29:48.003Z",
+    "EndTime": "2026-06-02T19:30:02.003Z",
+    "Duration": 14000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.615384615384615,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:30:09.003Z",
+    "EndTime": "2026-06-02T19:30:37.002Z",
+    "Duration": 27999000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.774278215223097,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:30:39.003Z",
+    "EndTime": "2026-06-02T19:31:09.003Z",
+    "Duration": 30000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.161745827984595,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:31:26.003Z",
+    "EndTime": "2026-06-02T19:31:52.003Z",
+    "Duration": 26000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.890604890604891,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:32:05.003Z",
+    "EndTime": "2026-06-02T19:32:24.004Z",
+    "Duration": 19001000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.987212276214834,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:32:33.003Z",
+    "EndTime": "2026-06-02T19:32:56.003Z",
+    "Duration": 23000000000,
+    "Metric": "cpu_idle",
+    "Peak": 11.053984575835475,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:33:28.003Z",
+    "EndTime": "2026-06-02T19:33:39.002Z",
+    "Duration": 10999000000,
+    "Metric": "cpu_idle",
+    "Peak": 9.942270686337396,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:33:41.003Z",
+    "EndTime": "2026-06-02T19:33:52.003Z",
+    "Duration": 11000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.849279161205767,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:33:54.003Z",
+    "EndTime": "2026-06-02T19:34:25.003Z",
+    "Duration": 31000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.973821989528796,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:34:27.004Z",
+    "EndTime": "2026-06-02T19:34:59.004Z",
+    "Duration": 32000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.25,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:35:06.004Z",
+    "EndTime": "2026-06-02T19:35:31.004Z",
+    "Duration": 25000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.419695968274951,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:35:46.003Z",
+    "EndTime": "2026-06-02T19:36:13.003Z",
+    "Duration": 27000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.781865965834428,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:36:49.004Z",
+    "EndTime": "2026-06-02T19:38:23.003Z",
+    "Duration": 93999000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.276705276705277,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:38:25.003Z",
+    "EndTime": "2026-06-02T19:38:38.003Z",
+    "Duration": 13000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.743589743589744,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:38:40.004Z",
+    "EndTime": "2026-06-02T19:39:59.003Z",
+    "Duration": 78999000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.450261780104712,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:40:02.003Z",
+    "EndTime": "2026-06-02T19:40:23.004Z",
+    "Duration": 21001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.2765399737876804,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:40:25.004Z",
+    "EndTime": "2026-06-02T19:40:49.004Z",
+    "Duration": 24000000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.952569169960474,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:40:51.004Z",
+    "EndTime": "2026-06-02T19:41:46.004Z",
+    "Duration": 55000000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.600780234070221,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:41:48.004Z",
+    "EndTime": "2026-06-02T19:42:08.004Z",
+    "Duration": 20000000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.087628865979381,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:42:10.003Z",
+    "EndTime": "2026-06-02T19:45:07.004Z",
+    "Duration": 177001000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.346805736636245,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:45:09.004Z",
+    "EndTime": "2026-06-02T19:46:14.003Z",
+    "Duration": 64999000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.7559055118110236,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:46:16.005Z",
+    "EndTime": "2026-06-02T19:46:45.004Z",
+    "Duration": 28999000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.9591315453384417,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:47:02.004Z",
+    "EndTime": "2026-06-02T19:48:45.003Z",
+    "Duration": 102999000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.827763496143959,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:49:08.004Z",
+    "EndTime": "2026-06-02T19:49:24.003Z",
+    "Duration": 15999000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.821106821106821,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:49:26.004Z",
+    "EndTime": "2026-06-02T19:50:29.003Z",
+    "Duration": 62999000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.480417754569191,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:50:39.003Z",
+    "EndTime": "2026-06-02T19:51:28.003Z",
+    "Duration": 49000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.878048780487805,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:51:30.003Z",
+    "EndTime": "2026-06-02T19:52:03.003Z",
+    "Duration": 33000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.033376123234916,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:52:05.003Z",
+    "EndTime": "2026-06-02T19:53:06.004Z",
+    "Duration": 61001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.201024327784891,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:53:12.005Z",
+    "EndTime": "2026-06-02T19:54:00.003Z",
+    "Duration": 47998000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.2133676092544987,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:54:05.003Z",
+    "EndTime": "2026-06-02T19:54:23.004Z",
+    "Duration": 18001000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.134788189987163,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:54:25.003Z",
+    "EndTime": "2026-06-02T19:55:16.004Z",
+    "Duration": 51001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.9591315453384417,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:55:18.003Z",
+    "EndTime": "2026-06-02T19:56:16.003Z",
+    "Duration": 58000000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.7379400260756195,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:56:29.004Z",
+    "EndTime": "2026-06-02T19:57:08.003Z",
+    "Duration": 38999000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.131578947368421,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:57:10.003Z",
+    "EndTime": "2026-06-02T19:57:35.004Z",
+    "Duration": 25001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.6316472114137484,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:57:46.003Z",
+    "EndTime": "2026-06-02T19:57:57.004Z",
+    "Duration": 11001000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.6492829204693615,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:58:05.003Z",
+    "EndTime": "2026-06-02T19:58:24.003Z",
+    "Duration": 19000000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.481481481481482,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T19:58:26.003Z",
+    "EndTime": "2026-06-02T19:59:51.003Z",
+    "Duration": 85000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.840764331210191,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:00:08.004Z",
+    "EndTime": "2026-06-02T20:00:26.004Z",
+    "Duration": 18000000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.1578947368421053,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:00:37.003Z",
+    "EndTime": "2026-06-02T20:01:03.004Z",
+    "Duration": 26001000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.871794871794871,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:01:38.003Z",
+    "EndTime": "2026-06-02T20:01:52.004Z",
+    "Duration": 14001000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.2493438320209975,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:01:59.003Z",
+    "EndTime": "2026-06-02T20:02:22.003Z",
+    "Duration": 23000000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.7037037037037037,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:02:26.004Z",
+    "EndTime": "2026-06-02T20:03:23.003Z",
+    "Duration": 56999000000,
+    "Metric": "cpu_idle",
+    "Peak": 1.8181818181818181,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:03:25.004Z",
+    "EndTime": "2026-06-02T20:03:44.005Z",
+    "Duration": 19001000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.8461538461538463,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:03:46.003Z",
+    "EndTime": "2026-06-02T20:06:23.004Z",
+    "Duration": 157001000000,
+    "Metric": "cpu_idle",
+    "Peak": 2.8645833333333335,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:06:25.004Z",
+    "EndTime": "2026-06-02T20:08:08.004Z",
+    "Duration": 103000000000,
+    "Metric": "cpu_idle",
+    "Peak": 1.6645326504481435,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:08:10.004Z",
+    "EndTime": "2026-06-02T20:11:19.004Z",
+    "Duration": 189000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.230769230769231,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:11:22.004Z",
+    "EndTime": "2026-06-02T20:11:45.004Z",
+    "Duration": 23000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.296875,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:11:47.003Z",
+    "EndTime": "2026-06-02T20:12:12.004Z",
+    "Duration": 25001000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.315789473684211,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:12:14.004Z",
+    "EndTime": "2026-06-02T20:12:25.003Z",
+    "Duration": 10999000000,
+    "Metric": "cpu_idle",
+    "Peak": 7.242693773824651,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:12:27.003Z",
+    "EndTime": "2026-06-02T20:12:39.004Z",
+    "Duration": 12001000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.330708661417323,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:12:41.004Z",
+    "EndTime": "2026-06-02T20:12:56.003Z",
+    "Duration": 14999000000,
+    "Metric": "cpu_idle",
+    "Peak": 6.666666666666667,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:13:07.004Z",
+    "EndTime": "2026-06-02T20:13:24.004Z",
+    "Duration": 17000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.804749340369393,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:13:26.004Z",
+    "EndTime": "2026-06-02T20:13:45.003Z",
+    "Duration": 18999000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.5340314136125652,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:13:47.003Z",
+    "EndTime": "2026-06-02T20:14:24.003Z",
+    "Duration": 37000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.641025641025641,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:14:26.003Z",
+    "EndTime": "2026-06-02T20:14:37.004Z",
+    "Duration": 11001000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.387647831800263,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:15:07.003Z",
+    "EndTime": "2026-06-02T20:15:24.003Z",
+    "Duration": 17000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.960835509138382,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:15:26.004Z",
+    "EndTime": "2026-06-02T20:16:02.003Z",
+    "Duration": 35999000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.230769230769231,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:16:34.003Z",
+    "EndTime": "2026-06-02T20:17:07.003Z",
+    "Duration": 33000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.650459921156373,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:17:27.004Z",
+    "EndTime": "2026-06-02T20:17:40.003Z",
+    "Duration": 12999000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.331599479843953,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:17:50.003Z",
+    "EndTime": "2026-06-02T20:18:07.003Z",
+    "Duration": 17000000000,
+    "Metric": "cpu_idle",
+    "Peak": 5.269922879177378,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:18:20.003Z",
+    "EndTime": "2026-06-02T20:19:19.003Z",
+    "Duration": 59000000000,
+    "Metric": "cpu_idle",
+    "Peak": 4.475703324808184,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-02T20:19:22.003Z",
+    "EndTime": "2026-06-02T20:19:56.003Z",
+    "Duration": 34000000000,
+    "Metric": "cpu_idle",
+    "Peak": 3.4255599472990776,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T05:57:12Z",
+    "EndTime": "2026-06-03T05:57:22Z",
+    "Duration": 10000000000,
+    "Metric": "repl_lag_host-1",
+    "Peak": 10,
+    "Threshold": "\u003e 5s",
+    "Severity": "critical"
+  },
+  {
+    "Timestamp": "2026-06-03T06:36:02Z",
+    "EndTime": "2026-06-03T06:36:22Z",
+    "Duration": 20000000000,
+    "Metric": "repl_lag_host-1",
+    "Peak": 10,
+    "Threshold": "\u003e 5s",
+    "Severity": "critical"
+  },
+  {
+    "Timestamp": "2026-06-03T07:31:12Z",
+    "EndTime": "2026-06-03T07:31:22Z",
+    "Duration": 10000000000,
+    "Metric": "repl_lag_host-1",
+    "Peak": 10,
+    "Threshold": "\u003e 5s",
+    "Severity": "critical"
+  },
+  {
+    "Timestamp": "2026-06-03T09:28:07.004Z",
+    "EndTime": "2026-06-03T09:38:40.025Z",
+    "Duration": 633021000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T09:28:12.007Z",
+    "EndTime": "2026-06-03T09:28:24.004Z",
+    "Duration": 11997000000,
+    "Metric": "write_conflicts/s",
+    "Peak": 1361.5,
+    "Threshold": "\u003e 10/s",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T09:28:26.003Z",
+    "EndTime": "2026-06-03T09:28:38.004Z",
+    "Duration": 12001000000,
+    "Metric": "write_conflicts/s",
+    "Peak": 880,
+    "Threshold": "\u003e 10/s",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T09:28:56Z",
+    "EndTime": "2026-06-03T10:10:56Z",
+    "Duration": 2520000000000,
+    "Metric": "repl_lag_host-1",
+    "Peak": 1655,
+    "Threshold": "\u003e 5s",
+    "Severity": "critical"
+  },
+  {
+    "Timestamp": "2026-06-03T09:29:15.004Z",
+    "EndTime": "2026-06-03T09:29:25.004Z",
+    "Duration": 10000000000,
+    "Metric": "write_conflicts/s",
+    "Peak": 547,
+    "Threshold": "\u003e 10/s",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T09:32:16.004Z",
+    "EndTime": "2026-06-03T09:32:28.1Z",
+    "Duration": 12096000000,
+    "Metric": "write_conflicts/s",
+    "Peak": 780,
+    "Threshold": "\u003e 10/s",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T09:38:42.004Z",
+    "EndTime": "2026-06-03T09:39:04.003Z",
+    "Duration": 21999000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  },
+  {
+    "Timestamp": "2026-06-03T09:39:06.015Z",
+    "EndTime": "2026-06-03T09:43:13.004Z",
+    "Duration": 246989000000,
+    "Metric": "cpu_idle",
+    "Peak": 0,
+    "Threshold": "\u003c 30%",
+    "Severity": "warning"
+  }
+]

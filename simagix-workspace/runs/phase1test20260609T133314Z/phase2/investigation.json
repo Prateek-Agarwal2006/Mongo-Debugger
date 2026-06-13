@@ -1,0 +1,130 @@
+{
+  "run_id": "phase1test20260609T133314Z",
+  "summary": "[mock] Schema placeholder: reviewed 4 tier-1 findings and 164 anomaly events on qa6-mongo-core12-2-b:53421. Mechanism fields are stubs — not a concluded RCA.",
+  "findings_reviewed": [
+    "Replication Lag Issues",
+    "Missing Indexes",
+    "CPU Saturation",
+    "Memory Fragmentation"
+  ],
+  "finding_analyses": [
+    {
+      "finding_name": "Replication Lag Issues",
+      "what_observed": "Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 09:28:56+00:00"
+    },
+    {
+      "finding_name": "Missing Indexes",
+      "what_observed": "High query targeting ratios indicate collection scans or inefficient index usage Symptoms: Keys examined per doc returned: p95=837:1 (score: 0); Docs examined per doc returned: p95=752:1 (score: 0); Objects scanned per key: avg=17159:1 (score: 0)",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 10:26:44.002000+00:00"
+    },
+    {
+      "finding_name": "CPU Saturation",
+      "what_observed": "High CPU usage may indicate inefficient queries or under-provisioned hardware Symptoms: Low CPU idle: p5=2% (score: 0); High CPU user: p95=76% (score: 0); High CPU system: p95=18% (score: 0)",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 09:39:06.015000+00:00"
+    },
+    {
+      "finding_name": "Memory Fragmentation",
+      "what_observed": "tcmalloc memory fragmentation causing inefficient memory usage Symptoms: Memory fragmentation: p95=47% (score: 11)",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 10:26:44.002000+00:00"
+    }
+  ],
+  "incident_timeline": [
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-02 17:29:12+00:00 → 2026-06-02 22:51:43+00:00",
+      "observation": "repl_lag_host-1 peaked at 9100.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 09:28:56+00:00 → 2026-06-03 10:10:56+00:00",
+      "observation": "repl_lag_host-1 peaked at 1655.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 06:36:02+00:00 → 2026-06-03 06:36:22+00:00",
+      "observation": "repl_lag_host-1 peaked at 10.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 07:31:12+00:00 → 2026-06-03 07:31:22+00:00",
+      "observation": "repl_lag_host-1 peaked at 10.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 05:57:12+00:00 → 2026-06-03 05:57:22+00:00",
+      "observation": "repl_lag_host-1 peaked at 10.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "cpu_idle @ 2026-06-03 09:28:07.004000+00:00 → 2026-06-03 09:38:40.025000+00:00",
+      "observation": "cpu_idle peaked at 0.0 (severity: warning)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "cpu_idle"
+      ]
+    }
+  ],
+  "mechanism_hypotheses": [
+    "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results."
+  ],
+  "tool_calls_made": [
+    "get_metric_window",
+    "get_profiler_samples"
+  ],
+  "metric_insights": [
+    "metric:cache_used unavailable in fixture",
+    "metric:ticket_avail_read unavailable in fixture",
+    "metric:ticket_avail_write unavailable in fixture"
+  ],
+  "log_insights": [
+    "graylog: not queried in mock mode"
+  ],
+  "profiler_insights": [
+    "profiler: 1 samples uploaded"
+  ],
+  "web_insights": [
+    "https://www.mongodb.com/docs/manual/core/wiredtiger/ — schema demo placeholder URL"
+  ],
+  "open_questions_for_operator": [
+    "Live agent: call get_metric_window around top anomaly windows before stating mechanism."
+  ]
+}

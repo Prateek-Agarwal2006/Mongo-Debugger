@@ -1,0 +1,110 @@
+[
+  {
+    "path": "assessment/assessment.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 6476,
+    "sha256": "9e8b497eeecf9fd19c165718550ccfaf8c1b5d7de81439da8164338ff0c2a96a"
+  },
+  {
+    "path": "assessment/formulas.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 4796,
+    "sha256": "0da90bf57558149ce14cef1b6717be15c4b7e804d074935f59d54f16446ebd96"
+  },
+  {
+    "path": "diagnosis/activity_summary.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 460,
+    "sha256": "c4108403a2e57c3751b1a618879489b426fe62baf42f5babe075284ef8fd3c41"
+  },
+  {
+    "path": "diagnosis/anomaly_timeline.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 38977,
+    "sha256": "25e7f67777b941b8e4084d605dbd4757211aa66e273d27ecf8d0eeaeb4203f7b"
+  },
+  {
+    "path": "diagnosis/diagnosis.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 56079,
+    "sha256": "3d7a9a57d5d985b44560e99e6b1f57f2c19ccdf745252fe2005f09cf857ed7f9"
+  },
+  {
+    "path": "diagnosis/findings.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 2170,
+    "sha256": "c962bb914cf73535b646040b533d634a937af46265558d83963096e46a51bd56"
+  },
+  {
+    "path": "llm/executive_context.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 11045,
+    "sha256": "7150c03db2e42c8f02dc0e254417b2a29e257b71249acd8e393e3e9746011960"
+  },
+  {
+    "path": "llm/fallback_retrieval_index.json",
+    "tier": "tier_1_analyzed",
+    "size_bytes": 43787,
+    "sha256": "867178dba34ce4b533881886cc5d4c9ba0fd35e16ab8970a28e2526bc834e50c"
+  },
+  {
+    "path": "manifest.json",
+    "tier": "metadata",
+    "size_bytes": 771,
+    "sha256": "0bafcbeb53f38691f4909e16c0e3c8392583447606605cf36964f7aff4246f26"
+  },
+  {
+    "path": "manifest.pre.json",
+    "tier": "metadata",
+    "size_bytes": 553,
+    "sha256": "c4b0018065a68307298b5364c792a6d7777979a76ba03d89814303e3476c3632"
+  },
+  {
+    "path": "metric_catalog.json",
+    "tier": "tier_2_normalized",
+    "size_bytes": 17594,
+    "sha256": "59c6f4acdb98d70207d952d974232613396abd59a0f35e386825d2abd81e4c76"
+  },
+  {
+    "path": "normalized/disk_stats.json",
+    "tier": "tier_2_normalized",
+    "size_bytes": 76830075,
+    "sha256": "6ef347b48322d3e17eb69bd5d5664cd7723e5e7b276f7c31b612463ae5d33bf1"
+  },
+  {
+    "path": "normalized/replication_lags.json",
+    "tier": "tier_2_normalized",
+    "size_bytes": 623009,
+    "sha256": "39ae3bcc434b2a8031b7a8748cacb1f850db4256e521c3905d7af5186e04fd23"
+  },
+  {
+    "path": "normalized/replset_status.jsonl.gz",
+    "tier": "tier_2_normalized",
+    "size_bytes": 98844,
+    "sha256": "d0294c3e8a1aa8ef4f497db4921fd11bc3d7bfa92c8d3daa940fa1aa00bf4582"
+  },
+  {
+    "path": "normalized/server_info.json",
+    "tier": "tier_2_normalized",
+    "size_bytes": 366,
+    "sha256": "5eca978cd0fb26791529f13ffe1b9e3b30f122e4227b7e1e0234de22f1a69073"
+  },
+  {
+    "path": "normalized/server_status.jsonl.gz",
+    "tier": "tier_2_normalized",
+    "size_bytes": 10293005,
+    "sha256": "46bd258afe71b5bfe1a429378fd06ff89f18f8dd633957646ecf129811a7a309"
+  },
+  {
+    "path": "normalized/system_metrics.jsonl.gz",
+    "tier": "tier_2_normalized",
+    "size_bytes": 3483746,
+    "sha256": "0327838289a09444f9987ead07bd7a23b0d13ad1356416d983966f83b1149a21"
+  },
+  {
+    "path": "normalized/time_series.jsonl.gz",
+    "tier": "tier_2_normalized",
+    "size_bytes": 20128573,
+    "sha256": "f7a2d926a72c62b0b478bd11f790061c1a31628c06fe1489db831755b867584c"
+  }
+]

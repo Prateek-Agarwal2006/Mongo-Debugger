@@ -1,0 +1,33 @@
+# Grafana + mongo-ftdc API for interactive FTDC charts.
+# Usage (from project root):
+#   docker compose -f simagix-workspace/docker/grafana-compose.yaml up -d --build
+#
+# Note: simagix/grafana-ftdc on Docker Hub may lack linux/amd64; we build Grafana locally.
+
+services:
+  grafana-ftdc:
+    build:
+      context: ../repos/mongo-ftdc
+      dockerfile: grafana/Dockerfile
+    image: mongo-debugger-grafana-ftdc:local
+    hostname: grafana-ftdc
+    ports:
+      - "${GRAFANA_PORT:-3030}:3000"
+    environment:
+      GF_PLUGINS_PREINSTALL: simpod-json-datasource
+      GF_LOG_LEVEL: error
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ../grafana/dashboards/anomaly-focus.json:/var/lib/grafana/dashboards/anomaly-focus.json:ro
+    depends_on:
+      - ftdc
+
+  ftdc:
+    image: simagix/ftdc:latest
+    hostname: ftdc
+    ports:
+      - "${FTDC_PORT:-5408}:5408"
+    volumes:
+      - ../../:/workspace
+    command: /mftdc -server -latest 0 /workspace/tmp/diagnostic.data

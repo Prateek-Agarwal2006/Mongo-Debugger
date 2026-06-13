@@ -1,0 +1,25 @@
+---
+description: Keep docs/ and CHANGELOG in sync when changing behavior, APIs, or architecture
+alwaysApply: true
+---
+
+# Documentation maintenance
+
+All project docs live in `docs/`. See `docs/DOC_MAINTENANCE.md` for the full map.
+
+## After every meaningful change (same session, before finishing)
+
+1. **Add a dated entry** to `docs/CHANGELOG.md` (newest first): **What** / **How** / **Why**.
+2. **Update every affected doc** from the matrix in `docs/DOC_MAINTENANCE.md` — not only CHANGELOG.
+3. **Bump `Last updated:`** on each touched doc.
+4. **Fix cross-links** if paths or names changed; keep root `README.md` and subsystem stubs as pointers only.
+
+## Skip CHANGELOG only when
+
+- Typo/formatting with zero behavior change, or
+- User explicitly asked for docs-only questions with no code changes.
+
+## Do not
+
+- Duplicate status tables — `PROJECT_STATUS.md` owns spec scorecard; `CHANGELOG.md` owns narrative history.
+- Recreate docs outside `docs/` (stubs in `backend/`, `simagix-workspace/` may link in only).

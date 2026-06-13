@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Replication Lag Issues",
+    "description": "Secondary nodes falling behind primary, potentially causing stale reads",
+    "severity": "critical",
+    "symptoms": [
+      "Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0)",
+      "High update rate: 12786 ops/s"
+    ],
+    "suggestion": "Check network latency between nodes. Consider upgrading secondary hardware. Review oplog size. For Atlas, consider scaling up the cluster.",
+    "score": 0,
+    "detected_at": "2026-06-03T09:28:56Z"
+  },
+  {
+    "name": "Missing Indexes",
+    "description": "High query targeting ratios indicate collection scans or inefficient index usage",
+    "severity": "warning",
+    "symptoms": [
+      "Keys examined per doc returned: p95=837:1 (score: 0)",
+      "Docs examined per doc returned: p95=752:1 (score: 0)",
+      "Objects scanned per key: avg=17159:1 (score: 0)"
+    ],
+    "suggestion": "Run explain() on slow queries. Create compound indexes matching query patterns. Use covered queries where possible. Consider using $hint for query plan control.",
+    "score": 0,
+    "detected_at": "2026-06-03T10:26:44.002Z"
+  },
+  {
+    "name": "CPU Saturation",
+    "description": "High CPU usage may indicate inefficient queries or under-provisioned hardware",
+    "severity": "warning",
+    "symptoms": [
+      "Low CPU idle: p5=2% (score: 0)",
+      "High CPU user: p95=76% (score: 0)",
+      "High CPU system: p95=18% (score: 0)"
+    ],
+    "suggestion": "Profile slow queries. Add appropriate indexes. Consider upgrading CPU or scaling horizontally. Check for runaway operations with currentOp().",
+    "score": 0,
+    "detected_at": "2026-06-03T09:39:06.015Z"
+  },
+  {
+    "name": "Memory Fragmentation",
+    "description": "tcmalloc memory fragmentation causing inefficient memory usage",
+    "severity": "info",
+    "symptoms": [
+      "Memory fragmentation: p95=47% (score: 11)"
+    ],
+    "suggestion": "Consider restarting mongod during maintenance window. This is often caused by varied allocation sizes. Monitor for memory growth over time.",
+    "score": 0,
+    "detected_at": "2026-06-03T10:26:44.002Z"
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "run_id_hint": "20260609T111629Z",
+  "description": "Golden incident for the local 25-file FTDC sample.",
+  "expected_findings": [
+    "Replication Lag Issues",
+    "Missing Indexes",
+    "CPU Saturation",
+    "Memory Fragmentation"
+  ],
+  "critical_window": {
+    "from": "2026-06-03T09:28:00Z",
+    "to": "2026-06-03T10:11:00Z",
+    "signals": [
+      "write_conflicts/s",
+      "cpu_idle",
+      "repl_lag_host-1"
+    ]
+  },
+  "expected_rca_themes": [
+    "replication lag on secondary host-1",
+    "write conflict spike around 09:28 UTC",
+    "CPU saturation correlated with incident window",
+    "missing indexes as contributing query inefficiency"
+  ],
+  "minimum_tier1_checks": {
+    "findings_count_min": 2,
+    "anomaly_event_count_min": 10,
+    "executive_context_required": true
+  }
+}

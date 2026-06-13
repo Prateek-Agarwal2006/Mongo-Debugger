@@ -1,0 +1,160 @@
+{
+  "run_id": "phase1test20260609T133314Z",
+  "summary": "[mock] Schema placeholder for run on qa6-mongo-core12-2-b:53421. Tier-1 flagged 4 findings; mechanism fields are stubs, not concluded RCA.",
+  "root_cause": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+  "mechanism_summary": "[mock] pending evidence-backed analysis",
+  "finding_analyses": [
+    {
+      "finding_name": "Replication Lag Issues",
+      "what_observed": "Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 09:28:56+00:00"
+    },
+    {
+      "finding_name": "Missing Indexes",
+      "what_observed": "High query targeting ratios indicate collection scans or inefficient index usage Symptoms: Keys examined per doc returned: p95=837:1 (score: 0); Docs examined per doc returned: p95=752:1 (score: 0); Objects scanned per key: avg=17159:1 (score: 0)",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 10:26:44.002000+00:00"
+    },
+    {
+      "finding_name": "CPU Saturation",
+      "what_observed": "High CPU usage may indicate inefficient queries or under-provisioned hardware Symptoms: Low CPU idle: p5=2% (score: 0); High CPU user: p95=76% (score: 0); High CPU system: p95=18% (score: 0)",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 09:39:06.015000+00:00"
+    },
+    {
+      "finding_name": "Memory Fragmentation",
+      "what_observed": "tcmalloc memory fragmentation causing inefficient memory usage Symptoms: Memory fragmentation: p95=47% (score: 11)",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "contributing_factors": [],
+      "related_metrics": [
+        "repl_lag_host-1",
+        "cpu_idle"
+      ],
+      "time_window": "2026-06-03 10:26:44.002000+00:00"
+    }
+  ],
+  "incident_timeline": [
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-02 17:29:12+00:00 → 2026-06-02 22:51:43+00:00",
+      "observation": "repl_lag_host-1 peaked at 9100.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 09:28:56+00:00 → 2026-06-03 10:10:56+00:00",
+      "observation": "repl_lag_host-1 peaked at 1655.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 06:36:02+00:00 → 2026-06-03 06:36:22+00:00",
+      "observation": "repl_lag_host-1 peaked at 10.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 07:31:12+00:00 → 2026-06-03 07:31:22+00:00",
+      "observation": "repl_lag_host-1 peaked at 10.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "repl_lag_host-1 @ 2026-06-03 05:57:12+00:00 → 2026-06-03 05:57:22+00:00",
+      "observation": "repl_lag_host-1 peaked at 10.0 (severity: critical)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "repl_lag_host-1"
+      ]
+    },
+    {
+      "time_window": "cpu_idle @ 2026-06-03 09:28:07.004000+00:00 → 2026-06-03 09:38:40.025000+00:00",
+      "observation": "cpu_idle peaked at 0.0 (severity: warning)",
+      "mechanism": "[mock] pending evidence-backed analysis",
+      "metrics_involved": [
+        "cpu_idle"
+      ]
+    }
+  ],
+  "causal_chain": [
+    "Tier-1 flagged 'Replication Lag Issues': Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
+    "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results."
+  ],
+  "ruled_out_hypotheses": [
+    "[mock] Mechanism hypotheses not evaluated — use live agent with MCP tools"
+  ],
+  "evidence_citations": [
+    {
+      "source_type": "finding",
+      "reference": "Replication Lag Issues",
+      "summary": "Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
+      "values": {}
+    },
+    {
+      "source_type": "anomaly",
+      "reference": "anomaly:repl_lag_host-1",
+      "summary": "Peak 9100.0 from 2026-06-02 17:29:12+00:00 to 2026-06-02 22:51:43+00:00",
+      "values": {
+        "severity": "critical",
+        "threshold": "> 5s"
+      }
+    },
+    {
+      "source_type": "anomaly",
+      "reference": "anomaly:repl_lag_host-1",
+      "summary": "Peak 1655.0 from 2026-06-03 09:28:56+00:00 to 2026-06-03 10:10:56+00:00",
+      "values": {
+        "severity": "critical",
+        "threshold": "> 5s"
+      }
+    },
+    {
+      "source_type": "anomaly",
+      "reference": "anomaly:repl_lag_host-1",
+      "summary": "Peak 10.0 from 2026-06-03 06:36:02+00:00 to 2026-06-03 06:36:22+00:00",
+      "values": {
+        "severity": "critical",
+        "threshold": "> 5s"
+      }
+    }
+  ],
+  "safe_fixes": [
+    "[Replication Lag Issues] Check network latency between nodes. Consider upgrading secondary hardware. Review oplog size. For Atlas, consider scaling up the cluster.",
+    "[Missing Indexes] Run explain() on slow queries. Create compound indexes matching query patterns. Use covered queries where possible. Consider using $hint for query plan control.",
+    "[CPU Saturation] Profile slow queries. Add appropriate indexes. Consider upgrading CPU or scaling horizontally. Check for runaway operations with currentOp().",
+    "[Memory Fragmentation] Consider restarting mongod during maintenance window. This is often caused by varied allocation sizes. Monitor for memory growth over time."
+  ],
+  "findings_used": [
+    "Replication Lag Issues",
+    "Missing Indexes",
+    "CPU Saturation",
+    "Memory Fragmentation"
+  ],
+  "reference_urls": [
+    "https://www.mongodb.com/docs/manual/core/wiredtiger/"
+  ],
+  "confidence": null
+}

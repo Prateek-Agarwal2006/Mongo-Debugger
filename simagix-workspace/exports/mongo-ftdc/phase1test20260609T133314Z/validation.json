@@ -1,0 +1,11 @@
+{
+  "contract_version": "1.0.0",
+  "validated_at": "2026-06-09T13:36:40.299068654Z",
+  "valid": true,
+  "export_tier": "normalized",
+  "errors": null,
+  "warnings": null,
+  "tier_1_complete": true,
+  "tier_2_present": true,
+  "tier_3_present": false
+}

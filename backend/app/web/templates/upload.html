@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Upload — FTDC Analyzer{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Upload diagnostic.data</h1>
+  <p>
+    Upload a <code>.zip</code> or <code>.tar.gz</code> archive containing <code>metrics.*</code> FTDC files,
+    or a single <code>metrics.*</code> file.
+    On Mac, zip your <code>diagnostic.data</code> folder first:
+    <code>cd tmp &amp;&amp; zip -r diagnostic.zip diagnostic.data</code>
+  </p>
+  <form id="upload-form" class="upload-form">
+    <input type="file" name="file" required />
+    <button type="submit" class="btn primary">Upload &amp; Run Pipeline</button>
+  </form>
+  <div id="upload-status" class="muted"></div>
+</section>
+<script>
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('upload-status');
+  const form = e.target;
+  const data = new FormData(form);
+  status.textContent = 'Uploading…';
+  try {
+    const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
+    let body;
+    try {
+      body = await resp.json();
+    } catch {
+      status.textContent = `Upload failed: server returned ${resp.status} (non-JSON response)`;
+      return;
+    }
+    if (!resp.ok) {
+      const detail = Array.isArray(body.detail)
+        ? body.detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+        : (body.detail || 'Upload failed');
+      status.textContent = detail;
+      return;
+    }
+    status.innerHTML = `Job <code>${body.job_id}</code> started for run <a href="/runs/${body.run_id}">${body.run_id}</a>. Polling…`;
+    const poll = setInterval(async () => {
+      const job = await fetch(`/simagix/uploads/jobs/${body.job_id}`).then(r => r.json());
+      status.textContent = `Job ${job.state}: ${job.message}`;
+      if (job.state === 'succeeded') {
+        clearInterval(poll);
+        window.location.href = `/runs/${body.run_id}`;
+      }
+      if (job.state === 'failed') {
+        clearInterval(poll);
+        status.textContent = `Failed: ${job.error || job.message}`;
+      }
+    }, 3000);
+  } catch (err) {
+    status.textContent = `Upload failed: ${err.message}`;
+  }
+});
+</script>
+{% endblock %}

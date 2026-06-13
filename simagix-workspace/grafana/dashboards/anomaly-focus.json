@@ -1,0 +1,439 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "assessment",
+          "type": "table"
+        }
+      ],
+      "title": "Assessment (worst metrics first)",
+      "type": "table"
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "ticket_avail_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "ticket_avail_write",
+          "type": "timeserie"
+        }
+      ],
+      "title": "WiredTiger Tickets (read / write)",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 3,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "replication_lags",
+          "type": "timeserie"
+        }
+      ],
+      "title": "Replication Lags",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "id": 4,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "wt_cache_used",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "wt_cache_dirty",
+          "type": "timeserie"
+        }
+      ],
+      "title": "WiredTiger Cache",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 11
+      },
+      "id": 5,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "cpu_user",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "cpu_idle",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "cpu_iowait",
+          "type": "timeserie"
+        }
+      ],
+      "title": "CPU",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "ops_query",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "ops_insert",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "ops_update",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "ops_delete",
+          "type": "timeserie"
+        }
+      ],
+      "title": "Opcounters",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 7,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "scan_objects",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "scan_keys",
+          "type": "timeserie"
+        }
+      ],
+      "title": "Scans & Targeting",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 8,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "write_conflicts/s",
+          "type": "timeserie"
+        }
+      ],
+      "title": "Write Conflicts",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 9,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "conns_current",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "conns_active",
+          "type": "timeserie"
+        }
+      ],
+      "title": "Connections",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    },
+    {
+      "datasource": "ftdc",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 10,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "q_queued_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "q_queued_write",
+          "type": "timeserie"
+        }
+      ],
+      "title": "Global Lock Queue",
+      "type": "graph",
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "xaxis": {
+        "mode": "time",
+        "show": true
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 16,
+  "style": "dark",
+  "tags": [
+    "ftdc",
+    "anomaly"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "MongoDB FTDC \u2014 Anomaly Focus",
+  "uid": "simagix-grafana-anomaly",
+  "version": 1
+}

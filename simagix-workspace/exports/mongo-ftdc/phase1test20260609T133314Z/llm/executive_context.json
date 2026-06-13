@@ -1,0 +1,421 @@
+{
+  "contract_version": "1.0.0",
+  "instruction": "Use this analyzed mongo-ftdc report as primary evidence. Do not rediscover health issues from raw metrics. Request fallback metric slices only when more proof is needed.",
+  "time_range": {
+    "from": "2026-06-02T17:29:03.004Z",
+    "to": "2026-06-03T10:26:44.002Z",
+    "duration_seconds": 61060.998
+  },
+  "host": "qa6-mongo-core12-2-b:53421",
+  "mongodb_version": "8.0.17",
+  "activity_summary": {
+    "OpsQuery": 4,
+    "OpsInsert": 0,
+    "OpsUpdate": 5,
+    "OpsDelete": 0,
+    "OpsCommand": 18,
+    "OpsTotal": 27,
+    "LatencyRead": 0,
+    "LatencyWrite": 3,
+    "LatencyCommand": 0,
+    "ScanKeys": 13254,
+    "ScanObjects": 17159,
+    "DocsReturned": 38,
+    "CPUUser": 1,
+    "CPUSystem": 2,
+    "CPUIdle": 97,
+    "MemResident": 48,
+    "CacheUsed": 76,
+    "DiskUtil": 10,
+    "NetRequestsPerSec": 37,
+    "NetInMBps": 0,
+    "NetOutMBps": 0,
+    "ConnsActive": 56,
+    "ConnsCurrent": 138
+  },
+  "findings": [
+    {
+      "name": "Replication Lag Issues",
+      "description": "Secondary nodes falling behind primary, potentially causing stale reads",
+      "severity": "critical",
+      "symptoms": [
+        "Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0)",
+        "High update rate: 12786 ops/s"
+      ],
+      "suggestion": "Check network latency between nodes. Consider upgrading secondary hardware. Review oplog size. For Atlas, consider scaling up the cluster.",
+      "score": 0,
+      "detected_at": "2026-06-03T09:28:56Z"
+    },
+    {
+      "name": "Missing Indexes",
+      "description": "High query targeting ratios indicate collection scans or inefficient index usage",
+      "severity": "warning",
+      "symptoms": [
+        "Keys examined per doc returned: p95=837:1 (score: 0)",
+        "Docs examined per doc returned: p95=752:1 (score: 0)",
+        "Objects scanned per key: avg=17159:1 (score: 0)"
+      ],
+      "suggestion": "Run explain() on slow queries. Create compound indexes matching query patterns. Use covered queries where possible. Consider using $hint for query plan control.",
+      "score": 0,
+      "detected_at": "2026-06-03T10:26:44.002Z"
+    },
+    {
+      "name": "CPU Saturation",
+      "description": "High CPU usage may indicate inefficient queries or under-provisioned hardware",
+      "severity": "warning",
+      "symptoms": [
+        "Low CPU idle: p5=2% (score: 0)",
+        "High CPU user: p95=76% (score: 0)",
+        "High CPU system: p95=18% (score: 0)"
+      ],
+      "suggestion": "Profile slow queries. Add appropriate indexes. Consider upgrading CPU or scaling horizontally. Check for runaway operations with currentOp().",
+      "score": 0,
+      "detected_at": "2026-06-03T09:39:06.015Z"
+    },
+    {
+      "name": "Memory Fragmentation",
+      "description": "tcmalloc memory fragmentation causing inefficient memory usage",
+      "severity": "info",
+      "symptoms": [
+        "Memory fragmentation: p95=47% (score: 11)"
+      ],
+      "suggestion": "Consider restarting mongod during maintenance window. This is often caused by varied allocation sizes. Monitor for memory growth over time.",
+      "score": 0,
+      "detected_at": "2026-06-03T10:26:44.002Z"
+    }
+  ],
+  "top_anomaly_windows": [
+    {
+      "metric": "repl_lag_host-1",
+      "severity": "critical",
+      "peak": 9100,
+      "threshold": "\u003e 5s",
+      "from": "2026-06-02T17:29:12Z",
+      "to": "2026-06-02T22:51:43Z",
+      "duration_seconds": 19351
+    },
+    {
+      "metric": "repl_lag_host-1",
+      "severity": "critical",
+      "peak": 1655,
+      "threshold": "\u003e 5s",
+      "from": "2026-06-03T09:28:56Z",
+      "to": "2026-06-03T10:10:56Z",
+      "duration_seconds": 2520
+    },
+    {
+      "metric": "repl_lag_host-1",
+      "severity": "critical",
+      "peak": 10,
+      "threshold": "\u003e 5s",
+      "from": "2026-06-03T06:36:02Z",
+      "to": "2026-06-03T06:36:22Z",
+      "duration_seconds": 20
+    },
+    {
+      "metric": "repl_lag_host-1",
+      "severity": "critical",
+      "peak": 10,
+      "threshold": "\u003e 5s",
+      "from": "2026-06-03T07:31:12Z",
+      "to": "2026-06-03T07:31:22Z",
+      "duration_seconds": 10
+    },
+    {
+      "metric": "repl_lag_host-1",
+      "severity": "critical",
+      "peak": 10,
+      "threshold": "\u003e 5s",
+      "from": "2026-06-03T05:57:12Z",
+      "to": "2026-06-03T05:57:22Z",
+      "duration_seconds": 10
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-03T09:28:07.004Z",
+      "to": "2026-06-03T09:38:40.025Z",
+      "duration_seconds": 633.021
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T18:49:08.005Z",
+      "to": "2026-06-02T18:57:05.041Z",
+      "duration_seconds": 477.036
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T17:49:26.003Z",
+      "to": "2026-06-02T17:55:05.006Z",
+      "duration_seconds": 339.003
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0.12562814070351758,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T17:43:38.066Z",
+      "to": "2026-06-02T17:49:02.003Z",
+      "duration_seconds": 323.937
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0.11990407673860912,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T17:34:36.003Z",
+      "to": "2026-06-02T17:39:38.003Z",
+      "duration_seconds": 302
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0.11848341232227488,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T17:55:07.006Z",
+      "to": "2026-06-02T18:00:07.003Z",
+      "duration_seconds": 299.997
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-03T09:39:06.015Z",
+      "to": "2026-06-03T09:43:13.004Z",
+      "duration_seconds": 246.989
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0.14556040756914118,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T18:05:24.004Z",
+      "to": "2026-06-02T18:08:52.015Z",
+      "duration_seconds": 208.011
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 0,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T19:01:02.004Z",
+      "to": "2026-06-02T19:04:17.003Z",
+      "duration_seconds": 194.999
+    },
+    {
+      "metric": "cpu_idle",
+      "severity": "warning",
+      "peak": 4.230769230769231,
+      "threshold": "\u003c 30%",
+      "from": "2026-06-02T20:08:10.004Z",
+      "to": "2026-06-02T20:11:19.004Z",
+      "duration_seconds": 189
+    }
+  ],
+  "assessment_highlights": [
+    {
+      "metric": "cpu_idle",
+      "label": "cpu_idle %",
+      "score": 0,
+      "p95": 97
+    },
+    {
+      "metric": "cpu_system",
+      "label": "cpu_system %",
+      "score": 0,
+      "p95": 18
+    },
+    {
+      "metric": "cpu_user",
+      "label": "cpu_user %",
+      "score": 0,
+      "p95": 76
+    },
+    {
+      "metric": "query_targeting_keys",
+      "label": "query_targeting_keys",
+      "score": 0,
+      "p95": 837
+    },
+    {
+      "metric": "query_targeting_objects",
+      "label": "query_targeting_objects",
+      "score": 0,
+      "p95": 752
+    },
+    {
+      "metric": "scan_objects",
+      "label": "scan_objects",
+      "score": 0,
+      "p95": 17159
+    },
+    {
+      "metric": "tcmalloc_frag",
+      "label": "tcmalloc_frag %",
+      "score": 11,
+      "p95": 47
+    },
+    {
+      "metric": "wt_cache_dirty",
+      "label": "wt_cache_dirty %",
+      "score": 30,
+      "p95": 15
+    },
+    {
+      "metric": "ops_update",
+      "label": "ops_update",
+      "score": 80,
+      "p95": 12786
+    },
+    {
+      "metric": "conns_created/s",
+      "label": "conns_created/s",
+      "score": 96,
+      "p95": 1
+    },
+    {
+      "metric": "scan_keys",
+      "label": "scan_keys",
+      "score": 98,
+      "p95": 13254
+    },
+    {
+      "metric": "ops_command",
+      "label": "ops_command",
+      "score": 99,
+      "p95": 48
+    },
+    {
+      "metric": "ops_delete",
+      "label": "ops_delete",
+      "score": 99,
+      "p95": 1
+    },
+    {
+      "metric": "ops_getmore",
+      "label": "ops_getmore",
+      "score": 99,
+      "p95": 14
+    },
+    {
+      "metric": "ops_insert",
+      "label": "ops_insert",
+      "score": 99,
+      "p95": 0
+    },
+    {
+      "metric": "ops_query",
+      "label": "ops_query",
+      "score": 99,
+      "p95": 21
+    },
+    {
+      "metric": "conns_current",
+      "label": "conns_current",
+      "score": 100,
+      "p95": 443
+    },
+    {
+      "metric": "cpu_iowait",
+      "label": "cpu_iowait %",
+      "score": 100,
+      "p95": 0
+    },
+    {
+      "metric": "flowctl_acquiring_us",
+      "label": "flowctl_acquiring_us",
+      "score": 100,
+      "p95": 0
+    },
+    {
+      "metric": "latency_command",
+      "label": "latency_command",
+      "score": 100,
+      "p95": 0
+    },
+    {
+      "metric": "latency_read",
+      "label": "latency_read",
+      "score": 100,
+      "p95": 0
+    },
+    {
+      "metric": "latency_write",
+      "label": "latency_write",
+      "score": 100,
+      "p95": 3
+    },
+    {
+      "metric": "mem_page_faults",
+      "label": "mem_page_faults",
+      "score": 100,
+      "p95": 0
+    },
+    {
+      "metric": "mem_resident",
+      "label": "mem_resident %",
+      "score": 100,
+      "p95": 51
+    },
+    {
+      "metric": "queues_read_out",
+      "label": "queues_read_out",
+      "score": 100,
+      "p95": 0
+    }
+  ],
+  "anomaly_event_count": 164,
+  "read_order": [
+    "llm/executive_context.json",
+    "diagnosis/findings.json",
+    "diagnosis/anomaly_timeline.json",
+    "diagnosis/activity_summary.json",
+    "assessment/assessment.json",
+    "assessment/formulas.json"
+  ],
+  "fallback_files": {
+    "anomaly_timeline": "diagnosis/anomaly_timeline.json",
+    "assessment": "assessment/assessment.json",
+    "bundle_index": "bundle_index.json",
+    "disk_stats": "normalized/disk_stats.json",
+    "fallback_index": "llm/fallback_retrieval_index.json",
+    "findings": "diagnosis/findings.json",
+    "manifest": "manifest.json",
+    "metric_catalog": "metric_catalog.json",
+    "replication_lags": "normalized/replication_lags.json",
+    "time_series": "normalized/time_series.jsonl.gz",
+    "validation": "validation.json"
+  },
+  "recommended_metrics": [
+    "replication_lags",
+    "cpu_idle",
+    "cpu_iowait",
+    "write_conflicts/s",
+    "txn_aborted/s",
+    "flowctl_lagged_count",
+    "flowctl_acquiring_us",
+    "queues_read_out",
+    "queues_write_out",
+    "wt_cache_used",
+    "wt_cache_dirty",
+    "ticket_avail_read",
+    "ticket_avail_write",
+    "ops_query",
+    "ops_update",
+    "ops_command",
+    "latency_read",
+    "latency_write",
+    "latency_command",
+    "scan_keys",
+    "scan_objects"
+  ]
+}

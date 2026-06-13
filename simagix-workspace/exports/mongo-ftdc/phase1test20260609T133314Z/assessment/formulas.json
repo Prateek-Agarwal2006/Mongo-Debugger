@@ -1,0 +1,212 @@
+{
+  "conns_created/s": {
+    "label": "conns_created/s",
+    "formula": "conns_created/s",
+    "low": 0,
+    "high": 5
+  },
+  "conns_current": {
+    "label": "conns_current %%",
+    "formula": "1MB*(p95 of conns_current)/RAM",
+    "low": 5,
+    "high": 20
+  },
+  "cpu_idle": {
+    "label": "cpu_idle %%",
+    "formula": "p5 of cpu_idle",
+    "low": 50,
+    "high": 80
+  },
+  "cpu_iowait": {
+    "label": "cpu_iowait %%",
+    "formula": "p95 of cpu_iowait",
+    "low": 5,
+    "high": 15
+  },
+  "cpu_system": {
+    "label": "cpu_system %%",
+    "formula": "p95 of cpu_system",
+    "low": 5,
+    "high": 15
+  },
+  "cpu_user": {
+    "label": "cpu_user %%",
+    "formula": "p95 of cpu_user",
+    "low": 50,
+    "high": 70
+  },
+  "disku_": {
+    "label": "disku_\u0026lt;dev\u0026gt; %%",
+    "formula": "p95 of disku_\u0026lt;dev\u0026gt;",
+    "low": 50,
+    "high": 90
+  },
+  "flowctl_acquiring_us": {
+    "label": "flowctl_acquiring (ms)",
+    "formula": "p95 of flowctl_acquiring_us/1000",
+    "low": 100,
+    "high": 1000
+  },
+  "flowctl_lagged_count": {
+    "label": "flowctl_lagged_count",
+    "formula": "p95 of flowctl_lagged_count",
+    "low": 1,
+    "high": 3
+  },
+  "iops_": {
+    "label": "iops_\u0026lt;dev\u0026gt;",
+    "formula": "(p95 of iops_\u0026lt;dev\u0026gt;)/(avg of iops_\u003cdev\u003e)",
+    "low": 2,
+    "high": 4
+  },
+  "latency_command": {
+    "label": "latency_command (ms)",
+    "formula": "p95 of latency_command",
+    "low": 20,
+    "high": 100
+  },
+  "latency_read": {
+    "label": "latency_read (ms)",
+    "formula": "p95 of latency_read",
+    "low": 20,
+    "high": 100
+  },
+  "latency_write": {
+    "label": "latency_write (ms)",
+    "formula": "p95 of latency_write",
+    "low": 20,
+    "high": 100
+  },
+  "mem_page_faults": {
+    "label": "mem_page_faults",
+    "formula": "p95 of mem_page_faults",
+    "low": 10,
+    "high": 20
+  },
+  "mem_resident": {
+    "label": "mem_resident %%",
+    "formula": "mem_resident/RAM",
+    "low": 70,
+    "high": 90
+  },
+  "ops_": {
+    "label": "ops_\u0026lt;op\u0026gt;",
+    "formula": "ops_\u0026lt;op\u0026gt;",
+    "low": 0,
+    "high": 64000
+  },
+  "query_targeting_keys": {
+    "label": "query_targeting_keys",
+    "formula": "p95 of (keys_examined/docs_returned)",
+    "low": 10,
+    "high": 100
+  },
+  "query_targeting_objects": {
+    "label": "query_targeting_objects",
+    "formula": "p95 of (docs_examined/docs_returned)",
+    "low": 10,
+    "high": 100
+  },
+  "queued_read": {
+    "label": "queued_read",
+    "formula": "p95 of queued_read",
+    "low": 8,
+    "high": 40
+  },
+  "queued_write": {
+    "label": "queued_write",
+    "formula": "p95 of queued_write",
+    "low": 8,
+    "high": 40
+  },
+  "queues_read_out": {
+    "label": "queues_read_out %%",
+    "formula": "(p95 of queues_read_out)/queues_read_total",
+    "low": 50,
+    "high": 90
+  },
+  "queues_write_out": {
+    "label": "queues_write_out %%",
+    "formula": "(p95 of queues_write_out)/queues_write_total",
+    "low": 50,
+    "high": 90
+  },
+  "repl_lag_": {
+    "label": "repl_lag_\u0026lt;host\u0026gt; (s)",
+    "formula": "p95 of replication lag",
+    "low": 5,
+    "high": 30
+  },
+  "scan_keys": {
+    "label": "scan_keys",
+    "formula": "scan_keys",
+    "low": 0,
+    "high": 1048576
+  },
+  "scan_objects": {
+    "label": "scan_objects",
+    "formula": "avg of [](scan_objects/scan_keys)",
+    "low": 2,
+    "high": 5
+  },
+  "scan_sort": {
+    "label": "scan_sort",
+    "formula": "scan_sort",
+    "low": 0,
+    "high": 1000
+  },
+  "tcmalloc_fragmentation": {
+    "label": "tcmalloc_frag %%",
+    "formula": "(heap-in_use)/heap",
+    "low": 20,
+    "high": 50
+  },
+  "txn_aborted/s": {
+    "label": "txn_aborted/s",
+    "formula": "p95 of txn_aborted/s",
+    "low": 10,
+    "high": 50
+  },
+  "txn_inactive": {
+    "label": "txn_inactive",
+    "formula": "p95 of txn_inactive",
+    "low": 5,
+    "high": 20
+  },
+  "write_conflicts/s": {
+    "label": "write_conflicts/s",
+    "formula": "p95 of write_conflicts/s",
+    "low": 10,
+    "high": 100
+  },
+  "wt_cache_dirty": {
+    "label": "wt_cache_dirty %%",
+    "formula": "(p95 of wt_cache_dirty)/wt_cache_max",
+    "low": 5,
+    "high": 20
+  },
+  "wt_cache_used": {
+    "label": "wt_cache_used %%",
+    "formula": "(p95 of wt_cache_used)/wt_cache_max",
+    "low": 80,
+    "high": 95
+  },
+  "wt_dhandles_active": {
+    "label": "wt_dhandles_active",
+    "formula": "(p95 of wt_dhandles_active)",
+    "low": 16000,
+    "high": 20000
+  },
+  "wt_modified_evicted": {
+    "label": "wt_modified_evicted  %%",
+    "formula": "(p95 of wt_modified_evicted)/(pages of wt_cache_max)",
+    "low": 5,
+    "high": 10
+  },
+  "wt_unmodified_evicted": {
+    "label": "wt_unmodified_evicted  %%",
+    "formula": "(p95 of wt_unmodified_evicted)/(pages of wt_cache_max)",
+    "low": 5,
+    "high": 10
+  }
+}

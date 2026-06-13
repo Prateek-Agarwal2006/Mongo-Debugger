@@ -1,0 +1,767 @@
+[
+  {
+    "name": "disk.nvme0n1.io_in_progress",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n1.io_queued_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n1.iops",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n1.read_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n1.utilization",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n1.write_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n2.io_in_progress",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n2.io_queued_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n2.iops",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n2.read_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n2.utilization",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.nvme0n2.write_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sda.io_in_progress",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sda.io_queued_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sda.iops",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sda.read_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sda.utilization",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sda.write_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sdb.io_in_progress",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sdb.io_queued_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sdb.iops",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sdb.read_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sdb.utilization",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disk.sdb.write_time_ms",
+    "source": "disk_stats",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "replication_lag.host-0",
+    "source": "replication_lags",
+    "points": 6167,
+    "first_timestamp": 1780421352000,
+    "last_timestamp": 1780482393000
+  },
+  {
+    "name": "replication_lag.host-1",
+    "source": "replication_lags",
+    "points": 6167,
+    "first_timestamp": 1780421352000,
+    "last_timestamp": 1780482393000
+  },
+  {
+    "name": "conns_active",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "conns_available",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "conns_created/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "conns_current",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_idle",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_iowait",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_nice",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_softirq",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_steal",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_system",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "cpu_user",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "disks_iops",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "disks_utils",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "doc_deleted/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "doc_inserted/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "doc_returned/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "doc_updated/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "flowctl_acquiring_us",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "flowctl_lagged_count",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "flowctl_rate_limit",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "io_in_progress",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "io_queued_ms",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "latency_command",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "latency_read",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "latency_write",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "mem_page_faults",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "mem_resident",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "mem_virtual",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "net_in",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "net_out",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "net_physical_in",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "net_physical_out",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "net_requests",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ops_command",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ops_delete",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ops_getmore",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ops_insert",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ops_query",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ops_update",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "q_active_read",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "q_active_write",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "q_queued_read",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "q_queued_write",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "qa6-mongo-core12-22-hs:53421",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "qa6-mongo-core12-2:53421",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "qa6-mongo-core12-arb:53421",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "query_targeting_keys",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "query_targeting_objects",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "queues_read_available",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "queues_read_out",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "queues_read_total",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "queues_write_available",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "queues_write_out",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "queues_write_total",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "read_time_ms",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "repl_0",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "repl_1",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "repl_2",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "replication_lags",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "scan_keys",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "scan_objects",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "scan_sort",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "tcmalloc_allocated",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "tcmalloc_heap",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "tcmalloc_in_use",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "tcmalloc_physical",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ticket_avail_read",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "ticket_avail_write",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "txn_aborted/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "txn_active",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "txn_committed/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "txn_inactive",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "txn_open",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "txn_started/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "write_conflicts/s",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "write_time_ms",
+    "source": "time_series",
+    "points": 0
+  },
+  {
+    "name": "wt_blkmgr_read",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_blkmgr_written",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_blkmgr_written_checkpoint",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_cache_dirty",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_cache_max",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_cache_read_in",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_cache_used",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_cache_written_from",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_dhandles_active",
+    "source": "time_series",
+    "points": 54872,
+    "first_timestamp": 1780421343004,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_modified_evicted",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  },
+  {
+    "name": "wt_unmodified_evicted",
+    "source": "time_series",
+    "points": 54871,
+    "first_timestamp": 1780421344003,
+    "last_timestamp": 1780482404002
+  }
+]
