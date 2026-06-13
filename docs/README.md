@@ -13,7 +13,14 @@ uv python install 3.11
 uv sync --extra dev --extra llm
 ```
 
-### Start the application
+Clone Simagix toolchain sources (required for upload pipeline; not in git):
+
+```bash
+./scripts/setup-simagix-repos.sh
+cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker && cd -
+```
+
+See [Operations](OPERATIONS.md) for Colima, upload, and Grafana.
 
 ```bash
 # Mac: Docker via Colima — once per session (upload pipeline + Grafana need Docker)

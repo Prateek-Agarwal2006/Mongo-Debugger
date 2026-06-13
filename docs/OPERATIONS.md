@@ -26,6 +26,17 @@ uv sync --extra dev
 - `MONGO_URI` (for Keyhole cluster survey)
 - MongoDB log files (for Hatchet)
 
+### Simagix repo clones (first-time setup)
+
+The upload pipeline runs `mongo-ftdc` from Docker and `llm-export` from a local clone. Repos are **not** committed (nested git); run once after clone:
+
+```bash
+./scripts/setup-simagix-repos.sh
+cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker
+```
+
+Pins and layout: [Simagix Workspace](SIMAGIX_WORKSPACE.md).
+
 ## FTDC sample data
 
 The workspace references a local sample via symlink:
