@@ -41,7 +41,7 @@ uv python install 3.11
 ### 2. Clone and install
 
 ```bash
-git clone <your-repo-url> mongo-debugger
+git clone https://github.com/Prateek-Agarwal2006/Mongo-Debugger.git mongo-debugger
 cd mongo-debugger
 uv sync --extra dev --extra llm
 cp .env.example .env   # optional: set CURSOR_API_KEY for live Phase 2
