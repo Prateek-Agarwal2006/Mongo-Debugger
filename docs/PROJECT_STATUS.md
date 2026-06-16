@@ -163,7 +163,7 @@ These deliver most of the **accuracy/trust** benefit of “multi-agent” withou
 
 **Status:** Not implemented — documented for scope/ROI discussion.
 
-**What we have today:** Fixed **3-phase workflow** in `service.py` (investigate → clarify → human → final RCA). Each phase spawns **one** Cursor SDK agent (`Agent.create()` per phase). That is **workflow orchestration**, not dynamic multi-agent routing. `SimagixEvidenceService` is the shared evidence librarian (Facade), not an agent loop — see [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.16.
+**What we have today:** Fixed **3-phase workflow** in `service.py` (investigate → clarify → human → final RCA). Each phase spawns **one** Cursor SDK agent (`Agent.create()` per phase). That is **workflow orchestration**, not dynamic multi-agent routing. `SimagixEvidenceService` is the shared evidence librarian (Facade), not an agent loop — see [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.16. **Post-report chatbot, memory, and “why not LangGraph/Hindsight”** tradeoffs: [DESIGN_NOTES.md](DESIGN_NOTES.md) §14.
 
 **What “multi-agent orchestration” would mean:** A Python **coordinator** runs multiple **specialist agents** (investigator, metrics-only, logs-only, verifier, writer) with routing, retries, and shared state — e.g. verifier rejects unbacked claims and sends investigator back for another round.
 

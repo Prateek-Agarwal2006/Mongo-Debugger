@@ -88,7 +88,7 @@ uv run pytest backend/tests -q
 | **Gemini ADK** | Optional second LLM slot with shared evidence tools + `web_fetch` policy |
 | **Phase 2** | 3-step RCA: investigate → ask operator once → final report → optional chatbot |
 
-Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 theory Q&A)
+Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale & mentor Q&A: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 code walkthrough, §14 tradeoffs)
 
 ---
 

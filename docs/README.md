@@ -55,7 +55,7 @@ Manual pipeline from disk (Docker required): see [Operations](OPERATIONS.md#pipe
 | [Operations](OPERATIONS.md) | Operators | Setup, upload, pipeline, Grafana, troubleshooting |
 | [RCA Backend API](RCA_BACKEND.md) | Integrators | REST endpoints, backend module layout |
 | [Phase 2 LLM](PHASE2_LLM.md) | AI engineers | Cursor agent, MCP tools, 3-phase RCA |
-| [Design Notes](DESIGN_NOTES.md) | Demo / interview | Why the system is built this way; **§13 theory Q&A** (upload thread, budget, prompts) |
+| [Design Notes](DESIGN_NOTES.md) | Demo / interview | Why the system is built this way; **§13 theory Q&A**, **§14 tradeoffs (why not LangGraph/Hindsight/etc.)** |
 
 ### Simagix workspace and evidence
 
