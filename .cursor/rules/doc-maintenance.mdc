@@ -13,6 +13,7 @@ All project docs live in `docs/`. See `docs/DOC_MAINTENANCE.md` for the full map
 2. **Update every affected doc** from the matrix in `docs/DOC_MAINTENANCE.md` — not only CHANGELOG.
 3. **Bump `Last updated:`** on each touched doc.
 4. **Fix cross-links** if paths or names changed; keep root `README.md` and subsystem stubs as pointers only.
+5. **Architecture / “why not X?” decisions:** add or extend a row in `docs/DESIGN_NOTES.md` **§14** (what we chose, why, why not the alternative, code pointer). Same session as the decision — do not open a separate dilemma doc.
 
 ## Skip CHANGELOG only when
 
