@@ -5,7 +5,7 @@
 ```text
 Upload → Docker pipeline → tiered evidence bundle → Web UI + FastAPI
        → Phase A: investigate (MCP) → Phase B: clarify → Phase C: final RCA
-       → JSON/HTML report + optional Grafana charts
+       → JSON/HTML report + post-report agentic chatbot + optional Grafana charts
 ```
 
 ---
@@ -15,10 +15,12 @@ Upload → Docker pipeline → tiered evidence bundle → Web UI + FastAPI
 | Area | What you get |
 |------|----------------|
 | **Deterministic lab** | mongo-ftdc diagnosis, assessment scores, anomaly windows, tiered LLM export |
-| **Web app** | Upload `.zip`/`.tar.gz`, browse runs, RCA panel, Grafana links |
+| **Web app** | Upload `.zip`/`.tar.gz`, browse runs, RCA panel, Grafana links, post-report chatbot |
 | **Agentic RCA** | Investigation → up to 10 clarifying questions → final report with citations |
+| **Post-report chatbot** | Agentic follow-up per message (markdown, mermaid, copy); disk transcript + summarize/replay memory |
+| **Multi-LLM** | Per-slot artifacts (`cursor`, `gemini`, `mock`); switch LLM in the run UI without cross-contamination |
 | **Evidence-first** | Tier-1 findings are authoritative; LLM fetches metric slices via MCP, not raw dumps |
-| **Optional signals** | Profiler upload, Graylog MCP, Grafana dashboards |
+| **Optional signals** | Profiler upload, Graylog MCP, Grafana dashboards, trusted HTTPS `web_fetch` |
 
 **Status:** See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) · **Changelog:** [docs/CHANGELOG.md](docs/CHANGELOG.md)
 
@@ -72,7 +74,7 @@ uv run pytest backend/tests -q
 ./scripts/demo.sh   # requires server on :8000
 ```
 
-**Mock RCA** (no API key): enable “Force mock” on the run page, or pass `"force_mock": true` to Phase 2 APIs.
+**Mock RCA** (no API key): select **Mock** in the LLM dropdown on the run page, or pass `{"llm":"mock"}` to Phase 2 APIs.
 
 ---
 
@@ -83,7 +85,8 @@ uv run pytest backend/tests -q
 | **mongo-ftdc** (Docker) | Decode FTDC, score, diagnose, export tiered bundle |
 | **FastAPI backend** | Upload jobs, REST/MCP evidence access, web UI |
 | **Cursor SDK** | Agent runtime — tool loop (ReAct); we implement MCP **servers** only |
-| **Phase 2** | 3-step RCA: investigate → ask operator once → final report |
+| **Gemini ADK** | Optional second LLM slot with shared evidence tools + `web_fetch` policy |
+| **Phase 2** | 3-step RCA: investigate → ask operator once → final report → optional chatbot |
 
 Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 theory Q&A)
 
@@ -92,7 +95,8 @@ Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale: [do
 ## Repository layout
 
 ```text
-backend/app/              FastAPI, web UI, Phase 2 LLM, Grafana integration
+backend/app/              FastAPI, Phase 2 LLM, Grafana integration, web route wiring
+frontend/                 Bootstrap UI (templates + static; swappable without backend changes)
 docs/                     Full documentation index
 scripts/                  demo.sh, setup-simagix-repos.sh
 simagix-workspace/
@@ -109,7 +113,10 @@ simagix-workspace/
 |----------|---------|
 | `CURSOR_API_KEY` | Live Phase 2 agent (Cursor SDK) |
 | `CURSOR_MODEL` | Default `composer-2.5` |
+| `GEMINI_API_KEY` | Optional Gemini ADK slot |
 | `PHASE2_*_MAX_TOOL_CALLS` | MCP retrieval budget per phase |
+| `PHASE2_CHATBOT_*` | Chatbot memory window + summarize thresholds |
+| `PHASE2_WEB_FETCH_*` | Trusted HTTPS fetch policy for agent `web_fetch` |
 | `GRAYLOG_*` | Optional log search in investigation |
 
 See [.env.example](.env.example) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
@@ -121,6 +128,7 @@ See [.env.example](.env.example) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
 | Doc | Description |
 |-----|-------------|
 | [**docs/README.md**](docs/README.md) | **Documentation hub** — start here |
+| [frontend/README.md](frontend/README.md) | UI layer map (templates, static assets) |
 | [OPERATIONS.md](docs/OPERATIONS.md) | Colima, upload, pipeline, Grafana, troubleshooting |
 | [PHASE2_LLM.md](docs/PHASE2_LLM.md) | Cursor agent, MCP tools, 3-phase flow |
 | [RCA_BACKEND.md](docs/RCA_BACKEND.md) | REST API reference |

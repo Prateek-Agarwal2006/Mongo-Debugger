@@ -22,6 +22,7 @@ Rule: `.cursor/rules/doc-maintenance.mdc` (always applied).
 
 ## Code layout
 
-- `backend/app/` — FastAPI, web UI, Simagix RCA, Phase 2 LLM
+- `frontend/` — Bootstrap Jinja templates + static JS/CSS (UI only)
+- `backend/app/` — FastAPI, Simagix RCA, Phase 2 LLM
 - `simagix-workspace/` — Docker pipeline, exports, uploads (data + scripts)
 - `docs/` — all documentation

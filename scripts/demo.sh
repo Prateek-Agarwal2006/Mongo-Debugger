@@ -39,7 +39,7 @@ echo
 echo "--- Phase A+B: Investigation + clarifying questions (mock) ---"
 START_JSON="$(curl -sf -X POST "${BASE}/simagix/runs/${RUN_ID}/phase2/run" \
   -H 'Content-Type: application/json' \
-  -d '{"force_mock": true}')"
+  -d '{"llm": "mock"}')"
 echo "${START_JSON}" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
@@ -61,7 +61,7 @@ fi
 
 echo
 echo "--- Phase C: Final RCA (mock) ---"
-curl -sf -X POST "${BASE}/simagix/runs/${RUN_ID}/phase2/clarify?force_mock=true" \
+curl -sf -X POST "${BASE}/simagix/runs/${RUN_ID}/phase2/clarify?llm=mock" \
   -H 'Content-Type: application/json' \
   -d "${ANSWERS_JSON}" | python3 -c "
 import json,sys
@@ -73,5 +73,5 @@ echo
 
 echo "Web UI:  ${BASE}/"
 echo "Run:     ${BASE}/runs/${RUN_ID}"
-echo "Report:  ${BASE}/simagix/runs/${RUN_ID}/phase2/reports/latest/view"
+echo "Report:  ${BASE}/simagix/runs/${RUN_ID}/phase2/reports/latest/view?llm=mock"
 echo "Done."

@@ -1,0 +1,338 @@
+/* Webflow-style 3D scroll — sticky panels, native scroll */
+
+.scroll-3d-stage {
+  position: relative;
+  perspective: 1500px;
+  perspective-origin: 50% 42%;
+  transform-style: preserve-3d;
+}
+
+.scroll-3d-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 50% at 50% 40%, rgba(0, 237, 100, 0.06), transparent 70%);
+  z-index: 0;
+}
+
+.scroll-3d-progress {
+  position: fixed;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: min(42vh, 280px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  z-index: 1010;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.scroll-3d-stage.is-active .scroll-3d-progress {
+  opacity: 1;
+}
+
+.scroll-3d-progress::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(var(--scroll-3d-pct, 0) * 100%);
+  background: linear-gradient(180deg, var(--mdb-green), var(--mdb-green-dim));
+  border-radius: inherit;
+  box-shadow: 0 0 12px rgba(0, 237, 100, 0.45);
+}
+
+.scroll-3d-panel {
+  position: relative;
+  height: 135vh;
+  z-index: 1;
+}
+
+.scroll-3d-panel--tall {
+  height: 165vh;
+}
+
+.scroll-3d-panel--compact {
+  height: 115vh;
+}
+
+.scroll-3d-panel-inner {
+  position: sticky;
+  top: 10vh;
+  height: 80vh;
+  max-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transform:
+    rotateX(var(--rx, 0deg))
+    translateZ(var(--rz, 0px))
+    translateY(var(--ry, 0px))
+    scale(var(--sc, 1));
+  opacity: var(--op, 1);
+  will-change: transform, opacity;
+}
+
+.scroll-3d-panel-card {
+  width: 100%;
+  max-width: 920px;
+  max-height: 100%;
+  overflow: auto;
+  padding: 1.35rem 1.5rem;
+  border-radius: 1.1rem;
+  background: var(--app-surface-2);
+  border: 1px solid var(--app-border);
+  box-shadow:
+    0 2rem 4rem rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(0, 237, 100, 0.05) inset;
+  transform: translateZ(0);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 237, 100, 0.35) transparent;
+}
+
+.scroll-3d-panel[data-scroll-state="active"] .scroll-3d-panel-card {
+  border-color: rgba(0, 237, 100, 0.22);
+  box-shadow:
+    0 2.5rem 5rem rgba(0, 0, 0, 0.48),
+    0 0 40px rgba(0, 237, 100, 0.08),
+    0 0 0 1px rgba(0, 237, 100, 0.1) inset;
+}
+
+.scroll-3d-panel-card--hero {
+  background: linear-gradient(145deg, rgba(0, 237, 100, 0.1), rgba(20, 27, 36, 0.98) 48%);
+  border-color: rgba(0, 237, 100, 0.28);
+}
+
+.scroll-3d-panel-card--accent {
+  background: linear-gradient(135deg, rgba(0, 237, 100, 0.07), var(--app-surface-2));
+  border-color: rgba(0, 237, 100, 0.2);
+}
+
+.scroll-3d-panel-card--chain {
+  background: linear-gradient(160deg, rgba(0, 237, 100, 0.05), rgba(20, 27, 36, 0.96));
+  border-color: rgba(0, 237, 100, 0.18);
+}
+
+.scroll-3d-panel-index {
+  position: absolute;
+  left: 0.5rem;
+  top: 11vh;
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(0, 237, 100, 0.07);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+/* Causal chain — one 3D panel per step */
+.rv-chain-3d-stage {
+  perspective: 1400px;
+}
+
+.rv-chain-step-panel .scroll-3d-panel-inner {
+  align-items: stretch;
+}
+
+.rv-chain-step-layout {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+}
+
+.rv-chain-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+}
+
+.rv-chain-marker-3d {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: var(--mdb-green);
+  background: var(--app-surface);
+  border: 2px solid var(--mdb-green);
+  box-shadow: 0 0 24px rgba(0, 237, 100, 0.35);
+  position: relative;
+  z-index: 2;
+}
+
+.rv-chain-connector {
+  flex: 1;
+  width: 3px;
+  min-height: 3rem;
+  margin: 0.35rem 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  position: relative;
+}
+
+.rv-chain-connector-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: top center;
+  transform: scaleY(var(--chain-fill, 0));
+  background: linear-gradient(180deg, var(--mdb-green), rgba(0, 237, 100, 0.2));
+  box-shadow: 0 0 10px rgba(0, 237, 100, 0.4);
+  transition: transform 0.08s linear;
+}
+
+.rv-chain-step-body {
+  padding: 0.5rem 0;
+}
+
+.rv-chain-step-kicker {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--mdb-green);
+  margin-bottom: 0.35rem;
+}
+
+.rv-chain-step-text {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.rv-chain-arrow {
+  color: var(--mdb-green);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  opacity: 0.7;
+}
+
+/* Pipeline — shorter scroll distance between A/B/C */
+.pipeline-3d-stage {
+  margin: 2rem 0 2.5rem;
+}
+
+.pipeline-3d-stage .scroll-3d-panel {
+  height: 72vh;
+}
+
+.pipeline-3d-stage .scroll-3d-panel-inner {
+  top: 8vh;
+  height: 56vh;
+  max-height: 56vh;
+}
+
+@media (max-width: 767.98px) {
+  .pipeline-3d-stage .scroll-3d-panel {
+    height: 68vh;
+  }
+}
+
+.pipeline-3d-card h2 {
+  font-size: 1.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.pipeline-3d-badge {
+  display: inline-flex;
+  width: 3.25rem;
+  height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--mdb-green);
+  background: rgba(0, 237, 100, 0.12);
+  border: 1px solid rgba(0, 237, 100, 0.35);
+  margin-bottom: 1rem;
+  box-shadow: 0 0 30px rgba(0, 237, 100, 0.15);
+}
+
+/* Report full-bleed wrapper */
+.report-3d-wrap {
+  position: relative;
+  margin-top: 1.5rem;
+  padding-top: 0.5rem;
+}
+
+.report-3d-wrap .report-3d-header {
+  padding: 0 0.25rem 1rem;
+}
+
+.report-viewer--3d {
+  position: relative;
+}
+
+.rv-nav--float {
+  position: fixed;
+  right: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1012;
+  width: 10.5rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(11, 15, 20, 0.92);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .rv-nav--float {
+    display: block;
+  }
+
+  .scroll-3d-progress {
+    right: 12.5rem;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .scroll-3d-panel {
+    height: 120vh;
+  }
+
+  .scroll-3d-panel-inner {
+    top: 8vh;
+    height: 84vh;
+    max-height: 84vh;
+  }
+
+  .scroll-3d-progress {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-3d-panel-inner {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .scroll-3d-progress {
+    display: none;
+  }
+
+  .rv-chain-connector-fill {
+    transform: scaleY(1) !important;
+  }
+}

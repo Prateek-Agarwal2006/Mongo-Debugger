@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 from backend.app.simagix.llm.detail_requirements import MOCK_MECHANISM_STUB, MOCK_WHY_STUB
-from backend.app.simagix.llm.provider import LLMProvider, Phase2RunResult
+from backend.app.simagix.llm.provider import LLMProvider, ChatbotResult, Phase2RunResult
 from backend.app.simagix.llm.session import Phase2Session
 from backend.app.simagix.llm.tool_trace import write_mock_tool_trace
 from backend.app.simagix.output_schema import (
@@ -99,7 +99,7 @@ class MockLLMProvider(LLMProvider):
         insights: list[str] = []
         for metric in self._METRICS_TO_SAMPLE:
             try:
-                window = session.orchestrator.get_metric_window(metric, limit=5)
+                window = session.evidence.get_metric_window(metric, limit=5)
                 points = window.get("points") or []
                 if points:
                     last = points[-1]
@@ -113,7 +113,7 @@ class MockLLMProvider(LLMProvider):
         return insights
 
     def run_investigation(self, session: Phase2Session, user_message: str) -> InvestigationSummary:
-        tier1 = session.orchestrator.load_tier1()
+        tier1 = session.evidence.load_tier1()
         exec_ctx = tier1.executive_context
         findings = [finding.name for finding in exec_ctx.findings]
         finding_analyses = _mock_finding_analyses(exec_ctx.findings, exec_ctx.top_anomaly_windows)
@@ -167,7 +167,7 @@ class MockLLMProvider(LLMProvider):
         *,
         max_questions: int,
     ) -> ClarifyingQuestionsBlock:
-        tier1 = session.orchestrator.load_tier1()
+        tier1 = session.evidence.load_tier1()
         exec_ctx = tier1.executive_context
         questions: list[ClarifyingQuestion] = []
 
@@ -222,7 +222,7 @@ class MockLLMProvider(LLMProvider):
         if self.delay_seconds:
             time.sleep(self.delay_seconds)
 
-        tier1 = session.orchestrator.load_tier1()
+        tier1 = session.evidence.load_tier1()
         exec_ctx = tier1.executive_context
         findings_used = [finding.name for finding in tier1.findings]
         finding_analyses = _mock_finding_analyses(exec_ctx.findings, exec_ctx.top_anomaly_windows)
@@ -293,3 +293,40 @@ class MockLLMProvider(LLMProvider):
             duration_seconds=time.monotonic() - started,
             raw_assistant_text=report.model_dump_json(indent=2),
         )
+
+    def run_chatbot(self, session: Phase2Session, user_message: str) -> ChatbotResult:
+        report = session.load_persisted_report()
+        if report is None:
+            return ChatbotResult(content="No report available for this run.")
+        q = user_message.lower()
+        if "root cause" in q or "why" in q:
+            reply = f"Root cause: {report.root_cause}"
+        elif "fix" in q or "remediation" in q:
+            fixes = report.safe_fixes or []
+            reply = "Safe fixes:\n• " + "\n• ".join(fixes) if fixes else "No safe fixes listed."
+        elif "summary" in q:
+            reply = report.summary or "No summary in report."
+        else:
+            reply = (
+                f"[mock chatbot] From report summary: {report.summary}\n"
+                "Ask about root cause, fixes, or summary. Live agents use MCP + tools."
+            )
+        write_mock_tool_trace(session.tool_trace_path, run_id=session.run_id, phase="chatbot")
+        return ChatbotResult(content=reply, tool_calls_used=0)
+
+    def summarize_chat_history(
+        self,
+        session: Phase2Session,
+        messages_to_fold: list[dict[str, str]],
+        *,
+        prior_summary: str | None = None,
+    ) -> str:
+        bullets: list[str] = []
+        if prior_summary:
+            bullets.append(prior_summary.strip())
+        for msg in messages_to_fold:
+            role = msg.get("role", "?")
+            content = (msg.get("content") or "").strip()
+            preview = content[:120] + ("…" if len(content) > 120 else "")
+            bullets.append(f"- {role}: {preview}")
+        return "\n".join(bullets)

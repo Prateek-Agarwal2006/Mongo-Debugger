@@ -4,7 +4,7 @@ The RCA backend loads mongo-ftdc's pre-analyzed evidence, exposes fallback retri
 
 Base URL: `http://localhost:8000`  
 Web UI: `http://localhost:8000/`  
-API docs: `http://localhost:8000/docs`
+API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
 ---
 
@@ -176,7 +176,7 @@ Returns metric names from `llm/fallback_retrieval_index.json`.
 GET /simagix/runs/{run_id}/budget
 ```
 
-Tracks fallback tool call usage (max 12 calls per orchestrator session).
+Tracks fallback tool call usage (max 12 calls per evidence-service session).
 
 Response:
 
@@ -233,35 +233,44 @@ Run page: **Load FTDC for this run** → **Open Anomaly View** / **Open All Metr
 
 ## Phase 2 RCA endpoints
 
+### LLM providers
+
+```http
+GET /simagix/runs/phase2/llm-providers
+```
+
+Returns `default` from `.env` and `options[]` with `id`, `label`, `available` (whether API keys are configured).
+
 ### Start RCA (Phase A+B)
 
 ```http
 POST /simagix/runs/{run_id}/phase2/run
 ```
 
-Body: `{"force_mock": true}` (optional). Runs tier-2 investigation and returns clarifying questions.
+Body: `{"llm": "mock"}` or `{"llm_provider": "gemini"}` (required unless legacy `force_mock`). Runs tier-2 investigation into `phase2/llm/{llm}/`. Response includes resolved `llm` folder name.
 
 ### Session status
 
 ```http
-GET /simagix/runs/{run_id}/phase2/status
+GET /simagix/runs/{run_id}/phase2/status?llm=mock
 ```
 
-Response includes `tool_trace_summary` (total calls and counts by category: `mcp`, `web`, `local`, `shell`).
+Query `llm` is **required** (`mock` | `cursor` | `gemini`). Response includes `tool_trace_summary` (total calls and counts by category: `mcp`, `web`, `local`, `shell`).
 
 ### Agent tool trace
 
 ```http
-GET /simagix/runs/{run_id}/phase2/tool-trace
+GET /simagix/runs/{run_id}/phase2/llm
+GET /simagix/runs/{run_id}/phase2/tool-trace?llm=mock
 ```
 
-Returns SDK `tool_call` events persisted to `simagix-workspace/runs/{run_id}/phase2/tool_trace.json`. Used by the run page **Agent Tool Activity** panel (`#tool-trace-panel`).
+`llm` query param is **required** on tool-trace, status, and reports. Returns SDK `tool_call` events persisted to `simagix-workspace/runs/{run_id}/phase2/llm/{llm}/tool_trace.json`. Used by the run page **Agent Tool Activity** panel (`#tool-trace-panel`).
 
 ### Latest report
 
 ```http
-GET /simagix/runs/{run_id}/phase2/reports/latest?format=pretty
-GET /simagix/runs/{run_id}/phase2/reports/latest/view
+GET /simagix/runs/{run_id}/phase2/reports/latest?llm=mock&format=pretty
+GET /simagix/runs/{run_id}/phase2/reports/latest/view?llm=mock
 ```
 
 ### Hybrid anomaly correlation
@@ -273,10 +282,10 @@ GET /simagix/runs/{run_id}/phase2/anomaly-correlation
 ### Final RCA (Phase C)
 
 ```http
-POST /simagix/runs/{run_id}/phase2/clarify?force_mock=true
+POST /simagix/runs/{run_id}/phase2/clarify?llm=mock
 ```
 
-Body: `{"answers": {"question_id": "operator answer"}}`. Runs final RCA with investigation + operator answers.
+Body: `{"answers": {"question_id": "operator answer"}}`. Query `llm` is **required** (or legacy `llm_provider` / `force_mock`).
 
 ### Profiler data
 
@@ -285,25 +294,34 @@ POST /simagix/runs/{run_id}/phase2/profiler
 GET /simagix/runs/{run_id}/phase2/profiler
 ```
 
+### Post-report chatbot (Phase 3)
+
+```http
+GET /simagix/runs/{run_id}/phase2/chatbot?llm=mock
+POST /simagix/runs/{run_id}/phase2/chatbot/messages?llm=mock
+```
+
+Body (POST): `{"content": "user message"}`. Returns assistant `message` + `tool_calls_used`. **404** if no `latest_report.json` for that LLM slot. History persisted to `chatbot_chat.json` (full transcript); long threads summarized into `summary_of_older` for prompt replay.
+
 ---
 
 ## Python integration example
 
 ```python
 from pathlib import Path
-from backend.app.simagix.orchestrator import SimagixRCAOrchestrator
+from backend.app.simagix.evidence_service import SimagixEvidenceService
 
 workspace = Path(".")
-orch = SimagixRCAOrchestrator(workspace, "phase1test20260609T133314Z")
+evidence = SimagixEvidenceService(workspace, "phase1test20260609T133314Z")
 
 # Primary: analyzed context
-context = orch.get_prompt_context()
+context = evidence.get_prompt_context()
 
 # Fallback: metric proof
-window = orch.get_metric_window("repl_lag_host-1", limit=50)
+window = evidence.get_metric_window("repl_lag_host-1", limit=50)
 
 # Phase 2 package
-package = orch.build_phase2_llm_package()
+package = evidence.build_phase2_llm_package()
 ```
 
 ---
@@ -316,12 +334,12 @@ FastAPI app under `backend/app/`.
 
 | Module | Path | Purpose |
 |--------|------|---------|
-| Simagix RCA | `app/simagix/` | Bundle loader, fallback tools, orchestrator |
-| Phase 2 LLM | `app/simagix/llm/` | Cursor agent, MCP server, 3-phase RCA flow |
+| Simagix RCA | `app/simagix/` | Bundle loader, fallback tools, evidence service |
+| Phase 2 LLM | `app/simagix/llm/` | Cursor or Gemini ADK agent, MCP/evidence tools, 3-phase RCA flow |
 | Web UI | `app/web/` | Jinja2 templates, pages |
 | Upload jobs | `app/jobs/` | Background pipeline runner |
 | API | `app/api/` | REST routes (runs, phase2, upload, grafana) |
-| Static | `app/static/` | CSS, Grafana client JS |
+| Static | `frontend/static/` | Bootstrap theme CSS, RCA + Grafana client JS |
 
 ### Web UI routes
 
@@ -335,16 +353,31 @@ FastAPI app under `backend/app/`.
 ### Phase 2 persistence
 
 ```text
-simagix-workspace/runs/<run_id>/phase2/latest_report.json
+simagix-workspace/runs/<run_id>/phase2/llm/{mock|cursor|gemini}/
+  investigation.json, iterative_state.json, tool_trace.json,
+  latest_report.json, budget_state.json, session_metadata.json,
+  chatbot_chat.json, chatbot_scratch/
 ```
 
 ### Environment
 
 ```bash
-export CURSOR_API_KEY="cursor_..."      # live agent
-export GRAYLOG_API_URL="..."            # optional Graylog MCP
+# Provider selection (default: cursor)
+export LLM_PROVIDER=cursor   # cursor | gemini | mock
+
+# Cursor SDK (LLM_PROVIDER=cursor)
+export CURSOR_API_KEY="cursor_..."
+
+# Google ADK + AI Studio (LLM_PROVIDER=gemini)
+export GOOGLE_API_KEY="..."           # https://aistudio.google.com/apikey
+export GOOGLE_MODEL=gemini-2.5-flash
+
+# Optional Graylog MCP
+export GRAYLOG_API_URL="..."
 export GRAYLOG_API_TOKEN="..."
 ```
+
+Install LLM extras: `uv sync --extra dev --extra llm` (includes `cursor-sdk`, `google-adk`, `mcp`).
 
 ### Tests
 

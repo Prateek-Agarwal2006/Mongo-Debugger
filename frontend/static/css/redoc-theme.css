@@ -1,0 +1,78 @@
+/* ReDoc overrides on top of JS theme config in redoc_ui.html */
+
+#redoc-container {
+  background: #0b0f14;
+  min-height: 70vh;
+  color: #e7ecf3;
+}
+
+#redoc-container a {
+  color: #00ed64;
+}
+
+#redoc-container .menu-content {
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+#redoc-container h1,
+#redoc-container h2,
+#redoc-container h3,
+#redoc-container h4,
+#redoc-container h5 {
+  font-family: "DM Sans", system-ui, sans-serif !important;
+  color: #e7ecf3 !important;
+}
+
+/* Main content + schema panels */
+#redoc-container [data-role="redoc"] p,
+#redoc-container [data-role="redoc"] li,
+#redoc-container [data-role="redoc"] span,
+#redoc-container .redoc-wrap p,
+#redoc-container .redoc-wrap li,
+#redoc-container .api-content p,
+#redoc-container .api-content li,
+#redoc-container .api-content span,
+#redoc-container .api-content div {
+  color: #e7ecf3;
+}
+
+#redoc-container .api-content code,
+#redoc-container .redoc-json code {
+  color: #b8e0c8 !important;
+  background: #1a2330 !important;
+}
+
+#redoc-container pre {
+  background: #080c10 !important;
+  color: #e7ecf3 !important;
+}
+
+/* Sidebar menu items */
+#redoc-container .menu-content label,
+#redoc-container .menu-content span,
+#redoc-container .menu-content a {
+  color: #c8d4e0 !important;
+}
+
+#redoc-container .menu-content a.active {
+  color: #00ed64 !important;
+}
+
+/* Response / request samples */
+#redoc-container .react-tabs__tab-panel,
+#redoc-container .tab-success,
+#redoc-container .tab-error {
+  background: #141b24 !important;
+  color: #e7ecf3 !important;
+}
+
+#redoc-container table td,
+#redoc-container table th {
+  color: #e7ecf3 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+#redoc-container table th {
+  background: #1a2330 !important;
+  color: #9aa8b8 !important;
+}

@@ -13,8 +13,8 @@ from backend.app.simagix.prompt import build_phase2_prompt
 from backend.app.simagix.schemas import Tier1Context
 
 
-class SimagixRCAOrchestrator:
-    """Orchestration-only RCA backend over Simagix analyzed bundles."""
+class SimagixEvidenceService:
+    """Evidence librarian over Simagix analyzed bundles (tier-1 load, gated tier-2 tools, budget)."""
 
     def __init__(
         self,

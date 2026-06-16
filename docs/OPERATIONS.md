@@ -197,9 +197,41 @@ Request a fallback metric slice:
 curl "http://localhost:8000/simagix/runs/${RUN_ID}/tools/metric-window?metric=cpu_idle&limit=10" | jq .
 ```
 
+## Phase 2 LLM (live RCA)
+
+Copy `.env.example` to `.env` and choose a provider:
+
+| Provider | Env | Install |
+|----------|-----|---------|
+| Mock (default in tests) | `{"llm":"mock"}` in API or no API keys | `uv sync --extra dev` |
+| Cursor SDK | `LLM_PROVIDER=cursor`, `CURSOR_API_KEY=...` | `uv sync --extra dev --extra llm` |
+| Gemini ADK | `LLM_PROVIDER=gemini`, `GOOGLE_API_KEY=...` from [AI Studio](https://aistudio.google.com/apikey) | `uv sync --extra dev --extra llm` |
+
+Run investigation + clarifying questions:
+
+```bash
+curl -X POST "http://localhost:8000/simagix/runs/${RUN_ID}/phase2/run" \
+  -H 'Content-Type: application/json' -d '{"llm_provider": "gemini"}'
+```
+
+On the run detail page (`/runs/{run_id}`), use the **LLM** dropdown next to **Run RCA** to pick mock/cursor/gemini for both running and viewing that slot's status, trace, and report.
+
+Optional chatbot / web-fetch env (see `.env.example`):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PHASE2_CHATBOT_MAX_TOOL_CALLS` | 5 | MCP budget per chatbot message |
+| `PHASE2_CHATBOT_MAX_REPLAY_MESSAGES` | 12 | Recent messages replayed verbatim in prompt |
+| `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES` | 20 | Fold older turns into `summary_of_older` |
+| `PHASE2_WEB_FETCH_MAX_BYTES` | 24000 | HTTPS fetch cap |
+| `PHASE2_WEB_ALLOWLIST_SUFFIXES` | (unset) | Optional comma-separated host suffix allowlist |
+
+Details: [PHASE2_LLM.md](PHASE2_LLM.md).
+
 ## Running tests
 
 ```bash
+uv sync --extra dev --extra llm   # Cursor SDK + google-adk for Phase 2
 uv run pytest backend/tests -q
 ```
 
@@ -228,8 +260,8 @@ simagix-workspace/exports/mongo-ftdc/20260609T133314Z/
 
 simagix-workspace/runs/20260609T133314Z/
   run_manifest.json
-  phase2/latest_report.json    # persisted RCA (survives server restart)
-  phase2/budget_state.json
+  phase2/llm/mock/latest_report.json    # persisted RCA per LLM slot
+  phase2/llm/mock/budget_state.json
 ```
 
 Latest run pointers:
@@ -248,7 +280,7 @@ simagix-workspace/exports/mongo-ftdc/latest_export_path.txt
 | Run not found in API | Missing `manifest.json` | Ensure export completed; check run_id |
 | Report vs export mismatch | Different `run_id` or `-latest` | Use `run-mongo-ftdc-pipeline.sh` |
 | Raw export too large | `-raw=true` default in old scripts | Set `MONGO_FTDC_RAW_EXPORT=false` |
-| `429` on tool calls | Retrieval budget exhausted | New orchestrator instance per session |
+| `429` on tool calls | Retrieval budget exhausted | New evidence-service instance per session |
 
 ## Blocked workflows
 

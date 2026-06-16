@@ -25,8 +25,8 @@ def fixture_run_id() -> str:
 
 def test_tool_usage_summary_prefers_trace_mcp_over_zero_budget(fixture_run_id: str) -> None:
     store = Phase2SessionStore()
-    store.reset(fixture_run_id)
-    session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, max_tool_calls=12)
+    store.reset(fixture_run_id, "mock")
+    session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock", max_tool_calls=12)
     session.configure_budget(12, reset=True)
 
     collector = ToolTraceCollector(session.tool_trace_path, agent_id="test-agent")
@@ -50,8 +50,8 @@ def test_tool_usage_summary_prefers_trace_mcp_over_zero_budget(fixture_run_id: s
 
 def test_persist_report_stores_tool_usage(fixture_run_id: str) -> None:
     store = Phase2SessionStore()
-    store.reset(fixture_run_id)
-    session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, max_tool_calls=12)
+    store.reset(fixture_run_id, "mock")
+    session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock", max_tool_calls=12)
     report = RCAReportDraft(
         run_id=fixture_run_id,
         summary="[mock] test",
@@ -67,7 +67,7 @@ def test_persist_report_stores_tool_usage(fixture_run_id: str) -> None:
 
 def test_resolve_tool_usage_uses_persisted_snapshot(fixture_run_id: str) -> None:
     store = Phase2SessionStore()
-    session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, max_tool_calls=12)
+    session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock", max_tool_calls=12)
     snapshot = {
         "mcp_evidence_calls": 9,
         "mcp_budget_max": 12,

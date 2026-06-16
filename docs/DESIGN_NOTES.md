@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-11 (orchestrator vs agentic AI, Cursor SDK loop, design patterns).
+**Last aligned with codebase:** 2026-06-14 (immersive scroll UI, phase rail).
 
 ---
 
@@ -69,7 +69,7 @@ Three options we compared:
 
 **Managed agent — we did not build an MCP client.** Cursor SDK is the hosted agent runtime: it runs the tool loop (plan → call tool → read result → repeat), speaks MCP to our servers, and streams the run. We only implemented **MCP servers** (`mcp_evidence_server`, optional `graylog_mcp_server`) that expose tools. We did **not** write a custom MCP client, agent loop, or JSON-RPC plumbing — that would be Option C work or rolling our own “mini Managed Agents.”
 
-**`LLMProvider` abstraction** — swap Cursor vs mock vs future providers without touching evidence plumbing.
+**`LLMProvider` abstraction** — swap Cursor vs Gemini ADK vs mock without touching evidence plumbing. Gemini uses in-process ADK function tools (`adk_evidence_tools.py`); Cursor uses stdio MCP servers — same `SimagixEvidenceService` underneath.
 
 ---
 
@@ -94,6 +94,8 @@ Phase C — Final RCA (MCP ON)
 1. **Investigate before bothering the human** — don’t ask ops questions the metrics could answer.
 2. **Ask once** — one block of questions, not a chatty back-and-forth.
 3. **Separate tool budgets** — `PHASE2_INVESTIGATION_MAX_TOOL_CALLS` (default 6) vs `PHASE2_RCA_MAX_TOOL_CALLS` (default 6), so investigation can’t burn the whole budget before final RCA.
+
+**Post-report chatbot (light memory):** After Phase C, operators chat via `/phase2/chatbot`. Full transcript on disk (`chatbot_chat.json`); the agent prompt replays the last N messages plus a rolling `summary_of_older` (text-only summarize call). **Not** cross-run memory (no Hindsight) — mentor-style “remember this thread, not every RCA ever.”
 
 **API surface (canonical, post-simplification):**
 
@@ -123,7 +125,7 @@ FTDC is **server metrics**, not application logs or query text.
 
 - **No iframe embed** — charts open at `localhost:3030` via **Open Anomaly View** / **Open All Metrics**.
 - **After upload pipeline** — job warms Grafana (`POST /grafana/dir`) so you usually skip a second wait on the run page.
-- **Future work** — single decode in mongo-ftdc so export and Grafana share one `ProcessFiles` pass (see `docs/PROJECT_STATUS.md`).
+- **Future work** — deduplicate upload pipeline: today `run-mongo-ftdc.sh` + `run-llm-export.sh` each decode/diagnose the same FTDC; target one pass for `exports/` (RCA) and shared decode for Grafana (see `docs/PROJECT_STATUS.md` § Other future work).
 
 ## 9. What we deliberately removed (shows maturity)
 
@@ -163,7 +165,7 @@ We **deleted parallel paths** instead of maintaining alternatives:
 
 | Idea | Location |
 |------|----------|
-| Evidence librarian (not agent loop) | `backend/app/simagix/orchestrator.py` |
+| Evidence librarian (not agent loop) | `backend/app/simagix/evidence_service.py` |
 | Cursor SDK agent + MCP wiring | `backend/app/simagix/llm/cursor_provider.py` |
 | 3-phase workflow orchestration | `backend/app/simagix/llm/service.py` |
 | Investigation / clarify / RCA prompts | `backend/app/simagix/llm/prompts.py` |
@@ -173,8 +175,9 @@ We **deleted parallel paths** instead of maintaining alternatives:
 | Grounding rules | `backend/app/simagix/grounding.py` |
 | Upload + pipeline thread | `backend/app/api/upload.py`, `backend/app/jobs/pipeline.py` |
 | Job status store | `backend/app/jobs/store.py` |
-| HTML pages (server-rendered) | `backend/app/web/routes.py` + `templates/` |
-| Run page JS → JSON APIs | `backend/app/static/js/rca.js`, `grafana.js` |
+| HTML pages (server-rendered) | `backend/app/web/routes.py` + `frontend/templates/` |
+| Run page JS → JSON APIs | `frontend/static/js/rca.js`, `grafana.js`, `phase-rail.js` |
+| Scroll / 3D deck | `frontend/static/js/scroll-3d.js`, `scroll-3d.css`, `report-viewer.js` |
 | Settings singleton | `backend/app/core/config.py` |
 
 Full API and ops: `docs/RCA_BACKEND.md`, `docs/PHASE2_LLM.md`, `docs/PROJECT_STATUS.md`.
@@ -256,7 +259,7 @@ A Python decorator that auto-generates `__init__`, `__repr__`, etc. for a class 
 Examples in this repo:
 
 - `JobStatus` in `jobs/store.py` — `job_id`, `run_id`, `state`, `message`
-- `Phase2Session` in `llm/session.py` — `run_id`, `orchestrator`, paths
+- `Phase2Session` in `llm/session.py` — `run_id`, `evidence`, paths
 - `RetrievalBudget` in `budget.py` — counters + history
 
 Alternative would be a dict or Pydantic model. Dataclasses are lightweight for **in-process** job/session state; Pydantic is used where we need JSON schema validation (RCA reports, investigation).
@@ -304,7 +307,7 @@ upload API thread          pipeline daemon thread
 
 ### 13.7 Does threading need a different orchestrator? Thread per run_id?
 
-**No extra orchestrator for the thread.** The pipeline thread only runs `subprocess` + Grafana warmup — it does **not** construct `SimagixRCAOrchestrator`.
+**No extra evidence service for the thread.** The pipeline thread only runs `subprocess` + Grafana warmup — it does **not** construct `SimagixEvidenceService`.
 
 **One daemon thread per upload job** (named `pipeline-{run_id}`), not a global pool. Multiple uploads → multiple threads, each with its own `job_id` / `run_id`.
 
@@ -326,14 +329,14 @@ Passed to `job_store.create(run_id, ...)` and `MONGO_FTDC_RUN_ID` env for the sh
 Folder layout mirrors responsibility:
 
 ```text
-simagix/           — evidence + RCA domain (bundle, tools, orchestrator, grounding)
+simagix/           — evidence + RCA domain (bundle, tools, evidence service, grounding)
 simagix/llm/       — Phase 2 only: agent providers, prompts, MCP servers, session, parse
 api/               — HTTP routers (thin)
 web/               — HTML
 jobs/              — upload pipeline async
 ```
 
-`llm/` is not separate top-level because it **depends on** `SimagixRCAOrchestrator`, `GroundingRules`, bundle paths, and budgets. Keeping it under `simagix/` says: “LLM is a consumer of Simagix evidence, not a generic chat layer.”
+`llm/` is not separate top-level because it **depends on** `SimagixEvidenceService`, `GroundingRules`, bundle paths, and budgets. Keeping it under `simagix/` says: “LLM is a consumer of Simagix evidence, not a generic chat layer.”
 
 ---
 
@@ -346,7 +349,7 @@ jobs/              — upload pipeline async
 - `score_semantics` — mongo-ftdc 0–100 scoring rules
 - `rules` — anti-hallucination prose injected into Phase C prompt
 
-**Design:** Rules live in **one Python module**, serialized to JSON in the prompt — not scattered in prompt strings. `orchestrator.build_phase2_llm_package()` attaches `grounding_rules` to the package; `prompts.py` embeds them in the final RCA message.
+**Design:** Rules live in **one Python module**, serialized to JSON in the prompt — not scattered in prompt strings. `evidence.build_phase2_llm_package()` attaches `grounding_rules` to the package; `prompts.py` embeds them in the final RCA message.
 
 Easy to demo: “Here’s the contract the model must obey.”
 
@@ -372,7 +375,7 @@ Most metrics are in the gzip line file — special cases are **file layout**, no
 
 ---
 
-### 13.11 `get_raw_path` in orchestrator — why?
+### 13.11 `get_raw_path` in evidence service — why?
 
 **Tier 3** forensic path: search `raw/raw_metric_values.jsonl.gz` for MongoDB metric **paths** (internal FTDC path strings), not normalized names.
 
@@ -384,7 +387,7 @@ Budget: `consume_tool_call("get_raw_path")` — same gated retrieval as tier-2 t
 
 ### 13.12 Budget — what decrements it?
 
-`RetrievalBudget.consume_tool_call()` runs only inside **orchestrator** methods:
+`RetrievalBudget.consume_tool_call()` runs only inside **evidence service** methods:
 
 | Orchestrator method | Budget? |
 |---------------------|---------|
@@ -399,12 +402,12 @@ Budget: `consume_tool_call("get_raw_path")` — same gated retrieval as tier-2 t
 
 | MCP tool (`mcp_evidence_server.py`) | Hits budget? |
 |-------------------------------------|--------------|
-| `get_metric_window` | Yes (via orchestrator) |
+| `get_metric_window` | Yes (via evidence service) |
 | `get_normalized_series` | Yes |
 | `get_raw_path` | Yes |
 | `list_fallback_metrics` | **No** |
 | `get_budget_status` | **No** |
-| `get_profiler_samples` | **No** — calls `load_profiler_data()` directly, bypasses orchestrator budget |
+| `get_profiler_samples` | **No** — calls `load_profiler_data()` directly, bypasses evidence-service budget |
 
 So yes: MCP exposes **more tools** than the three budgeted retrieval calls. Listing metrics and reading profiler JSON are intentionally “free” (still traced in `tool_trace.json` for SDK/local/MCP activity; budget file tracks evidence retrieval caps).
 
@@ -432,11 +435,11 @@ Keeps path logic in one place; callers use `session.report_path` instead of repe
 
 See §2 in this doc. Short version:
 
-- REST `simagix_runs.py`: new `SimagixRCAOrchestrator(workspace, run_id)` per request — stateless, cheap.
-- Phase 2: one orchestrator **per run** inside `Phase2Session`, cached in `phase2_session_store`.
-- MCP subprocess: one orchestrator built from env (`SIMAGIX_RUN_ID`, `SIMAGIX_BUDGET_STATE_PATH`) for that agent run.
+- REST `simagix_runs.py`: new `SimagixEvidenceService(workspace, run_id)` per request — stateless, cheap.
+- Phase 2: one evidence service **per run** inside `Phase2Session`, cached in `phase2_session_store`.
+- MCP subprocess: one evidence service built from env (`SIMAGIX_RUN_ID`, `SIMAGIX_BUDGET_STATE_PATH`) for that agent run.
 
-A single global orchestrator would mix bundles and budgets across runs.
+A single global evidence service would mix bundles and budgets across runs.
 
 ---
 
@@ -449,7 +452,7 @@ A single global orchestrator would mix bundles and budgets across runs.
 | `simagix/llm/prompts.py` | **Phase A** `build_investigate_user_message`; **Phase B** `build_clarify_user_message`; **Phase C** `build_phase2_user_message` |
 | `simagix/llm/detail_requirements.py` | `DETAIL_REQUIREMENTS` — mechanistic RCA format + anti-echo rules (included in A & C) |
 | `simagix/grounding.py` | `GroundingRules.as_dict()` — embedded as JSON in Phase C prompt |
-| `simagix/orchestrator.py` | `build_phase2_llm_package()` — assembles prompt + grounding + schema + tool list (not prose itself) |
+| `simagix/evidence_service.py` | `build_phase2_llm_package()` — assembles prompt + grounding + schema + tool list (not prose itself) |
 | `simagix/llm/mock_provider.py` | Deterministic stub text when `force_mock` (no cloud agent) |
 | `simagix/llm/parse_output.py` | Post-parse lint (`warn_prompt_example_echo`) — not a prompt, guards output |
 
@@ -457,14 +460,14 @@ A single global orchestrator would mix bundles and budgets across runs.
 
 ---
 
-### 13.16 `SimagixRCAOrchestrator` — not the agentic “orchestrator”
+### 13.16 `SimagixEvidenceService` — not the agentic “orchestrator”
 
-**File:** `backend/app/simagix/orchestrator.py`  
-**Docstring:** “Orchestration-only RCA backend over Simagix analyzed bundles.”
+**File:** `backend/app/simagix/evidence_service.py`  
+**Former name:** `SimagixRCAOrchestrator` (`orchestrator.py`, removed 2026-06-11)
 
 This name is easy to confuse with **LangGraph / AutoGen / ReAct “orchestrator”** (the component that runs `think → act → observe` in a loop). Ours is **not** that.
 
-| | Agentic AI “orchestrator” (theory) | `SimagixRCAOrchestrator` (this repo) |
+| | Agentic AI “orchestrator” (theory) | `SimagixEvidenceService` (this repo) |
 |--|-----------------------------------|--------------------------------------|
 | Calls the LLM repeatedly | Yes | **No** |
 | Chooses next tool / next step | Yes | **No** |
@@ -482,20 +485,22 @@ This name is easy to confuse with **LangGraph / AutoGen / ReAct “orchestrator�
 service.py              → build_phase2_llm_package() before each LLM phase
 mcp_evidence_server.py  → same tool methods when Cursor agent requests evidence
 simagix_runs.py         → REST debug API for humans/scripts
-mock_provider.py        → direct orchestrator calls in tests (no SDK)
+mock_provider.py        → direct evidence-service calls in tests (no SDK)
 ```
 
-**Who does *not* use it for the agent loop:** `cursor_provider.py` never implements ReAct — it delegates the loop to Cursor SDK. The SDK calls MCP; MCP calls orchestrator.
+**Who does *not* use it for the agent loop:** `cursor_provider.py` never implements ReAct — it delegates the loop to Cursor SDK. The SDK calls MCP; MCP calls evidence service.
 
 **Layer split (memorize this):**
 
 ```text
-service.py           → workflow orchestrator (Phase A → B → C)     [Template Method]
-Cursor SDK Agent     → agent runtime (tool loop, planning)         [ReAct driver — external]
-SimagixRCAOrchestrator → evidence librarian (bundle + slices + budget) [Facade]
+service.py              → workflow orchestrator (Phase A → B → C)     [Template Method]
+Cursor SDK Agent        → agent runtime (tool loop, planning)         [ReAct driver — external]
+SimagixEvidenceService  → evidence librarian (bundle + slices + budget) [Facade]
 ```
 
-If renamed for clarity: `EvidenceService` or `RCABundleFacade` would match agentic terminology better; “Orchestrator” here means **orchestrating RCA backend access**, not orchestrating cognition.
+Renamed from `SimagixRCAOrchestrator` because “orchestrator” implied cognition loop; **evidence service** matches agentic terminology.
+
+**Future work — multi-agent orchestration:** Full specialist-agent graphs are scoped as **likely overkill** for single-incident RCA; recommended incremental path (deterministic verifier → optional LLM auditor) and mentor discussion questions are in [PROJECT_STATUS.md](PROJECT_STATUS.md) § Future enhancements.
 
 **Design patterns (Refactoring.Guru):** Facade (this class), Adapter (MCP servers), Strategy (`LLMProvider`), Factory Method (`get_llm_provider`), Template Method (`service.py` phases). See §13.17 for where Cursor SDK sits.
 
@@ -535,7 +540,7 @@ with Agent.create(options) as agent:
 1. SDK sends prompt + tool schemas to Cursor agent runtime (cloud/local bridge)
 2. Model may reply with text OR tool_call(s)
 3. SDK executes tool_call:
-     - MCP tool → stdio to our mcp_evidence_server → orchestrator → JSON result
+     - MCP tool → stdio to our mcp_evidence_server → evidence service → JSON result
      - built-in read/grep/web → SDK local executor (sandboxed)
 4. Tool results fed back to model
 5. Repeat until model stops calling tools and returns final text
@@ -569,7 +574,7 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 |---------|--------|
 | Tool loop until done | **Cursor SDK** |
 | MCP protocol / subprocess lifecycle | **Cursor SDK** |
-| Evidence slice logic + budget file | **Us** (orchestrator + MCP servers) |
+| Evidence slice logic + budget file | **Us** (evidence service + MCP servers) |
 | 3-phase workflow + human Q&A gate | **Us** (`service.py`) |
 | Structured output validation | **Us** (`output_schema` + `parse_output.py`) |
 | Swap Cursor for OpenAI | **Us** (`LLMProvider` — must reimplement tool loop for OpenAI) |

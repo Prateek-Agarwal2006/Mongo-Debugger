@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Runs — FTDC Analyzer{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
+  <div>
+    <h1 class="h2 mb-1"><i class="bi bi-collection me-2 text-success"></i>Analysis Runs</h1>
+    <p class="text-secondary mb-0">Completed exports under <code>simagix-workspace/exports/mongo-ftdc/</code></p>
+  </div>
+  <a class="btn btn-success btn-glow" href="/upload"><i class="bi bi-cloud-upload me-2"></i>New upload</a>
+</div>
+
+<div class="glass-card reveal-panel" data-reveal="left">
+  <div class="card-body p-0">
+    {% if runs %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle runs-table">
+        <thead class="table-secondary table-opacity-25">
+          <tr>
+            <th>#</th>
+            <th>Run ID</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run_id in runs %}
+          <tr>
+            <td class="text-secondary">{{ loop.index }}</td>
+            <td><code class="text-break">{{ run_id }}</code></td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-success" href="/runs/{{ run_id }}">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open run
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-5 text-center text-secondary">
+      <i class="bi bi-folder2-open display-4 d-block mb-3 opacity-50"></i>
+      <p class="mb-3">No runs found yet.</p>
+      <a class="btn btn-success btn-glow" href="/upload">Upload your first FTDC archive</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

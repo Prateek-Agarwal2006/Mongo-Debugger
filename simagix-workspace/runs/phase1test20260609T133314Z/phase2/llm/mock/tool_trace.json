@@ -1,0 +1,83 @@
+{
+  "agent_id": "mock-agent",
+  "entries": [
+    {
+      "phase": "investigation",
+      "timestamp": "2026-06-11T00:00:00+00:00",
+      "tool_name": "mcp_simagix-evidence_get_metric_window",
+      "category": "mcp",
+      "status": "completed",
+      "call_id": "mock-only",
+      "args_summary": "",
+      "result_summary": "",
+      "mcp_server": "simagix-evidence"
+    },
+    {
+      "phase": "investigation",
+      "timestamp": "2026-06-15T07:09:17.553647+00:00",
+      "tool_name": "simagix-evidence/get_metric_window",
+      "category": "mcp",
+      "status": "completed",
+      "call_id": "mock-phase1test20260609T133314Z-inv-mcp-1",
+      "args_summary": "{\"metric\": \"cpu_idle\", \"limit\": 3}",
+      "result_summary": "",
+      "mcp_server": "simagix-evidence"
+    },
+    {
+      "phase": "investigation",
+      "timestamp": "2026-06-15T07:09:17.553647+00:00",
+      "tool_name": "web_search",
+      "category": "web",
+      "status": "completed",
+      "call_id": "mock-phase1test20260609T133314Z-inv-web-1",
+      "args_summary": "MongoDB replication lag troubleshooting site:mongodb.com/docs",
+      "result_summary": "https://www.mongodb.com/docs/manual/replication/",
+      "mcp_server": null
+    },
+    {
+      "phase": "final_rca",
+      "timestamp": "2026-06-15T07:09:18.728332+00:00",
+      "tool_name": "fetch",
+      "category": "web",
+      "status": "completed",
+      "call_id": "mock-phase1test20260609T133314Z-rca-web-1",
+      "args_summary": "https://www.mongodb.com/docs/manual/core/replica-set-oplog/",
+      "result_summary": "Oplog sizing guidance",
+      "mcp_server": null
+    },
+    {
+      "phase": "investigation",
+      "timestamp": "2026-06-11T00:00:00+00:00",
+      "tool_name": "mcp_simagix-evidence_get_metric_window",
+      "category": "mcp",
+      "status": "completed",
+      "call_id": "test-mcp-1",
+      "args_summary": "",
+      "result_summary": "",
+      "mcp_server": "simagix-evidence"
+    },
+    {
+      "phase": "chatbot",
+      "timestamp": "2026-06-16T06:47:29.524435+00:00",
+      "tool_name": "web_fetch",
+      "category": "web",
+      "status": "completed",
+      "call_id": "mock-phase1test20260609T133314Z-chat-web-1",
+      "args_summary": "{\"url\": \"https://www.mongodb.com/docs/manual/\"}",
+      "result_summary": "Mock chatbot web fetch",
+      "mcp_server": null
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "by_category": {
+      "mcp": 3,
+      "web": 3
+    },
+    "by_phase": {
+      "investigation": 4,
+      "final_rca": 1,
+      "chatbot": 1
+    }
+  }
+}

@@ -1,0 +1,206 @@
+/**
+ * Phase B — one question per card (answer / skip / prev / next).
+ * Still submits the same { answers: { id: text } } payload to POST /phase2/clarify.
+ */
+
+let wizardQuestions = [];
+let wizardIndex = 0;
+let wizardAnswers = {};
+
+function getWizardEls() {
+  return {
+    form: document.getElementById("clarify-form"),
+    container: document.getElementById("questions-container"),
+    progress: document.getElementById("clarify-progress"),
+    prevBtn: document.getElementById("clarify-prev"),
+    skipBtn: document.getElementById("clarify-skip"),
+    nextBtn: document.getElementById("clarify-next"),
+    submitBtn: document.getElementById("clarify-submit"),
+    textarea: document.getElementById("clarify-answer-input"),
+  };
+}
+
+function currentQuestion() {
+  return wizardQuestions[wizardIndex] || null;
+}
+
+function saveCurrentAnswer() {
+  const q = currentQuestion();
+  const { textarea } = getWizardEls();
+  if (!q || !textarea) return;
+  wizardAnswers[q.id] = textarea.value.trim();
+}
+
+function renderWizardProgress() {
+  const { progress } = getWizardEls();
+  if (!progress) return;
+  if (!wizardQuestions.length) {
+    progress.innerHTML = "";
+    return;
+  }
+  progress.innerHTML = wizardQuestions
+    .map((q, i) => {
+      const answered = Boolean(wizardAnswers[q.id]);
+      const active = i === wizardIndex;
+      const cls = ["clarify-dot", active ? "clarify-dot--active" : "", answered ? "clarify-dot--done" : ""]
+        .filter(Boolean)
+        .join(" ");
+      return `<span class="${cls}" title="Question ${i + 1}"></span>`;
+    })
+    .join("");
+}
+
+function renderWizardCard() {
+  const { container, textarea, prevBtn, skipBtn, nextBtn, submitBtn } = getWizardEls();
+  if (!container) return;
+
+  if (!wizardQuestions.length) {
+    container.innerHTML =
+      '<p class="text-secondary small mb-0">No clarifying questions needed — submit to run final RCA.</p>';
+    if (prevBtn) prevBtn.hidden = true;
+    if (skipBtn) skipBtn.hidden = true;
+    if (nextBtn) nextBtn.hidden = true;
+    if (submitBtn) submitBtn.hidden = false;
+    renderWizardProgress();
+    return;
+  }
+
+  const q = currentQuestion();
+  if (!q) return;
+
+  container.innerHTML = `
+    <div class="clarify-card glass-card p-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge text-bg-dark border border-secondary-subtle">Question ${wizardIndex + 1} of ${wizardQuestions.length}</span>
+      </div>
+      <h3 class="h6 mb-2">${escapeWizardHtml(q.question)}</h3>
+      <p class="text-secondary small mb-3">${escapeWizardHtml(q.rationale)}</p>
+      <label class="form-label small text-secondary" for="clarify-answer-input">Your answer</label>
+      <textarea class="form-control" id="clarify-answer-input" rows="4" placeholder="Type an answer or skip if unknown…"></textarea>
+    </div>`;
+
+  const input = document.getElementById("clarify-answer-input");
+  if (input) {
+    input.value = wizardAnswers[q.id] || "";
+    input.focus();
+  }
+
+  if (prevBtn) prevBtn.hidden = wizardIndex === 0;
+  if (skipBtn) skipBtn.hidden = false;
+  if (nextBtn) nextBtn.hidden = wizardIndex >= wizardQuestions.length - 1;
+  if (submitBtn) submitBtn.hidden = wizardIndex < wizardQuestions.length - 1;
+
+  renderWizardProgress();
+}
+
+function escapeWizardHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function showClarifyWizard(questions, existingAnswers = {}) {
+  const { form } = getWizardEls();
+  if (!form) return;
+
+  wizardQuestions = questions || [];
+  wizardIndex = 0;
+  wizardAnswers = { ...existingAnswers };
+
+  form.hidden = false;
+  renderWizardCard();
+}
+
+function hideClarifyWizard() {
+  const { form } = getWizardEls();
+  if (form) {
+    form.hidden = true;
+    delete form.dataset.submitting;
+  }
+  wizardQuestions = [];
+  wizardIndex = 0;
+  wizardAnswers = {};
+}
+
+function setSubmitting(busy) {
+  const { form, prevBtn, skipBtn, nextBtn, submitBtn } = getWizardEls();
+  if (!form) return;
+
+  if (busy) {
+    form.dataset.submitting = "1";
+    const actions = document.getElementById("clarify-actions");
+    if (actions) actions.hidden = true;
+    const container = document.getElementById("questions-container");
+    if (container) {
+      container.innerHTML = `
+        <div class="clarify-card glass-card p-4 text-center">
+          <div class="spinner-border text-success mb-3" role="status" aria-hidden="true"></div>
+          <p class="mb-0 fw-semibold">Phase C — generating final RCA…</p>
+          <p class="text-secondary small mb-0 mt-1">Please wait — do not submit again.</p>
+        </div>`;
+    }
+    [prevBtn, skipBtn, nextBtn, submitBtn].forEach((btn) => {
+      if (btn) btn.disabled = true;
+    });
+    return;
+  }
+
+  delete form.dataset.submitting;
+  const actions = document.getElementById("clarify-actions");
+  if (actions) actions.hidden = false;
+  renderWizardCard();
+}
+
+function collectWizardAnswers() {
+  saveCurrentAnswer();
+  const answers = { ...wizardAnswers };
+  wizardQuestions.forEach((q) => {
+    if (!(q.id in answers)) answers[q.id] = "";
+  });
+  return answers;
+}
+
+function initClarifyWizard() {
+  const { prevBtn, skipBtn, nextBtn } = getWizardEls();
+
+  prevBtn?.addEventListener("click", () => {
+    saveCurrentAnswer();
+    if (wizardIndex > 0) {
+      wizardIndex -= 1;
+      renderWizardCard();
+    }
+  });
+
+  skipBtn?.addEventListener("click", () => {
+    const q = currentQuestion();
+    if (q) wizardAnswers[q.id] = "";
+    if (wizardIndex < wizardQuestions.length - 1) {
+      wizardIndex += 1;
+      renderWizardCard();
+    }
+  });
+
+  nextBtn?.addEventListener("click", () => {
+    saveCurrentAnswer();
+    if (wizardIndex < wizardQuestions.length - 1) {
+      wizardIndex += 1;
+      renderWizardCard();
+    }
+  });
+}
+
+window.FtdcClarifyWizard = {
+  show: showClarifyWizard,
+  hide: hideClarifyWizard,
+  collectAnswers: collectWizardAnswers,
+  setSubmitting,
+  init: initClarifyWizard,
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initClarifyWizard);
+} else {
+  initClarifyWizard();
+}

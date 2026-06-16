@@ -61,7 +61,7 @@ colima start --cpu 4 --memory 8
 
 uv run uvicorn backend.app.main:app --reload --port 8000
 curl http://localhost:8000/simagix/runs/<run-id>/context
-curl -X POST http://localhost:8000/simagix/runs/<run-id>/phase2/run -H 'Content-Type: application/json' -d '{"force_mock": true}'
+curl -X POST http://localhost:8000/simagix/runs/<run-id>/phase2/run -H 'Content-Type: application/json' -d '{"llm": "mock"}'
 ```
 
 Full API reference: [`docs/RCA_BACKEND.md`](docs/RCA_BACKEND.md).

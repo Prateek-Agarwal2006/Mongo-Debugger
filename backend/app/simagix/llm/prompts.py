@@ -9,16 +9,27 @@ from backend.app.simagix.prompt import build_phase2_prompt, build_tier1_evidence
 
 WEB_SEARCH_INVESTIGATION = (
     "When findings reference MongoDB subsystems (replication, WiredTiger, indexes, memory, CPU), "
-    "search the web for official MongoDB documentation and reputable engineering sources that match the symptoms.\n"
+    "search the web for official documentation and reputable engineering sources that match the symptoms.\n"
+    "Call the web_fetch tool for each HTTPS URL before listing it in web_insights.\n"
     "Record each source in web_insights as: '<url> — one-line takeaway'.\n"
-    "Prefer mongodb.com/docs; do not treat unsourced forum posts as confirmed incident facts.\n"
+    "Prefer official docs; do not treat unsourced forum posts as confirmed incident facts.\n"
 )
 
 WEB_SEARCH_FINAL_RCA = (
     "Before writing safe_fixes, search the web for remediation guidance aligned with findings_used and investigation.\n"
+    "Call web_fetch for each URL you cite.\n"
     "Add evidence_citations rows with source_type web and reference set to the URL.\n"
     "Also list all fetched URLs in reference_urls for the bibliography.\n"
-    "Prefer mongodb.com/docs; label web-based fixes as recommendations when not confirmed by tier-1.\n"
+    "Label web-based fixes as recommendations when not confirmed by tier-1.\n"
+)
+
+SCRATCH_RULES = (
+    "SCRATCH RULES:\n"
+    "- You MAY use read, grep, and shell for analysis.\n"
+    "- read/grep: FTDC export bundle, workspace exports, session artifacts, chatbot_scratch/.\n"
+    "- shell: create and run scripts ONLY under chatbot_scratch/; print results to stdout.\n"
+    "- Do NOT write or edit backend/, simagix-workspace/exports/ (except chatbot_scratch/), "
+    "latest_report.json, investigation.json, or git-tracked files.\n"
 )
 
 
@@ -31,11 +42,9 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
 
     return (
         "You are a MongoDB RCA analyst in INVESTIGATION mode (not final RCA).\n"
-        "Do NOT edit, create, or delete any files. Do NOT run shell commands.\n"
-        "Do NOT use read, grep, or local file tools — use simagix-evidence MCP tools ONLY "
-        "for metric slices, profiler samples, and logs.\n"
+        f"{SCRATCH_RULES}"
+        "Use simagix-evidence MCP tools for metric slices, profiler samples, and logs.\n"
         "Tier-1 context in this prompt is sufficient for findings; call MCP for tier-2 proof.\n"
-        "Use simagix-evidence MCP tools to gather tier-2 proof for tier-1 findings.\n"
         "You MUST call get_profiler_samples to check for uploaded db.system.profile data.\n"
         "If Graylog MCP is available, query logs around the primary anomaly window.\n"
         f"{WEB_SEARCH_INVESTIGATION}"
@@ -158,9 +167,8 @@ def build_phase2_user_message(
 
     return (
         "You are a MongoDB RCA analyst operating in READ-ONLY analysis mode.\n"
-        "Do NOT edit, create, or delete any files. Do NOT run shell commands.\n"
-        "Do NOT use read, grep, or local file tools — use simagix-evidence MCP tools ONLY "
-        "for supplemental metric/profiler retrieval.\n"
+        f"{SCRATCH_RULES}"
+        "Use simagix-evidence MCP tools for supplemental metric/profiler retrieval.\n"
         "Cite profiler samples, log insights, operator answers, and web sources when relevant.\n"
         "Every causal claim MUST cite evidence (finding, anomaly window, metric slice, profiler, log, operator, or web).\n"
         f"{DETAIL_REQUIREMENTS}"
@@ -180,4 +188,71 @@ def build_phase2_user_message(
         f"{user_context_block}"
         "--- Tier-1 analyzed evidence ---\n"
         f"{build_phase2_prompt(context)}"
+    )
+
+
+def build_chatbot_summarize_prompt(
+    messages_to_fold: list[dict[str, str]],
+    *,
+    prior_summary: str | None = None,
+) -> str:
+    lines: list[str] = []
+    if prior_summary:
+        lines.append(f"Prior summary:\n{prior_summary}\n")
+    lines.append("Messages to compress:\n")
+    for msg in messages_to_fold:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        lines.append(f"{role}: {content}")
+    return (
+        "Compress the chat history below into short factual prose. "
+        "Keep topics asked, conclusions, profiler uploads mentioned, and open questions. "
+        "Do not use tools. Reply with plain text only.\n\n"
+        + "\n".join(lines)
+    )
+
+
+def build_chatbot_prompt(
+    *,
+    report: dict[str, Any],
+    investigation: dict[str, Any] | None,
+    summary_of_older: str | None,
+    recent_messages: list[dict[str, str]],
+    user_message: str,
+    scratch_dir: str,
+) -> str:
+    inv_block = ""
+    if investigation:
+        inv_block = (
+            "\n--- Investigation summary ---\n"
+            f"{json.dumps(investigation, indent=2)}\n"
+        )
+    summary_block = ""
+    if summary_of_older:
+        summary_block = (
+            "\n--- Earlier conversation summary ---\n"
+            f"{summary_of_older}\n"
+        )
+    history_lines: list[str] = []
+    for msg in recent_messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        history_lines.append(f"{role}: {content}")
+    history_block = ""
+    if history_lines:
+        history_block = "\n--- Recent chat ---\n" + "\n".join(history_lines) + "\n"
+
+    return (
+        "You are a MongoDB RCA chatbot helping an operator after the final report.\n"
+        f"{SCRATCH_RULES}"
+        f"Scratch directory: {scratch_dir}\n"
+        "Use simagix-evidence MCP tools, web_fetch, read/grep/shell when needed to answer.\n"
+        "Reply in clear markdown. Do NOT output RCA JSON schemas.\n"
+        "Ground answers in the report and investigation; cite evidence when making claims.\n\n"
+        "--- Latest RCA report ---\n"
+        f"{json.dumps(report, indent=2)}\n"
+        f"{inv_block}"
+        f"{summary_block}"
+        f"{history_block}"
+        f"\nuser: {user_message}\n"
     )

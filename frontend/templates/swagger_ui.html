@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}API Reference — FTDC Analyzer{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui.css"/>
+<link rel="stylesheet" href="/static/css/swagger-theme.css"/>
+{% endblock %}
+{% block content %}
+<div class="api-docs-hero card border-0 shadow-sm mb-4">
+  <div class="card-body p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <span class="badge text-bg-success mb-2">REST · OpenAPI 3</span>
+        <h1 class="h3 mb-2"><i class="bi bi-braces me-2 text-success"></i>API Reference</h1>
+        <p class="text-secondary mb-0">
+          Interactive docs for upload, runs, Grafana, and Phase 2 RCA. Base URL:
+          <code>{{ request.base_url }}</code>
+        </p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-sm btn-outline-success" href="/openapi.json" target="_blank" rel="noopener">
+          <i class="bi bi-filetype-json me-1"></i>openapi.json
+        </a>
+        <a class="btn btn-sm btn-outline-light" href="/redoc">
+          <i class="bi bi-book me-1"></i>ReDoc view
+        </a>
+      </div>
+    </div>
+    <div class="row g-2 mt-3 api-quick-links">
+      <div class="col-md-3 col-6">
+        <a class="quick-link-card" href="#/simagix-upload/upload_diagnostic_data_simagix_uploads_post"
+           data-swagger-tag="simagix-upload"
+           data-swagger-op="upload_diagnostic_data_simagix_uploads_post"
+           data-swagger-path="/simagix/uploads"
+           data-swagger-method="post">
+          <i class="bi bi-cloud-upload"></i><span>Upload</span>
+        </a>
+      </div>
+      <div class="col-md-3 col-6">
+        <a class="quick-link-card" href="#/simagix-runs/list_runs_simagix_runs_get"
+           data-swagger-tag="simagix-runs"
+           data-swagger-op="list_runs_simagix_runs_get"
+           data-swagger-path="/simagix/runs"
+           data-swagger-method="get">
+          <i class="bi bi-collection"></i><span>Runs</span>
+        </a>
+      </div>
+      <div class="col-md-3 col-6">
+        <a class="quick-link-card" href="#/simagix-phase2/run_phase2_start_simagix_runs__run_id__phase2_run_post"
+           data-swagger-tag="simagix-phase2"
+           data-swagger-op="run_phase2_start_simagix_runs__run_id__phase2_run_post"
+           data-swagger-path="/simagix/runs/{run_id}/phase2/run"
+           data-swagger-method="post">
+          <i class="bi bi-robot"></i><span>Phase 2 RCA</span>
+        </a>
+      </div>
+      <div class="col-md-3 col-6">
+        <a class="quick-link-card" href="#/simagix-grafana/grafana_stack_status_simagix_runs_grafana_status_get"
+           data-swagger-tag="simagix-grafana"
+           data-swagger-op="grafana_stack_status_simagix_runs_grafana_status_get"
+           data-swagger-path="/simagix/runs/grafana/status"
+           data-swagger-method="get">
+          <i class="bi bi-graph-up"></i><span>Grafana</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm swagger-wrap">
+  <div class="card-body p-0">
+    <div id="swagger-ui"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/swagger-docs.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener("load", () => {
+  const capturePlugin = window.FtdcSwaggerDocs?.createCaptureSystemPlugin?.();
+
+  window.ui = SwaggerUIBundle({
+    url: "/openapi.json",
+    dom_id: "#swagger-ui",
+    deepLinking: true,
+    showExtensions: true,
+    showCommonExtensions: true,
+    presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+    plugins: capturePlugin ? [capturePlugin] : [],
+    layout: "BaseLayout",
+    defaultModelsExpandDepth: 1,
+    docExpansion: "list",
+    filter: true,
+    tryItOutEnabled: true,
+    onComplete: () => {
+      window.FtdcSwaggerDocs?.initSwaggerQuickLinks?.();
+      window.setTimeout(() => {
+        window.FtdcSwaggerDocs?.navigateFromLocationHash?.();
+      }, 250);
+    },
+  });
+});
+</script>
+{% endblock %}

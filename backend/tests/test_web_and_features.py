@@ -14,7 +14,7 @@ from backend.app.simagix.llm.service import (
     generate_clarifying_questions_for_run,
     run_investigation,
 )
-from backend.app.simagix.orchestrator import SimagixRCAOrchestrator
+from backend.app.simagix.evidence_service import SimagixEvidenceService
 from backend.app.simagix.profiler import load_profiler_data, save_profiler_data
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
@@ -27,13 +27,13 @@ def client() -> TestClient:
 
 
 def _complete_mock_rca(client: TestClient, run_id: str) -> dict:
-    start = client.post(f"/simagix/runs/{run_id}/phase2/run", json={"force_mock": True})
+    start = client.post(f"/simagix/runs/{run_id}/phase2/run", json={"llm": "mock"})
     assert start.status_code == 200
     body = start.json()
     qids = [q["id"] for q in body["clarifying_questions"]["questions"]]
     answers = {qids[0]: "No maintenance during window"} if qids else {}
     clarify = client.post(
-        f"/simagix/runs/{run_id}/phase2/clarify?force_mock=true",
+        f"/simagix/runs/{run_id}/phase2/clarify?llm=mock",
         json={"answers": answers},
     )
     assert clarify.status_code == 200
@@ -46,6 +46,24 @@ def test_home_page(client: TestClient) -> None:
     assert "FTDC Analyzer" in response.text
 
 
+def test_api_docs_page(client: TestClient) -> None:
+    response = client.get("/docs")
+    assert response.status_code == 200
+    assert "swagger-ui" in response.text
+    assert "API Reference" in response.text
+    assert "/static/css/swagger-theme.css" in response.text
+    assert "navbar" in response.text
+    assert 'data-swagger-tag="simagix-upload"' in response.text
+    assert "/static/js/swagger-docs.js" in response.text
+    assert "layoutActions.show" in response.text or "FtdcSwaggerDocs" in response.text
+
+
+def test_redoc_page(client: TestClient) -> None:
+    response = client.get("/redoc")
+    assert response.status_code == 200
+    assert "redoc-container" in response.text
+
+
 def test_runs_page(client: TestClient) -> None:
     response = client.get("/runs")
     assert response.status_code == 200
@@ -56,6 +74,8 @@ def test_run_detail_page(client: TestClient) -> None:
     assert response.status_code == 200
     assert FIXTURE_RUN_ID in response.text
     assert "Run RCA" in response.text
+    assert 'id="llm-context-select"' in response.text
+    assert "LLM" in response.text
     assert "live stream" not in response.text.lower()
     assert "/analyze" not in response.text
     assert 'id="tool-trace-panel"' in response.text
@@ -72,24 +92,30 @@ def test_anomaly_correlation_api(client: TestClient) -> None:
 
 
 def test_anomaly_correlation_deterministic() -> None:
-    orch = SimagixRCAOrchestrator(WORKSPACE_ROOT, FIXTURE_RUN_ID)
+    orch = SimagixEvidenceService(WORKSPACE_ROOT, FIXTURE_RUN_ID)
     tier1 = orch.load_tier1()
     package = build_correlation_package(tier1.executive_context)
     assert package["deterministic_anomaly_count"] >= 0
 
 
 def test_investigation_before_clarify() -> None:
-    investigation = run_investigation(WORKSPACE_ROOT, FIXTURE_RUN_ID, force_mock=True)
+    investigation = run_investigation(WORKSPACE_ROOT, FIXTURE_RUN_ID, llm="mock", force_mock=True)
     assert investigation.run_id == FIXTURE_RUN_ID
     assert investigation.findings_reviewed
     assert investigation.tool_calls_made
 
-    inv_path = WORKSPACE_ROOT / "simagix-workspace/runs" / FIXTURE_RUN_ID / "phase2/investigation.json"
+    inv_path = (
+        WORKSPACE_ROOT
+        / "simagix-workspace/runs"
+        / FIXTURE_RUN_ID
+        / "phase2/llm/mock/investigation.json"
+    )
     assert inv_path.exists()
 
     questions = generate_clarifying_questions_for_run(
         WORKSPACE_ROOT,
         FIXTURE_RUN_ID,
+        llm="mock",
         force_mock=True,
         investigation=investigation,
     )
@@ -97,10 +123,11 @@ def test_investigation_before_clarify() -> None:
 
 
 def test_clarifying_questions() -> None:
-    investigation = run_investigation(WORKSPACE_ROOT, FIXTURE_RUN_ID, force_mock=True)
+    investigation = run_investigation(WORKSPACE_ROOT, FIXTURE_RUN_ID, llm="mock", force_mock=True)
     questions = generate_clarifying_questions_for_run(
         WORKSPACE_ROOT,
         FIXTURE_RUN_ID,
+        llm="mock",
         force_mock=True,
         investigation=investigation,
     )
@@ -133,7 +160,9 @@ def test_profiler_module() -> None:
 
 def test_html_report_view(client: TestClient) -> None:
     _complete_mock_rca(client, FIXTURE_RUN_ID)
-    response = client.get(f"/simagix/runs/{FIXTURE_RUN_ID}/phase2/reports/latest/view")
+    response = client.get(
+        f"/simagix/runs/{FIXTURE_RUN_ID}/phase2/reports/latest/view?llm=mock"
+    )
     assert response.status_code == 200
     assert "Root Cause Analysis" in response.text
     assert "chart.js" not in response.text.lower()
@@ -160,5 +189,10 @@ def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:
 def test_phase2_report_persists_on_disk(client: TestClient) -> None:
     run_id = FIXTURE_RUN_ID
     _complete_mock_rca(client, run_id)
-    report_path = WORKSPACE_ROOT / "simagix-workspace/runs" / run_id / "phase2/latest_report.json"
+    report_path = (
+        WORKSPACE_ROOT
+        / "simagix-workspace/runs"
+        / run_id
+        / "phase2/llm/mock/latest_report.json"
+    )
     assert report_path.exists()
