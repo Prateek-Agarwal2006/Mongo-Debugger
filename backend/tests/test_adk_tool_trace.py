@@ -43,7 +43,7 @@ def test_record_grounding_metadata_writes_web_row(tmp_path: Path) -> None:
     assert '"category": "web"' in payload
 
 
-def test_build_adk_agent_tools_includes_google_search() -> None:
+def test_build_adk_agent_tools_includes_web_fetch() -> None:
     from backend.app.simagix.evidence_service import SimagixEvidenceService
 
     workspace = Path(__file__).resolve().parents[2]
@@ -54,15 +54,9 @@ def test_build_adk_agent_tools_includes_google_search() -> None:
 
         pytest.skip("fixture bundle missing")
 
-    try:
-        from google.adk.tools.google_search_tool import GoogleSearchTool
-    except ImportError:
-        import pytest
-
-        pytest.skip("google-adk not installed")
-
     from backend.app.simagix.llm.adk_evidence_tools import build_adk_agent_tools
 
     evidence = SimagixEvidenceService(workspace, run_id)
     tools = build_adk_agent_tools(evidence)
-    assert any(isinstance(t, GoogleSearchTool) for t in tools)
+    tool_names = [getattr(t, "__name__", type(t).__name__) for t in tools]
+    assert "web_fetch" in tool_names

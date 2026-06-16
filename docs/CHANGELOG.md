@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-16 — CI: ADK tool test matches web_fetch
+
+**What:** Fixed failing `test_build_adk_agent_tools_includes_google_search` in GitHub Actions.
+
+**How:** Renamed assertion to `web_fetch` — Gemini ADK uses shared HTTPS fetch, not `GoogleSearchTool`.
+
+**Why:** Phase 3 replaced Google Search with policy-gated `web_fetch`; stale test expected the old tool.
+
+---
+
 ## 2026-06-16 — Agent Tool Activity horizontal scroll
 
 **What:** Agent Tool Activity table scrolls horizontally so long tool args/results are readable.
