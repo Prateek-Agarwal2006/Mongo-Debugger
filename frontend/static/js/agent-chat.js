@@ -1,13 +1,18 @@
 /**
  * Post-report agentic chatbot — backend persistence via /phase2/chatbot API.
  * Assistant replies: GFM markdown + mermaid; copy-to-clipboard per message.
+ * Attachments: upload to chatbot_scratch/attachments, agent reads via tools.
  */
 
 let chatRunId = null;
 let getLlmFn = () => "mock";
 let chatLoading = false;
 let cachedMessages = [];
+let pendingFiles = [];
 let mermaidReady = false;
+let composerBound = false;
+
+const ACCEPTED_EXTENSIONS = [".json", ".txt", ".log", ".md", ".csv", ".yaml", ".yml"];
 
 function escapeChat(text) {
   return String(text ?? "")
@@ -66,7 +71,19 @@ function normalizeMessages(payload) {
     role: m.role === "user" ? "user" : "assistant",
     text: m.content || m.text || "",
     at: m.created_at || m.at,
+    attachments: Array.isArray(m.attachments) ? m.attachments : [],
   }));
+}
+
+function attachmentsHtml(attachments) {
+  if (!attachments?.length) return "";
+  const pills = attachments
+    .map(
+      (a) =>
+        `<span class="agent-chat-attachment-pill" title="${escapeChat(a.path || "")}"><i class="bi bi-paperclip me-1" aria-hidden="true"></i>${escapeChat(a.name || "file")}</span>`
+    )
+    .join("");
+  return `<div class="agent-chat-attachments">${pills}</div>`;
 }
 
 function loadingBubbleHtml() {
@@ -93,9 +110,13 @@ function assistantBubbleHtml(m, idx) {
 }
 
 function userBubbleHtml(m) {
+  const textBlock = m.text
+    ? `<div class="agent-chat-text">${escapeChat(m.text).replace(/\n/g, "<br>")}</div>`
+    : "";
   return `<div class="agent-chat-bubble agent-chat-bubble--user">
         <span class="agent-chat-role">You</span>
-        <div class="agent-chat-text">${escapeChat(m.text).replace(/\n/g, "<br>")}</div>
+        ${textBlock}
+        ${attachmentsHtml(m.attachments)}
       </div>`;
 }
 
@@ -104,7 +125,7 @@ async function renderMessages(messages, { generating = false } = {}) {
   if (!log) return;
   if (!messages.length && !generating) {
     log.innerHTML =
-      '<p class="text-secondary small mb-0">Ask about the report, paste profiler JSON, or request deeper analysis.</p>';
+      '<p class="text-secondary small mb-0">Ask about the report, attach a file, or paste profiler JSON.</p>';
     return;
   }
   const bubbles = messages
@@ -113,6 +134,60 @@ async function renderMessages(messages, { generating = false } = {}) {
   log.innerHTML = bubbles + (generating ? loadingBubbleHtml() : "");
   await renderMermaidBlocks(log);
   log.scrollTop = log.scrollHeight;
+}
+
+function showFileError(message) {
+  const el = document.getElementById("agent-chat-file-error");
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+}
+
+function renderPendingFiles() {
+  const wrap = document.getElementById("agent-chat-pending-files");
+  if (!wrap) return;
+  if (!pendingFiles.length) {
+    wrap.hidden = true;
+    wrap.innerHTML = "";
+    return;
+  }
+  wrap.hidden = false;
+  wrap.innerHTML = pendingFiles
+    .map(
+      (f, idx) =>
+        `<span class="agent-chat-file-chip"><i class="bi bi-file-earmark" aria-hidden="true"></i>${escapeChat(f.name)}<button type="button" data-remove-file="${idx}" aria-label="Remove ${escapeChat(f.name)}">&times;</button></span>`
+    )
+    .join("");
+  showFileError("");
+}
+
+function isAcceptedFile(file) {
+  const name = (file.name || "").toLowerCase();
+  return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+function addPendingFiles(fileList) {
+  const errors = [];
+  for (const file of fileList) {
+    if (!isAcceptedFile(file)) {
+      errors.push(`${file.name}: use .json, .txt, .log, .md, .csv, .yaml, or .yml`);
+      continue;
+    }
+    if (pendingFiles.some((p) => p.name === file.name && p.size === file.size)) {
+      continue;
+    }
+    pendingFiles.push(file);
+  }
+  renderPendingFiles();
+  if (errors.length) {
+    showFileError(errors.join(" "));
+  }
+  return errors;
 }
 
 async function copyMessageText(index, button) {
@@ -149,11 +224,26 @@ async function copyMessageText(index, button) {
   }, 2000);
 }
 
+function setAttachEnabled(enabled) {
+  const label = document.getElementById("agent-chat-attach-label");
+  if (!label) return;
+  if (enabled) {
+    label.setAttribute("for", "agent-chat-file");
+    label.classList.remove("disabled");
+    label.removeAttribute("aria-disabled");
+  } else {
+    label.removeAttribute("for");
+    label.classList.add("disabled");
+    label.setAttribute("aria-disabled", "true");
+  }
+}
+
 function setComposerBusy(busy) {
   chatLoading = busy;
   const input = document.getElementById("agent-chat-input");
   const btn = document.querySelector("#agent-chat-form button[type=submit]");
   if (input) input.disabled = busy;
+  setAttachEnabled(!busy);
   if (btn) {
     btn.disabled = busy;
     btn.setAttribute("aria-busy", busy ? "true" : "false");
@@ -202,37 +292,87 @@ async function tryProfilerUpload(text) {
   return `Profiler data saved (${data.sample_count ?? parsed.length} samples).`;
 }
 
-async function sendChatMessage(text) {
+async function tryProfilerUploadFromFile(file) {
+  const text = await file.text();
+  return tryProfilerUpload(text);
+}
+
+async function uploadChatAttachment(file) {
+  const llm = getLlmFn();
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const resp = await fetch(
+    `/simagix/runs/${chatRunId}/phase2/chatbot/attachments?llm=${encodeURIComponent(llm)}`,
+    { method: "POST", body: form }
+  );
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(data.detail || `Failed to upload ${file.name}`);
+  }
+  return { name: data.name, path: data.path, size: data.size };
+}
+
+async function sendChatMessage(text, files = []) {
   const trimmed = text.trim();
-  if (!trimmed || chatLoading) return;
+  if ((!trimmed && !files.length) || chatLoading) return;
 
   const llm = getLlmFn();
-  const optimistic = [...cachedMessages, { role: "user", text: trimmed }];
+  const optimisticAttachments = files.map((f) => ({ name: f.name, path: "", size: f.size }));
+  const optimistic = [
+    ...cachedMessages,
+    { role: "user", text: trimmed, attachments: optimisticAttachments },
+  ];
   await renderMessages(optimistic, { generating: true });
   setComposerBusy(true);
+
   try {
     let content = trimmed;
-    const profilerNote = await tryProfilerUpload(trimmed);
-    if (profilerNote) {
-      content = `${trimmed}\n\n[Profiler upload: ${profilerNote}]`;
+    const uploaded = [];
+    for (const file of files) {
+      if (file.name.toLowerCase().endsWith(".json")) {
+        try {
+          const profilerNote = await tryProfilerUploadFromFile(file);
+          if (profilerNote) {
+            content = content
+              ? `${content}\n\n[Profiler upload: ${profilerNote}]`
+              : `[Profiler upload: ${profilerNote}]`;
+          }
+        } catch (err) {
+          throw new Error(err.message || "Profiler upload failed");
+        }
+      }
+      uploaded.push(await uploadChatAttachment(file));
     }
+
+    if (!files.length) {
+      const profilerNote = await tryProfilerUpload(trimmed);
+      if (profilerNote) {
+        content = content
+          ? `${content}\n\n[Profiler upload: ${profilerNote}]`
+          : `[Profiler upload: ${profilerNote}]`;
+      }
+    }
+
     const resp = await fetch(
       `/simagix/runs/${chatRunId}/phase2/chatbot/messages?llm=${encodeURIComponent(llm)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, attachments: uploaded }),
       }
     );
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
       throw new Error(data.detail || "Chatbot request failed");
     }
+
+    pendingFiles = [];
+    renderPendingFiles();
     await loadChatbot();
   } catch (err) {
     cachedMessages = [
       ...optimistic,
-      { role: "assistant", text: `Error: ${err.message}` },
+      { role: "assistant", text: `Error: ${err.message}`, attachments: [] },
     ];
     await renderMessages(cachedMessages);
   } finally {
@@ -245,13 +385,17 @@ function showChatPanel(show) {
   if (panel) panel.hidden = !show;
 }
 
-function initAgentChat(runId, getLlm, options = {}) {
-  chatRunId = runId;
-  if (typeof getLlm === "function") getLlmFn = getLlm;
-
+function bindAgentChatComposer() {
+  if (composerBound) return;
   const form = document.getElementById("agent-chat-form");
   const input = document.getElementById("agent-chat-input");
   const log = document.getElementById("agent-chat-log");
+  const fileInput = document.getElementById("agent-chat-file");
+  const attachLabel = document.getElementById("agent-chat-attach-label");
+  const pendingWrap = document.getElementById("agent-chat-pending-files");
+  if (!form || !fileInput) return;
+
+  composerBound = true;
 
   log?.addEventListener("click", (e) => {
     const btn = e.target.closest(".agent-chat-copy-btn");
@@ -261,14 +405,52 @@ function initAgentChat(runId, getLlm, options = {}) {
     copyMessageText(idx, btn);
   });
 
-  form?.addEventListener("submit", async (e) => {
+  pendingWrap?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-remove-file]");
+    if (!btn) return;
+    const idx = Number(btn.dataset.removeFile);
+    if (Number.isNaN(idx)) return;
+    pendingFiles.splice(idx, 1);
+    renderPendingFiles();
+  });
+
+  attachLabel?.addEventListener("click", (e) => {
+    if (chatLoading) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
+
+  attachLabel?.addEventListener("keydown", (e) => {
+    if (chatLoading) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (!fileInput.files?.length) return;
+    addPendingFiles(fileInput.files);
+    fileInput.value = "";
+  });
+
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!input) return;
     const text = input.value;
+    const files = [...pendingFiles];
     input.value = "";
-    await sendChatMessage(text);
+    await sendChatMessage(text, files);
     input.focus();
   });
+}
+
+function initAgentChat(runId, getLlm, options = {}) {
+  chatRunId = runId;
+  if (typeof getLlm === "function") getLlmFn = getLlm;
+
+  bindAgentChatComposer();
 
   if (options.hasReport) {
     showChatPanel(true);
@@ -282,12 +464,16 @@ function setReportContext(data) {
 
 function onRcaCompleted(getLlm) {
   if (typeof getLlm === "function") getLlmFn = getLlm;
+  bindAgentChatComposer();
   showChatPanel(true);
   loadChatbot();
 }
 
 function onRcaReset() {
   showChatPanel(false);
+  pendingFiles = [];
+  renderPendingFiles();
+  showFileError("");
 }
 
 function refreshChatForLlm() {

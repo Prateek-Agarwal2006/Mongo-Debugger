@@ -167,6 +167,7 @@ async function loadLlmContext() {
   const investigationEl = document.getElementById("investigation-summary");
 
   window.FtdcPhaseRail?.setFromApiStatus(statusData.status);
+  window.FtdcPhaseRail?.showShell?.();
 
   if (statusData.status === "awaiting_clarifications") {
     if (statusEl) {

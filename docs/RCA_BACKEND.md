@@ -298,10 +298,13 @@ GET /simagix/runs/{run_id}/phase2/profiler
 
 ```http
 GET /simagix/runs/{run_id}/phase2/chatbot?llm=mock
+POST /simagix/runs/{run_id}/phase2/chatbot/attachments?llm=mock
 POST /simagix/runs/{run_id}/phase2/chatbot/messages?llm=mock
 ```
 
-Body (POST): `{"content": "user message"}`. Returns assistant `message` + `tool_calls_used`. **404** if no `latest_report.json` for that LLM slot. History persisted to `chatbot_chat.json` (full transcript); long threads summarized into `summary_of_older` for prompt replay.
+Body (POST messages): `{"content": "user message", "attachments": [{"name": "notes.txt", "path": "attachments/abc_notes.txt", "size": 42}]}`. Upload files first via **multipart** `POST .../chatbot/attachments` with field `file` (`.json`, `.txt`, `.log`, `.md`, `.csv`, `.yaml`, `.yml`; max `PHASE2_CHATBOT_MAX_ATTACHMENT_BYTES`, default 512 KiB). Files land in `chatbot_scratch/attachments/`; the agent prompt lists paths for `read`/`grep`.
+
+Returns assistant `message` + `tool_calls_used`. **404** if no `latest_report.json` for that LLM slot. History persisted to `chatbot_chat.json` (full transcript); long threads summarized into `summary_of_older` for prompt replay.
 
 ---
 

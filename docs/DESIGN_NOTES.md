@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-14 (immersive scroll UI, phase rail).
+**Last aligned with codebase:** 2026-06-16 (Phase 3 chatbot, per-LLM isolation, `frontend/` split).
 
 ---
 
@@ -95,15 +95,16 @@ Phase C — Final RCA (MCP ON)
 2. **Ask once** — one block of questions, not a chatty back-and-forth.
 3. **Separate tool budgets** — `PHASE2_INVESTIGATION_MAX_TOOL_CALLS` (default 6) vs `PHASE2_RCA_MAX_TOOL_CALLS` (default 6), so investigation can’t burn the whole budget before final RCA.
 
-**Post-report chatbot (light memory):** After Phase C, operators chat via `/phase2/chatbot`. Full transcript on disk (`chatbot_chat.json`); the agent prompt replays the last N messages plus a rolling `summary_of_older` (text-only summarize call). **Not** cross-run memory (no Hindsight) — mentor-style “remember this thread, not every RCA ever.”
+**Post-report chatbot (light memory):** After Phase C, operators chat via `/phase2/chatbot`. Full transcript on disk (`chatbot_chat.json`); the agent prompt replays the last N messages plus a rolling `summary_of_older` (text-only summarize call). **Not** cross-run memory (no Hindsight) — mentor-style “remember this thread, not every RCA ever.” Full **why this, not that** table: **§14**.
 
 **API surface (canonical, post-simplification):**
 
 - `POST /phase2/run` — Phase A+B  
 - `POST /phase2/clarify` — Phase C  
 - `GET /phase2/status` — session state  
+- `GET|POST /phase2/chatbot` — post-report agentic thread (Phase 3)  
 
----
+All Phase 2 reads/writes are scoped by `?llm=` (`mock`, `cursor`, `gemini`) — separate artifacts under `phase2/llm/<slot>/`.
 
 ## 7. Multi-signal correlation — beyond FTDC
 
@@ -176,7 +177,10 @@ We **deleted parallel paths** instead of maintaining alternatives:
 | Upload + pipeline thread | `backend/app/api/upload.py`, `backend/app/jobs/pipeline.py` |
 | Job status store | `backend/app/jobs/store.py` |
 | HTML pages (server-rendered) | `backend/app/web/routes.py` + `frontend/templates/` |
-| Run page JS → JSON APIs | `frontend/static/js/rca.js`, `grafana.js`, `phase-rail.js` |
+| Run page JS → JSON APIs | `frontend/static/js/rca.js`, `grafana.js`, `phase-rail.js`, `agent-chat.js` |
+| Post-report chatbot | `backend/app/simagix/llm/service.py` (`post_chatbot_message`, `maybe_summarize_chatbot`) |
+| Shared HTTPS fetch policy | `backend/app/simagix/llm/web_fetch.py` |
+| Per-LLM paths | `backend/app/simagix/llm/llm_paths.py`, `session.py` |
 | Scroll / 3D deck | `frontend/static/js/scroll-3d.js`, `scroll-3d.css`, `report-viewer.js` |
 | Settings singleton | `backend/app/core/config.py` |
 
@@ -580,3 +584,42 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 | Swap Cursor for OpenAI | **Us** (`LLMProvider` — must reimplement tool loop for OpenAI) |
 
 **Interview line:** “We built MCP **servers** and an evidence **Facade**; Cursor SDK is the managed **agent runtime** that runs the ReAct loop we deliberately didn’t duplicate in Python.”
+
+---
+
+## 14. Architecture tradeoffs — mentor Q&A (“why this, not that?”)
+
+**Purpose:** Single place for scope and design debates — **no separate `MY_UNDERSTANDING.md` or `DESIGN_DILEMMAS.md`**. When a manager asks “why didn’t you use X?”, answer from here (and link to code). For future-work items, see [PROJECT_STATUS.md](PROJECT_STATUS.md) § Future enhancements.
+
+**Maintenance habit:** Same session as any architecture decision — add or update a row in the table below (template and checklist in [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) § “§14 tradeoff habit”). Agents enforce via `.cursor/rules/doc-maintenance.mdc` step 5.
+
+| Topic | What we chose | Why | Why not the alternative | Code / config |
+|-------|---------------|-----|-------------------------|---------------|
+| **Agent tool loop** | **Cursor SDK** (and Gemini **ADK** for the `gemini` slot) runs ReAct; we implement MCP **servers** + evidence Facade only | Avoid duplicating JSON-RPC tool loop, subprocess lifecycle, and sandbox in Python; swap providers via `LLMProvider` | **LangGraph / custom ReAct in Python** — more control but high build cost; we’d re-own what Cursor/ADK already ship | `cursor_provider.py`, `gemini_adk_provider.py`, §13.16–§13.17 |
+| **Workflow shape** | Fixed **3-phase** template in `service.py` (A investigate → B clarify once → C final RCA) | Predictable ops flow, separate tool budgets, human gate only after tools run | **Open-ended chat RCA** or **dynamic supervisor** — harder to demo, budget blow-ups, unclear “done” | `service.py`, `PHASE2_*_MAX_TOOL_CALLS` |
+| **Multi-agent orchestration** | **Not built** — one reasoning brain per incident per phase | Single upload, deep RCA; tier-1 + one investigation pass usually enough | **Parallel specialist agents + verifier graph** — cost/latency; defer unless eval shows single-agent misses signals | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Multi-agent; prefer **deterministic verifier** first |
+| **Phase-to-phase memory (A→C)** | **Prompt assembly** — investigation JSON + operator answers embedded in Phase C user message; no shared agent session across phases | Each phase is a fresh SDK/ADK run with a bounded prompt; auditable artifacts on disk | **One long agent thread** across A/B/C — context creep, harder to parse structured outputs per phase | `prompts.py`, `build_phase2_user_message`, §13.17 table |
+| **Post-report chatbot memory** | **Light in-thread memory:** full transcript in `chatbot_chat.json`; prompt gets report + investigation + `summary_of_older` + last **N** messages (`PHASE2_CHATBOT_MAX_REPLAY_MESSAGES`); fold older turns via **text-only summarize** when count exceeds `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES` | Operators can dig deeper after Phase C without shipping a memory product; cheap, inspectable JSON on disk | **Hindsight / Mem0 / vector DB / LangGraph checkpointer** — cross-run or semantic memory is out of scope for one FTDC incident; adds infra and retrieval quality risk | `service.py` (`load_chatbot`, `maybe_summarize_chatbot`), `chatbot_chat.json` |
+| **Cross-run / fleet memory** | **None** — each `(run_id, llm)` is isolated | RCA is per upload; conflating incidents would confuse citations | **Global memory store** — wrong trust model for forensic RCA | `phase2/llm/<slot>/`, `llm_index.json` |
+| **Web research tool** | Shared **`web_fetch`** — SSRF-safe HTTPS, size/timeout caps (`PHASE2_WEB_FETCH_*`) for Cursor + Gemini | One policy, one audit category (`web` in tool trace), operator-trustable allowlist behavior | **Gemini `GoogleSearchTool` only** — provider-specific, harder to align with Cursor; removed from ADK tool list | `web_fetch.py`, `adk_evidence_tools.py` |
+| **Agent filesystem writes** | **Writes only under** `chatbot_scratch/` per LLM slot; reads/grep/shell allowed more broadly with prompts steering toward evidence | Scratch notes and small artifacts without polluting bundle or repo | **Unrestricted write** — risk to export bundle integrity and git workspace | `session.ensure_chatbot_scratch_dir()`, `prompts.py` `SCRATCH_RULES` |
+| **LLM slots** | **`mock` / `cursor` / `gemini`** with separate `phase2/llm/<slot>/` trees | Compare providers on same run without overwriting investigation/report/trace | **Single shared phase2 folder** — switching LLM corrupted state (fixed 2026-06) | `llm_paths.py`, `test_llm_isolation.py` |
+| **UI layer** | Top-level **`frontend/`** (templates + static); backend wires routes only | Reskin or replace UI without touching Phase 2 logic | **Templates under `backend/app/`** — coupled deploy story | `frontend/`, `web/routes.py` |
+| **Phase A→B→C rail (UI)** | Client state machine in `phase-rail.js`, hydrated from `GET /phase2/status`; sticky shell **hides on scroll** while reading report/chat | Progress feedback during RCA; rail gets out of the way when reading long content | **Always-visible sticky bar** — blocks report/chat (user feedback); **server-driven SSE rail** — unnecessary for three discrete phases | `phase-rail.js`, `rca.js` `setFromApiStatus` |
+| **Charting** | **Grafana** (external tab) for human exploration; MCP slices for agent evidence | Real FTDC dashboards from `simagix/grafana-ftdc`; no duplicate chart stack in app | **Embedded Chart.js / graphs API** — removed as duplicate path | §8, `grafana/service.py` |
+| **Citation trust (future)** | Documented preference: **deterministic verifier** on `tool_trace.json` before any **LLM auditor agent** | Highest ROI for “prove the agent looked” without second agent cost | **Verifier-only LLM** as first step — slower, still probabilistic | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Trust & cost |
+
+### 14.1 Sound bites for a manager
+
+1. **“We didn’t skip memory — we scoped it.”** Chatbot remembers **this thread on disk**, not every RCA the company ever ran.
+2. **“LangGraph would be orchestration sugar on top of a workflow we already encoded in `service.py`.”** We’d still need the same prompts, schemas, and MCP servers.
+3. **“The SDK is the agent runtime; we’re the evidence and workflow layer.”** That’s the intern-project sweet spot: integrate, don’t rebuild OpenAI’s tool loop.
+4. **“Per-LLM folders are like git worktrees for experiments.”** Mock vs Cursor vs Gemini on the same FTDC upload without cross-contamination.
+
+### 14.2 When to revisit a decision
+
+| Signal | Consider |
+|--------|----------|
+| Eval shows Phase A repeatedly misses logs **and** metrics | Parallel specialist agents (see PROJECT_STATUS) |
+| Chat threads routinely exceed summarize threshold with quality loss | Tune `PHASE2_CHATBOT_*` or add retrieval over `chatbot_chat.json` (still not cross-run) |
+| Product scope becomes **fleet triage** across many runs | LangGraph-style supervisor + shared index — **new project phase**, not a quick add-on |

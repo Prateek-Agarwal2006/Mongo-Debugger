@@ -2,7 +2,7 @@
 
 How agents and humans keep project docs accurate. **This is the source of truth for which file to update when.**
 
-**Last updated:** 2026-06-14
+**Last updated:** 2026-06-16
 
 ---
 
@@ -20,7 +20,7 @@ Cursor enforces this via `.cursor/rules/doc-maintenance.mdc` (`alwaysApply: true
 |----------|------|----------------|
 | [CHANGELOG.md](CHANGELOG.md) | What improved, how, why (dated narrative) | Spec scorecard |
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | PDF spec alignment, milestones, future work | Step-by-step ops |
-| [DESIGN_NOTES.md](DESIGN_NOTES.md) | Why architecture impresses / demo talking points | API field lists |
+| [DESIGN_NOTES.md](DESIGN_NOTES.md) | Why architecture impresses / demo talking points; **§14 tradeoff table** (mentor “why not X?”) | API field lists |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System design, data flow, role split | Command cheatsheet |
 | [OPERATIONS.md](OPERATIONS.md) | Setup, Colima, pipeline, upload, Grafana, env troubleshooting | REST request bodies |
 | [RCA_BACKEND.md](RCA_BACKEND.md) | REST + web routes, backend module layout | MCP tool semantics |
@@ -47,7 +47,8 @@ Root [README.md](../README.md), [backend/README.md](../backend/README.md), and [
 | **Phase 2 agent, MCP tools, prompts, budgets, 3-phase flow** | `CHANGELOG.md`, `PHASE2_LLM.md`, `RCA_BACKEND.md`, `DESIGN_NOTES.md` (if design choice) |
 | **Upload, pipeline scripts, Docker/Grafana/Colima** | `CHANGELOG.md`, `OPERATIONS.md`, `SIMAGIX_WORKSPACE.md`, `SIMAGIX_TOOLCHAIN.md`, `ARCHITECTURE.md` (if flow changes) |
 | **Evidence bundle files, tiers, export flags** | `CHANGELOG.md`, `export_contract.md`, `EVIDENCE_GUIDE.md`, `FALLBACK_INDEX.md` (if index shape), `ARCHITECTURE.md` |
-| **System architecture / role split** | `CHANGELOG.md`, `ARCHITECTURE.md`, `DESIGN_NOTES.md` |
+| **System architecture / role split** | `CHANGELOG.md`, `ARCHITECTURE.md`, `DESIGN_NOTES.md` (+ **§14 row** if a tradeoff was decided) |
+| **Architecture choice with alternatives** (memory, orchestration, provider, UI pattern, etc.) | `DESIGN_NOTES.md` **§14** (required), `CHANGELOG.md` if behavior changed, `PROJECT_STATUS.md` if future-work scope shifted |
 | **Milestone done or spec gap closed** | `CHANGELOG.md`, `PROJECT_STATUS.md` |
 | **New future idea (not implemented)** | `PROJECT_STATUS.md` § Future enhancements only |
 | **Demo / interview narrative** | `DESIGN_NOTES.md`, optionally `CHANGELOG.md` if behavior tied |
@@ -56,6 +57,26 @@ Root [README.md](../README.md), [backend/README.md](../backend/README.md), and [
 | **Research / external product analysis** | New or existing research doc + `CHANGELOG.md` + link from `README.md` |
 
 When in doubt, add a short `CHANGELOG.md` entry and at least one technical doc.
+
+---
+
+## §14 tradeoff habit (mentor Q&A)
+
+**When:** You or the user chose an approach over a plausible alternative (e.g. disk transcript vs Hindsight, fixed 3-phase vs LangGraph, `web_fetch` vs Google Search).
+
+**Do:** In the **same session**, add or update one row in [DESIGN_NOTES.md](DESIGN_NOTES.md) **§14** with:
+
+| Column | Content |
+|--------|---------|
+| Topic | Short label |
+| What we chose | One line |
+| Why | Product/engineering reason |
+| Why not the alternative | What we rejected and why |
+| Code / config | File or env pointer |
+
+**Do not:** Create `DESIGN_DILEMMAS.md`, `MY_UNDERSTANDING.md`, or duplicate the table elsewhere. **§14** is the single source for “why this, not that.”
+
+**Optional:** Add a sound bite under §14.1 if it will come up in demos.
 
 ---
 
@@ -82,6 +103,7 @@ Before marking work complete:
 
 - [ ] `docs/CHANGELOG.md` — dated entry with What / How / Why
 - [ ] Each row from the matrix above — touched and `Last updated:` bumped
+- [ ] **`DESIGN_NOTES.md` §14** — new/updated row if an architecture tradeoff was decided or debated
 - [ ] `docs/README.md` — new doc linked if added
 - [ ] Internal markdown links still resolve
 - [ ] `uv run pytest backend/tests -q` if backend changed
@@ -91,4 +113,4 @@ Before marking work complete:
 
 ## Humans
 
-After merging a PR or finishing a local feature, skim `CHANGELOG.md` for that day. For demos, read `DESIGN_NOTES.md` + latest changelog section.
+After merging a PR or finishing a local feature, skim `CHANGELOG.md` for that day. For demos, read `DESIGN_NOTES.md` (§14 for tradeoffs) + latest changelog section.

@@ -539,3 +539,51 @@ def test_chatbot_api_mock(fixture_run_id: str) -> None:
     assert "root cause" in body["message"]["content"].lower()
     after = client.get(f"/simagix/runs/{fixture_run_id}/phase2/chatbot?llm=mock")
     assert len(after.json()["messages"]) == 2
+
+
+def test_chatbot_attachment_upload_and_message(fixture_run_id: str) -> None:
+    client = TestClient(create_app())
+    _complete_mock_rca(client, fixture_run_id)
+    chat_path = (
+        WORKSPACE_ROOT / "simagix-workspace/runs" / fixture_run_id / "phase2/llm/mock/chatbot_chat.json"
+    )
+    if chat_path.exists():
+        chat_path.unlink()
+    phase2_session_store.reset(fixture_run_id, "mock")
+
+    upload = client.post(
+        f"/simagix/runs/{fixture_run_id}/phase2/chatbot/attachments?llm=mock",
+        files={"file": ("notes.txt", b"slow query on orders", "text/plain")},
+    )
+    assert upload.status_code == 200
+    attachment = upload.json()
+    assert attachment["path"].startswith("attachments/")
+    assert attachment["name"] == "notes.txt"
+
+    post = client.post(
+        f"/simagix/runs/{fixture_run_id}/phase2/chatbot/messages?llm=mock",
+        json={
+            "content": "What does the attached notes file say?",
+            "attachments": [
+                {
+                    "name": attachment["name"],
+                    "path": attachment["path"],
+                    "size": attachment["size"],
+                }
+            ],
+        },
+    )
+    assert post.status_code == 200
+    history = client.get(f"/simagix/runs/{fixture_run_id}/phase2/chatbot?llm=mock")
+    user_msg = history.json()["messages"][0]
+    assert user_msg["attachments"][0]["path"] == attachment["path"]
+
+    scratch_file = (
+        WORKSPACE_ROOT
+        / "simagix-workspace/runs"
+        / fixture_run_id
+        / "phase2/llm/mock/chatbot_scratch"
+        / attachment["path"]
+    )
+    assert scratch_file.is_file()
+    assert b"slow query" in scratch_file.read_bytes()

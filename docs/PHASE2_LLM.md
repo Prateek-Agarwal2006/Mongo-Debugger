@@ -76,7 +76,7 @@ GET /phase2/status?llm=mock
   - **Clarify-only** runs: `cwd` = export bundle, MCP off.
   - **Investigation / final RCA / chatbot** (MCP on): agent `cwd` = `chatbot_scratch/`; bundle and session artifacts reachable by absolute paths in read/grep.
   - **MCP budget** counts simagix-evidence calls; local/shell/web appear separately in the trace UI.
-9. **Post-report chatbot (Phase 3).** After `latest_report.json` exists, `GET|POST /phase2/chatbot` drives an agentic thread per `(run_id, llm)`. Full history in `chatbot_chat.json`; prompt uses report + investigation + `summary_of_older` + last N messages. Summarize runs via text-only LLM call when thread exceeds `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES`.
+9. **Post-report chatbot (Phase 3).** After `latest_report.json` exists, `GET|POST /phase2/chatbot` drives an agentic thread per `(run_id, llm)`. Full history in `chatbot_chat.json`; prompt uses report + investigation + `summary_of_older` + last N messages. Summarize runs via text-only LLM call when thread exceeds `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES`. **Attachments:** `POST .../chatbot/attachments` stores files under `chatbot_scratch/attachments/` (text-friendly types, size cap).
 10. **Trusted web fetch.** `web_fetch.py` validates HTTPS URLs (SSRF blocks; optional `PHASE2_WEB_ALLOWLIST_SUFFIXES`). Used by Cursor and Gemini — not mongodb-only.
 
 **Deferred (not in this iteration):** curated runbook MCP / MCP resources from project PDFs — see [PROJECT_STATUS.md](PROJECT_STATUS.md) future enhancements.

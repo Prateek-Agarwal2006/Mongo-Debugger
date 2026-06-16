@@ -13,13 +13,8 @@ const PHASE_LABELS = {
 
 const STEPS = ["A", "B", "C"];
 
-const SCROLLABLE_SELECTORS = [
-  ".agent-chat-log",
-  ".tool-trace-scroll",
-  "#rca-section .card-body",
-  ".report-viewer",
-  ".rv-stack",
-].join(", ");
+const HIDE_AFTER_SCROLL_Y = 120;
+const SHOW_BELOW_SCROLL_Y = 48;
 
 /** @type {{ active: string, running: boolean, completed: Record<string, boolean> }} */
 let railState = {
@@ -97,28 +92,13 @@ function pageScrollY() {
   );
 }
 
-function isInnerPanelScrolled() {
-  return Array.from(document.querySelectorAll(SCROLLABLE_SELECTORS)).some(
-    (el) => el.scrollTop > 8
-  );
-}
-
 function shouldHideRailShell() {
   if (railState.running) return false;
-
-  if (pageScrollY() > 24) return true;
-
-  const anchor = document.getElementById("run-analysis-card");
-  if (anchor && anchor.getBoundingClientRect().top < 72) return true;
-
-  const sentinel = document.getElementById("phase-rail-sentinel");
-  if (sentinel && sentinel.getBoundingClientRect().top < 56) return true;
-
-  return isInnerPanelScrolled();
+  return pageScrollY() > HIDE_AFTER_SCROLL_Y;
 }
 
 function shouldShowRailShell() {
-  return pageScrollY() <= 8 && !isInnerPanelScrolled();
+  return pageScrollY() <= SHOW_BELOW_SCROLL_Y;
 }
 
 function setRailShellHidden(hidden) {
@@ -135,34 +115,22 @@ function setRailShellHidden(hidden) {
   shell.setAttribute("aria-hidden", hidden ? "true" : "false");
 }
 
+function showRailShell() {
+  setRailShellHidden(false);
+}
+
 function refreshRailShellVisibility() {
   if (railState.running) {
     setRailShellHidden(false);
     return;
   }
-  if (shouldShowRailShell()) {
-    setRailShellHidden(false);
-    return;
-  }
   if (shouldHideRailShell()) {
     setRailShellHidden(true);
+    return;
   }
-}
-
-function bindInnerScrollable(el) {
-  if (!el || el.dataset.phaseRailScrollBound === "1") return;
-  el.dataset.phaseRailScrollBound = "1";
-  el.addEventListener(
-    "scroll",
-    () => {
-      refreshRailShellVisibility();
-    },
-    { passive: true }
-  );
-}
-
-function bindAllInnerScrollables() {
-  document.querySelectorAll(SCROLLABLE_SELECTORS).forEach(bindInnerScrollable);
+  if (shouldShowRailShell()) {
+    setRailShellHidden(false);
+  }
 }
 
 function initRailScrollHide() {
@@ -172,39 +140,7 @@ function initRailScrollHide() {
   const onMove = () => refreshRailShellVisibility();
 
   window.addEventListener("scroll", onMove, { passive: true });
-  document.addEventListener("scroll", onMove, { passive: true, capture: true });
-
-  document.addEventListener(
-    "wheel",
-    (event) => {
-      if (railState.running) return;
-      if (event.deltaY > 4) {
-        setRailShellHidden(true);
-      } else if (event.deltaY < -4 && shouldShowRailShell()) {
-        setRailShellHidden(false);
-      }
-    },
-    { passive: true, capture: true }
-  );
-
-  document.addEventListener(
-    "touchmove",
-    () => {
-      refreshRailShellVisibility();
-    },
-    { passive: true, capture: true }
-  );
-
   window.addEventListener("resize", onMove, { passive: true });
-
-  bindAllInnerScrollables();
-
-  if (typeof MutationObserver !== "undefined") {
-    const observer = new MutationObserver(() => bindAllInnerScrollables());
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  refreshRailShellVisibility();
 }
 
 function renderRail() {
@@ -267,6 +203,7 @@ function applyState(next) {
 function resetRail() {
   railState = { active: "idle", running: false, completed: emptyCompleted() };
   renderRail();
+  showRailShell();
 }
 
 function setPhase(active, options = {}) {
@@ -302,6 +239,7 @@ function setFromApiStatus(apiStatus) {
       completed: { A: true, B: false, C: false },
     };
     renderRail();
+    showRailShell();
     return;
   }
   if (apiStatus === "running_rca") {
@@ -320,6 +258,7 @@ function setFromApiStatus(apiStatus) {
       completed: { A: true, B: true, C: true },
     };
     renderRail();
+    showRailShell();
     return;
   }
   resetRail();
@@ -328,6 +267,7 @@ function setFromApiStatus(apiStatus) {
 function bootPhaseRail() {
   initRailScrollHide();
   renderRail();
+  showRailShell();
 }
 
 if (document.readyState === "loading") {
@@ -342,6 +282,7 @@ window.FtdcPhaseRail = {
   reset: resetRail,
   applyState,
   setFromApiStatus,
+  showShell: showRailShell,
   getState: () => ({ ...railState, completed: { ...railState.completed } }),
   refreshShell: refreshRailShellVisibility,
 };
