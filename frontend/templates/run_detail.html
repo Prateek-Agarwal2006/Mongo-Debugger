@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}{{ run_id }} — FTDC Analyzer{% endblock %}
+{% block body_class %}page-run-detail{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/report-viewer.css"/>
+<link rel="stylesheet" href="/static/css/clarify-chat.css"/>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="/static/js/phase-rail.js?v=2" defer></script>
+<script src="/static/js/clarify-wizard.js" defer></script>
+<script src="/static/js/report-viewer.js" defer></script>
+<script src="/static/js/agent-chat.js" defer></script>
+<script src="/static/js/grafana.js" defer></script>
+<script src="/static/js/rca.js" defer></script>
+{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/runs">Runs</a></li>
+    <li class="breadcrumb-item active" aria-current="page"><code>{{ run_id }}</code></li>
+  </ol>
+</nav>
+
+<div id="phase-rail-shell" class="phase-rail-shell">
+<div id="phase-rail" class="phase-rail" data-phase="idle" aria-label="RCA phase progress">
+  <div class="phase-rail-track" aria-hidden="true">
+    <div class="phase-rail-fill"></div>
+  </div>
+  <div class="phase-rail-nodes">
+    <div class="phase-node" data-step="A">
+      <span class="phase-node-dot">A</span>
+      <span class="phase-node-label">Investigate</span>
+      <span class="phase-node-sublabel">MCP tools</span>
+    </div>
+    <div class="phase-node" data-step="B">
+      <span class="phase-node-dot">B</span>
+      <span class="phase-node-label">Clarify</span>
+      <span class="phase-node-sublabel">Questions</span>
+    </div>
+    <div class="phase-node" data-step="C">
+      <span class="phase-node-dot">C</span>
+      <span class="phase-node-label">Final RCA</span>
+      <span class="phase-node-sublabel">Report</span>
+    </div>
+  </div>
+  <p class="phase-rail-status mb-0" id="phase-rail-status">Ready — click Run RCA to start Phase A</p>
+</div>
+</div>
+<div id="phase-rail-sentinel" class="phase-rail-sentinel" aria-hidden="true"></div>
+
+<div class="glass-card mb-4 border-success border-opacity-25" id="run-analysis-card">
+  <div class="card-body p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h1 class="h3 mb-2"><i class="bi bi-activity me-2 text-success"></i>Run analysis</h1>
+        <div class="d-flex flex-wrap gap-2">
+          <span class="badge text-bg-secondary"><i class="bi bi-hdd-network me-1"></i>Host: {{ manifest.get('host', 'n/a') }}</span>
+          <span class="badge text-bg-dark border border-secondary-subtle">Tier: {{ manifest.get('export_tier', 'n/a') }}</span>
+        </div>
+      </div>
+      <div class="btn-group flex-wrap" role="group" aria-label="Report exports">
+        <a class="btn btn-outline-light btn-sm" id="html-report-link" href="/simagix/runs/{{ run_id }}/phase2/reports/latest/view?llm={{ selected_llm }}" target="_blank" rel="noopener">
+          <i class="bi bi-filetype-html me-1"></i>HTML Report
+        </a>
+        <a class="btn btn-outline-light btn-sm" id="plain-report-link" href="/simagix/runs/{{ run_id }}/phase2/reports/latest?format=pretty&amp;llm={{ selected_llm }}" target="_blank" rel="noopener">
+          <i class="bi bi-file-text me-1"></i>Plain Text
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="glass-card mb-4" id="grafana-section">
+  <div class="card-header bg-transparent border-secondary-subtle">
+    <h2 class="h5 mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Metrics (Grafana)</h2>
+  </div>
+  <div class="card-body">
+    <p class="text-secondary small">
+      Charts open in <strong>Grafana</strong> (localhost:3030). Upload jobs warm Grafana automatically;
+      for older runs use <strong>Load FTDC for this run</strong>, then open a dashboard below.
+    </p>
+    <div id="grafana-status" class="alert alert-secondary border-0 py-2 small mb-3">Checking Grafana stack…</div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-primary" id="grafana-load-btn">
+        <i class="bi bi-arrow-clockwise me-1"></i>Load FTDC for this run
+      </button>
+      <a class="btn btn-primary" id="grafana-open-anomaly" href="#" target="_blank" rel="noopener" hidden>
+        <i class="bi bi-exclamation-triangle me-1"></i>Anomaly View
+      </a>
+      <a class="btn btn-primary" id="grafana-open-all" href="#" target="_blank" rel="noopener" hidden>
+        <i class="bi bi-grid me-1"></i>All Metrics
+      </a>
+    </div>
+    <div id="grafana-meta" class="small text-secondary mt-3" hidden></div>
+  </div>
+</div>
+
+<div class="row g-4 rca-grid">
+  <div class="col-xl-6">
+    <section class="glass-card h-100" id="rca-section">
+      <div class="card-header bg-transparent border-secondary-subtle">
+        <h2 class="h5 mb-0"><i class="bi bi-robot me-2 text-warning"></i>Root Cause Analysis</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-secondary small" id="rca-status">
+          Phase A: tier-2 investigation (MCP tools) → Phase B: up to 10 clarifying questions → Phase C: final RCA.
+        </p>
+        <div class="d-flex flex-wrap align-items-end gap-3 mb-3 rca-controls">
+          <div>
+            <label class="form-label small text-secondary mb-1" for="llm-context-select">LLM</label>
+            <select id="llm-context-select" class="form-select form-select-sm llm-provider-select">
+              {% for option in llm_context_options %}
+              <option
+                value="{{ option.id }}"
+                {% if not option.available %}disabled{% endif %}
+                {% if option.id == selected_llm %}selected{% endif %}
+              >
+                {{ option.label }}{% if not option.available %} (not configured){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-success btn-glow" id="run-rca-btn" type="button">
+            <i class="bi bi-play-fill me-1"></i>Run RCA
+          </button>
+          <a class="btn btn-outline-secondary btn-sm" href="/docs#/simagix-phase2/upload_profiler_data_simagix_runs__run_id__phase2_profiler_post" target="_blank" rel="noopener">
+            Profiler API
+          </a>
+        </div>
+        <pre id="investigation-summary" class="pretty-report" hidden></pre>
+        <form id="clarify-form" class="mt-3" hidden>
+          <div id="clarify-progress" class="mb-2" aria-label="Question progress"></div>
+          <div id="questions-container"></div>
+          <div class="d-flex flex-wrap gap-2 mt-3" id="clarify-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="clarify-prev" hidden>
+              <i class="bi bi-arrow-left me-1"></i>Previous
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="clarify-skip">
+              Skip
+            </button>
+            <button type="button" class="btn btn-success btn-sm" id="clarify-next">
+              Next<i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="submit" class="btn btn-success btn-sm btn-glow" id="clarify-submit" hidden>
+              <i class="bi bi-send me-1"></i>Submit &amp; Run Final RCA
+            </button>
+          </div>
+        </form>
+        <pre id="rca-result" class="pretty-report mt-3" hidden></pre>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-xl-6">
+    <section class="glass-card h-100" id="tool-trace-panel">
+      <div class="card-header bg-transparent border-secondary-subtle">
+        <h2 class="h5 mb-0"><i class="bi bi-list-check me-2 text-info"></i>Agent Tool Activity</h2>
+      </div>
+      <div class="card-body p-0 d-flex flex-column tool-trace-body">
+        <p class="text-secondary small px-3 pt-3 mb-2 flex-shrink-0" id="tool-trace-summary">Loading tool trace…</p>
+        <p class="text-secondary small px-3 mb-0 flex-shrink-0">Per-LLM tool calls for the selected LLM above.</p>
+        <div class="tool-trace-scroll mt-2 flex-grow-1" tabindex="0" aria-label="Agent tool activity table — scroll horizontally for full args">
+          <table class="table table-sm table-hover mb-0 align-middle" id="tool-trace-table">
+            <thead class="table-secondary table-opacity-25">
+              <tr>
+                <th>Phase</th>
+                <th>Category</th>
+                <th>Tool</th>
+                <th>Status</th>
+                <th>Args / result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="5" class="text-secondary small">No tool calls recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="glass-card mt-4" id="report-section">
+  <div class="card-header bg-transparent border-secondary-subtle d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h2 class="h5 mb-0"><i class="bi bi-file-earmark-medical me-2 text-success"></i>RCA Report</h2>
+    <span class="badge text-bg-dark border border-secondary-subtle" id="report-llm-label">LLM: {{ selected_llm }}</span>
+  </div>
+  <div class="card-body">
+    <p class="text-secondary small mb-3">Scroll sections — causal chain connects step-by-step. Chat below after Phase C.</p>
+    <div id="report-viewer" class="report-viewer" {% if not has_report %}hidden{% endif %}></div>
+    <p class="text-secondary mt-3 mb-0" id="no-report-msg" {% if not has_report %}hidden{% endif %}>No Phase 2 report for this LLM yet. Run RCA above.</p>
+
+    <div id="agent-chat-panel" class="agent-chat-panel" {% if not has_report %}hidden{% endif %}>
+      <h3 class="h6 mb-1"><i class="bi bi-chat-dots me-2 text-success"></i>Chatbot</h3>
+      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up on the report — MCP, web fetch, and scratch analysis. Paste profiler JSON (array) to upload.</p>
+      <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
+      <form id="agent-chat-form" class="d-flex flex-column gap-2">
+        <textarea class="form-control form-control-sm" id="agent-chat-input" rows="3" placeholder="Ask about root cause, fixes, evidence…" autocomplete="off"></textarea>
+        <button type="submit" class="btn btn-success btn-sm flex-shrink-0"><i class="bi bi-send"></i></button>
+      </form>
+    </div>
+
+    <details class="mt-3" id="report-raw-details" {% if not has_report %}hidden{% endif %}>
+      <summary class="small text-secondary user-select-none">View raw plain-text report</summary>
+      <pre class="pretty-report mt-2 mb-0" id="saved-report-raw">{% if has_report %}{{ report_text }}{% endif %}</pre>
+    </details>
+  </div>
+</section>
+
+<script>
+  const RUN_ID = '{{ run_id }}';
+  const INITIAL_LLM = '{{ selected_llm }}';
+  const HAS_REPORT = {{ 'true' if has_report else 'false' }};
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.FtdcGrafana) window.FtdcGrafana.init(RUN_ID);
+    if (window.FtdcRca) window.FtdcRca.init(INITIAL_LLM);
+  });
+</script>
+{% endblock %}

@@ -2,7 +2,7 @@
 
 **Reference spec:** [FTDC_Analyzer_AI_Agent_Intern_Project_final.pdf](../FTDC_Analyzer_AI_Agent_Intern_Project_final.pdf)
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-16
 
 **Improvement history:** [CHANGELOG.md](CHANGELOG.md) · **Doc update matrix:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md)
 
@@ -17,7 +17,9 @@ Mongo Debugger implements an **AI-powered FTDC Analyzer** that ingests MongoDB `
 | FTDC parsing & tiered export | **Complete** |
 | RCA orchestration backend | **Complete** |
 | Phase 2 agent (3-phase RCA + MCP) | **Complete** |
-| Web UI (upload, runs, Grafana, RCA panel) | **Complete** |
+| Web UI (upload, runs, Grafana, RCA panel, chatbot) | **Complete** |
+| Phase 3 post-report agentic chatbot | **Complete** |
+| Per-LLM artifact isolation (cursor / gemini / mock) | **Complete** |
 | Hybrid anomaly correlation | **Complete** |
 | 3-phase iterative RCA (investigate → clarify → RCA) | **Complete** |
 | Graylog MCP + profiler ingestion (PDF 3.4 Step 2) | **Complete** |
@@ -116,8 +118,12 @@ open http://localhost:8000/runs/phase1test20260605T071425Z
 
 | Variable | Purpose |
 |----------|---------|
-| `CURSOR_API_KEY` | Live Phase 2 agent (Cursor SDK) |
+| `LLM_PROVIDER` | Phase 2 backend: `cursor` (default), `gemini`, or `mock` |
+| `CURSOR_API_KEY` | Live Phase 2 agent (Cursor SDK) when `LLM_PROVIDER=cursor` |
 | `CURSOR_MODEL` | Agent model (default `composer-2.5`) |
+| `GOOGLE_API_KEY` | Google AI Studio key when `LLM_PROVIDER=gemini` |
+| `GOOGLE_MODEL` | Gemini model for ADK (default `gemini-2.5-flash`) |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `true` for Vertex AI instead of AI Studio |
 | `PHASE2_INVESTIGATION_MAX_TOOL_CALLS` | Investigation phase budget (default 6) |
 | `PHASE2_RCA_MAX_TOOL_CALLS` | Final RCA phase budget (default 6) |
 | `PHASE2_MAX_CLARIFYING_QUESTIONS` | Max operator questions (default 10) |
@@ -142,6 +148,63 @@ open http://localhost:8000/runs/phase1test20260605T071425Z
 
 ## Future enhancements
 
+### Trust & cost (recommended before multi-agent)
+
+These deliver most of the **accuracy/trust** benefit of “multi-agent” without a full orchestration graph. See [SUPERLOG_ANALYSIS.md](SUPERLOG_ANALYSIS.md) §5 for prioritization rationale.
+
+| Priority | Idea | Effort | Why |
+|----------|------|--------|-----|
+| 1 | **Deterministic citation verifier** — after Phase A/C, compare `RCAReportDraft` / `InvestigationSummary` claims to `tool_trace.json` (e.g. metric cited but `get_metric_window` never called) | Med | Highest trust ROI; Python-only, no second LLM |
+| 2 | **Tier-1 short-circuit** — skip Phase A when tier-1 has no findings and no anomaly windows | Low | Cost; mirrors Superlog “skip LLM when heuristic suffices” |
+| 3 | **Closed RCA taxonomy + confidence** — enum root-cause category + `low\|medium\|high` on verdict; UI shows low confidence as “hypothesis” | Low | Honest uncertainty; filterable reports |
+| 4 | **Prompt-cache tier-1** across Phases A/B/C + token usage logging per phase | Med | Cost measurable and reducible |
+
+### Multi-agent orchestration (mentor discussion)
+
+**Status:** Not implemented — documented for scope/ROI discussion.
+
+**What we have today:** Fixed **3-phase workflow** in `service.py` (investigate → clarify → human → final RCA). Each phase spawns **one** Cursor SDK agent (`Agent.create()` per phase). That is **workflow orchestration**, not dynamic multi-agent routing. `SimagixEvidenceService` is the shared evidence librarian (Facade), not an agent loop — see [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.16.
+
+**What “multi-agent orchestration” would mean:** A Python **coordinator** runs multiple **specialist agents** (investigator, metrics-only, logs-only, verifier, writer) with routing, retries, and shared state — e.g. verifier rejects unbacked claims and sends investigator back for another round.
+
+```text
+Today:     service.py → Agent A → Agent B → human → Agent C
+Multi-agent: Orchestrator → Investigator → Verifier → (retry?) → Clarifier → Writer
+             (+ optional parallel Metrics + Logs agents → Synthesizer)
+```
+
+**When it is justified**
+
+| Use case | Fits Mongo Debugger? |
+|----------|----------------------|
+| Verify claims against tool trace (auditor agent) | **Yes** — but start with deterministic Python check (#1 above) |
+| Parallel metrics + logs on huge incidents | **Maybe** — only if single investigator repeatedly misses one signal |
+| Dynamic supervisor (LangGraph-style routing) | **Weak fit** — single upload, deep RCA; adds cost/latency/complexity |
+| High-volume triage / cross-incident grouping | **No** — out of scope (one FTDC upload per run; see SUPERLOG §4) |
+
+**Assessment for this project:** Full multi-agent orchestration is **likely overkill** for the current single-incident RCA use case. The product bet is **one reasoning brain per incident** plus deterministic tier-1 (SUPERLOG §4). More agents increase API cost, latency, and failure modes without clear gain if tier-1 + one investigation pass already surfaces the story.
+
+**If we add anything multi-agent-shaped, prefer this order:**
+
+1. **Deterministic verifier** (Python on `tool_trace.json`) — not a second agent
+2. **Optional LLM verifier** (one extra MCP-OFF agent after Phase A) — only if (1) is too brittle on real runs
+3. **Parallel specialists** (metrics + logs) — only with eval evidence that Phase A misses signals
+4. **Dynamic supervisor graph** — defer unless requirements shift to fleet-scale triage
+
+**Likely touch points if built:** `llm/multi_agent.py` (orchestrator loop), `output_schema.py` (`VerificationResult`), extend `iterative_state.json` + `tool_trace.json` (`agent_role`), wire from `service.py`; API can stay `POST /phase2/run` internally.
+
+**Questions for mentor**
+
+1. Is **trust** (citation verification) the real gap, or **coverage** (need separate metrics vs logs agents)?
+2. Should verification be **deterministic** (tool trace) or **LLM auditor** (second agent)?
+3. Is multi-agent worth the **demo narrative** if eval on fixture runs doesn’t show single-agent failures?
+4. Any intern-scope cap (e.g. verifier only, no parallel agents)?
+
+---
+
+### Other future work
+
+- **Pipeline deduplication (upload path)** — `run-mongo-ftdc-pipeline.sh` runs `run-mongo-ftdc.sh` (`simagix/ftdc` `/mftdc`) then `run-llm-export.sh`; both call `ProcessFiles` + diagnosis on the same `diagnostic.data`, roughly doubling pipeline time. **Planned:** run `llm-export` only for RCA/API (writes `exports/`), optionally emit HTML/console from the same pass or on demand; keep `simagix/ftdc` image for Grafana server mode (`-server`), not a second analysis container per upload. See [DESIGN_NOTES.md](DESIGN_NOTES.md) §8.
 - **Curated runbook MCP / MCP resources** — tiered excerpts from project PDFs (`WiredTiger_read_ticket_drop_analysis.pdf`, `May_Incident_RCA.pdf`, etc.) with finding→runbook mapping; auditable offline citations that replace or supplement open web search
 - **Single FTDC decode for RCA + Grafana** — today `llm-export` and `/grafana/dir` each decode `diagnostic.data`; unify in mongo-ftdc (shared cache or push stats to FTDC API once)
 - **LLM model comparison** — run the same 3-phase RCA (investigation → clarify → final) across models (e.g. `composer-2.5`, Claude, GPT) on identical tier-1 bundles; compare citation quality, tool use, latency, token cost, and RCA accuracy side by side

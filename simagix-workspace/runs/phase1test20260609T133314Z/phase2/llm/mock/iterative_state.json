@@ -1,5 +1,7 @@
 {
   "status": "completed",
+  "llm": "mock",
+  "llm_provider": "mock",
   "investigation": {
     "run_id": "phase1test20260609T133314Z",
     "summary": "[mock] Schema placeholder: reviewed 4 tier-1 findings and 164 anomaly events on qa6-mongo-core12-2-b:53421. Mechanism fields are stubs \u2014 not a concluded RCA.",

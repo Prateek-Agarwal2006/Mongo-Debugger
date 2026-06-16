@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from backend.app.simagix.orchestrator import SimagixRCAOrchestrator
+from backend.app.simagix.evidence_service import SimagixEvidenceService
 
 
 def load_golden_incident(workspace_root: Path) -> dict[str, Any]:
@@ -15,9 +15,9 @@ def load_golden_incident(workspace_root: Path) -> dict[str, Any]:
 
 def evaluate_run(workspace_root: Path, run_id: str) -> dict[str, Any]:
     golden = load_golden_incident(workspace_root)
-    orchestrator = SimagixRCAOrchestrator(workspace_root, run_id)
-    tier1 = orchestrator.load_tier1()
-    context = orchestrator.get_prompt_context()
+    evidence = SimagixEvidenceService(workspace_root, run_id)
+    tier1 = evidence.load_tier1()
+    context = evidence.get_prompt_context()
 
     finding_names = {finding.name for finding in tier1.findings}
     expected_findings = set(golden.get("expected_findings", []))
@@ -33,7 +33,7 @@ def evaluate_run(workspace_root: Path, run_id: str) -> dict[str, Any]:
 
     metric = "repl_lag_host-1"
     window = golden.get("critical_window", {})
-    sample = orchestrator.get_metric_window(
+    sample = evidence.get_metric_window(
         metric,
         start=None,
         end=None,

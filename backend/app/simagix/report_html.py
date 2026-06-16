@@ -76,62 +76,66 @@ def render_report_html(
     confidence = f"{report.confidence * 100:.0f}%" if report.confidence is not None else "N/A"
 
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>RCA Report — {run_id}</title>
-  <link rel="stylesheet" href="/static/css/app.css"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/theme.css"/>
 </head>
-<body>
-  <header class="hero">
-    <h1>FTDC Root Cause Analysis</h1>
-    <p class="meta">Run: {run_id} | Confidence: {confidence}</p>
-    <p class="muted">Interactive charts: open the run page Grafana section for this run.</p>
-  </header>
+<body class="py-4">
   <main class="container">
-    <section class="card">
-      <h2>Summary</h2>
-      <p>{report.summary}</p>
+    <header class="card shadow-sm mb-4 border-success border-opacity-25">
+      <div class="card-body">
+        <h1 class="h3">FTDC Root Cause Analysis</h1>
+        <p class="text-secondary mb-0">Run: <code>{run_id}</code> | Confidence: {confidence}</p>
+        <p class="text-secondary small mt-2 mb-0">Interactive charts: open the run page Grafana section for this run.</p>
+      </div>
+    </header>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Summary</h2></div>
+      <div class="card-body"><p>{report.summary}</p></div>
     </section>
-    <section class="card">
-      <h2>Root Cause</h2>
-      <p>{report.root_cause}</p>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Root Cause</h2></div>
+      <div class="card-body"><p>{report.root_cause}</p></div>
     </section>
-    <section class="card">
-      <h2>Mechanism — Why It Happened</h2>
-      {mechanism_html}
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Mechanism — Why It Happened</h2></div>
+      <div class="card-body">{mechanism_html}</div>
     </section>
-    <section class="card">
-      <h2>Incident Timeline</h2>
-      {timeline_html or '<p class="muted">No timeline events recorded.</p>'}
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Incident Timeline</h2></div>
+      <div class="card-body">{timeline_html or '<p class="text-secondary">No timeline events recorded.</p>'}</div>
     </section>
-    <section class="card">
-      <h2>Finding Analyses</h2>
-      {analyses_html or '<p class="muted">No per-finding analyses.</p>'}
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Finding Analyses</h2></div>
+      <div class="card-body">{analyses_html or '<p class="text-secondary">No per-finding analyses.</p>'}</div>
     </section>
-    <section class="card">
-      <h2>Causal Chain</h2>
-      <ol>{chain_html or '<li class="muted">No causal chain steps.</li>'}</ol>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Causal Chain</h2></div>
+      <div class="card-body"><ol>{chain_html or '<li class="text-secondary">No causal chain steps.</li>'}</ol></div>
     </section>
-    <section class="card">
-      <h2>Correlated Anomaly Clusters</h2>
-      {clusters_html or '<p class="muted">No correlation data.</p>'}
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Correlated Anomaly Clusters</h2></div>
+      <div class="card-body">{clusters_html or '<p class="text-secondary">No correlation data.</p>'}</div>
     </section>
-    <section class="card">
-      <h2>Evidence</h2>
-      <ul>{citations_html}</ul>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Evidence</h2></div>
+      <div class="card-body"><ul>{citations_html}</ul></div>
     </section>
-    <section class="card">
-      <h2>Suggested Next Steps</h2>
-      <ul>{fixes_html}</ul>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Suggested Next Steps</h2></div>
+      <div class="card-body"><ul>{fixes_html}</ul></div>
     </section>
-    <section class="card">
-      <h2>Web References</h2>
-      <ul>{refs_html or '<li class="muted">No reference URLs cited.</li>'}</ul>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Web References</h2></div>
+      <div class="card-body"><ul>{refs_html or '<li class="text-secondary">No reference URLs cited.</li>'}</ul></div>
     </section>
-    <section class="card">
-      <h2>Full Text Report</h2>
-      <pre class="pretty-report">{pretty}</pre>
+    <section class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent"><h2 class="h5 mb-0">Full Text Report</h2></div>
+      <div class="card-body"><pre class="pretty-report">{pretty}</pre></div>
     </section>
   </main>
 </body>

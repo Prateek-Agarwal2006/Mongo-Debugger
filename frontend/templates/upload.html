@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Upload — FTDC Analyzer{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <div class="page-hero-compact reveal-panel" data-reveal="up">
+      <h1 class="h2 mb-1 hero-title" style="font-size: 2rem;"><i class="bi bi-cloud-upload me-2 text-success"></i>Upload diagnostic.data</h1>
+      <p class="text-secondary mb-0">Start a new analysis run from FTDC metrics files.</p>
+    </div>
+
+    <div class="alert alert-secondary border-secondary-subtle d-flex gap-3 align-items-start reveal-panel" data-reveal="left">
+      <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
+      <div class="small">
+        <p class="mb-2">Accepted: <code>.zip</code> or <code>.tar.gz</code> containing <code>metrics.*</code>, or a single <code>metrics.*</code> file.</p>
+        <p class="mb-0 text-secondary">On Mac, zip your folder first:
+          <code>cd tmp &amp;&amp; zip -r diagnostic.zip diagnostic.data</code>
+        </p>
+      </div>
+    </div>
+
+    <div class="glass-card upload-card reveal-panel" data-reveal="right" data-reveal-depth="1.2">
+      <div class="card-body p-4 p-lg-5">
+        <form id="upload-form">
+          <div class="upload-dropzone text-center p-4 p-lg-5 mb-4 rounded-3" id="upload-dropzone">
+            <i class="bi bi-file-earmark-zip display-4 text-success mb-3 d-block"></i>
+            <label for="file-input" class="btn btn-outline-success mb-2">Choose archive</label>
+            <input type="file" name="file" id="file-input" class="d-none" required/>
+            <p class="text-secondary small mb-0" id="file-name">No file selected</p>
+          </div>
+          <div class="d-grid d-sm-flex gap-2">
+            <button type="submit" class="btn btn-success btn-lg px-4 btn-glow">
+              <i class="bi bi-play-fill me-2"></i>Upload &amp; Run Pipeline
+            </button>
+          </div>
+        </form>
+        <div id="upload-status" class="mt-4 text-secondary" role="status"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput = document.getElementById('file-input');
+const fileNameEl = document.getElementById('file-name');
+const dropzone = document.getElementById('upload-dropzone');
+
+fileInput?.addEventListener('change', () => {
+  const file = fileInput.files?.[0];
+  fileNameEl.textContent = file ? file.name : 'No file selected';
+});
+
+dropzone?.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzone.classList.add('upload-dropzone-active');
+});
+dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('upload-dropzone-active'));
+dropzone?.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('upload-dropzone-active');
+  const file = e.dataTransfer?.files?.[0];
+  if (file && fileInput) {
+    fileInput.files = e.dataTransfer.files;
+    fileNameEl.textContent = file.name;
+  }
+});
+dropzone?.addEventListener('click', (e) => {
+  if (e.target === dropzone || (e.target.closest('.upload-dropzone') && !e.target.closest('label'))) {
+    fileInput?.click();
+  }
+});
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('upload-status');
+  const form = e.target;
+  const data = new FormData(form);
+  status.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading…';
+  try {
+    const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
+    let body;
+    try {
+      body = await resp.json();
+    } catch {
+      status.textContent = `Upload failed: server returned ${resp.status} (non-JSON response)`;
+      return;
+    }
+    if (!resp.ok) {
+      const detail = Array.isArray(body.detail)
+        ? body.detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+        : (body.detail || 'Upload failed');
+      status.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${detail}</span>`;
+      return;
+    }
+    status.innerHTML = `Job <code>${body.job_id}</code> started for run <a href="/runs/${body.run_id}">${body.run_id}</a>. Polling…`;
+    const poll = setInterval(async () => {
+      const job = await fetch(`/simagix/uploads/jobs/${body.job_id}`).then((r) => r.json());
+      status.textContent = `Job ${job.state}: ${job.message}`;
+      if (job.state === 'succeeded') {
+        clearInterval(poll);
+        window.location.href = `/runs/${body.run_id}`;
+      }
+      if (job.state === 'failed') {
+        clearInterval(poll);
+        status.innerHTML = `<span class="text-danger">Failed: ${job.error || job.message}</span>`;
+      }
+    }, 3000);
+  } catch (err) {
+    status.innerHTML = `<span class="text-danger">Upload failed: ${err.message}</span>`;
+  }
+});
+</script>
+{% endblock %}

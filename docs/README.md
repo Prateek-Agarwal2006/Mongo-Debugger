@@ -81,9 +81,9 @@ Manual pipeline from disk (Docker required): see [Operations](OPERATIONS.md#pipe
 
 ```text
 Upload / disk → mongo-ftdc (deterministic) → tiered evidence bundle
-  → FastAPI orchestration + web UI
-  → Cursor SDK agent + MCP evidence tools
-  → RCA report (JSON + HTML) + Grafana charts
+  → FastAPI orchestration + Bootstrap UI (frontend/)
+  → Cursor SDK / Gemini ADK agent + MCP evidence tools
+  → RCA report (JSON + HTML) + post-report chatbot + Grafana charts
 ```
 
 For current implementation status, see [Project Status](PROJECT_STATUS.md) — do not rely on status tables inside [FTDC Reference](FTDC_REFERENCE.md) (historical notes).
@@ -102,7 +102,8 @@ For current implementation status, see [Project Status](PROJECT_STATUS.md) — d
 ```text
 Mongo Debugger/
   docs/                         All documentation (this index)
-  backend/                      FastAPI app + web UI
+  frontend/                     Bootstrap UI (templates + static; swappable)
+  backend/                      FastAPI APIs + web route wiring
   scripts/demo.sh               One-command demo
   simagix-workspace/
     data/uploads/               Web upload staging (per run_id)

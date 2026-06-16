@@ -258,7 +258,7 @@ From `buildTopAnomalyWindows(diagnosis.Anomalies, 25)`.
 Prevents runaway context growth:
 
 - Each `get_metric_window` returns at most `limit` points (default 500)
-- Max 12 calls per orchestrator session → HTTP 429 when exhausted
+- Max 12 calls per evidence-service session → HTTP 429 when exhausted
 - LLM must finalize RCA from tier_1 if budget runs out
 
 ---

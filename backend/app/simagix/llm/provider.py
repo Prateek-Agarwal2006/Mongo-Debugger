@@ -17,6 +17,12 @@ class Phase2RunResult:
     raw_assistant_text: str = ""
 
 
+@dataclass
+class ChatbotResult:
+    content: str
+    tool_calls_used: int = 0
+
+
 class LLMProvider(ABC):
     """Provider seam for Phase 2 agentic RCA."""
 
@@ -41,4 +47,18 @@ class LLMProvider(ABC):
         *,
         max_questions: int,
     ) -> ClarifyingQuestionsBlock:
+        raise NotImplementedError
+
+    @abstractmethod
+    def run_chatbot(self, session: Phase2Session, user_message: str) -> ChatbotResult:
+        raise NotImplementedError
+
+    @abstractmethod
+    def summarize_chat_history(
+        self,
+        session: Phase2Session,
+        messages_to_fold: list[dict[str, str]],
+        *,
+        prior_summary: str | None = None,
+    ) -> str:
         raise NotImplementedError

@@ -10,7 +10,7 @@ from backend.app.main import create_app
 from backend.app.simagix.bundle import SimagixBundleLoader
 from backend.app.simagix.eval import evaluate_run
 from backend.app.simagix.grounding import GroundingRules
-from backend.app.simagix.orchestrator import SimagixRCAOrchestrator
+from backend.app.simagix.evidence_service import SimagixEvidenceService
 from backend.app.simagix.output_schema import RCAReportDraft
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
@@ -123,8 +123,8 @@ def test_fallback_metric_window(run_id: str) -> None:
     bundle_dir = EXPORTS_DIR / run_id
     if not (bundle_dir / "llm/fallback_retrieval_index.json").exists():
         pytest.skip("Bundle missing fallback index; regenerate export")
-    orchestrator = SimagixRCAOrchestrator(WORKSPACE_ROOT, run_id)
-    result = orchestrator.get_metric_window("cpu_idle", limit=10)
+    evidence = SimagixEvidenceService(WORKSPACE_ROOT, run_id)
+    result = evidence.get_metric_window("cpu_idle", limit=10)
     assert result["metric"] == "cpu_idle"
     assert result["point_count"] >= 1
 

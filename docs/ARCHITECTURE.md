@@ -42,7 +42,7 @@ flowchart TB
     Service["service.py"]
     Provider["Mock or CursorLLMProvider"]
     Agent["Cursor SDK Agent + MCP"]
-    Phase2Disk["runs/run_id/phase2/"]
+    Phase2Disk["runs/run_id/phase2/llm/mock|cursor|gemini/"]
   end
 
   subgraph step6 [Step 6 Grafana charts]
@@ -82,8 +82,8 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | Master step | Component | Provided by | Repo / path |
 |-------------|-----------|-------------|-------------|
 | — | HTTP server | **uvicorn** + **FastAPI** | `pyproject.toml`, `backend/app/main.py` |
-| 4 | HTML pages | **Jinja2** templates | `backend/app/web/templates/` |
-| 4 | Run-page JS | **Vanilla JS** | `backend/app/static/js/rca.js`, `grafana.js` |
+| 4 | HTML pages | **Jinja2** templates | `frontend/templates/` |
+| 4 | Run-page JS | **Vanilla JS** | `frontend/static/js/rca.js`, `grafana.js` |
 | 1 | File upload | **FastAPI** `UploadFile` | `api/upload.py` |
 | 2 | Background job | **Python** `threading` + `subprocess` | `jobs/pipeline.py` |
 | 2 | FTDC analysis | **mongo-ftdc** (Go, Docker) | `simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh` |
@@ -91,7 +91,7 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | 3 | Evidence JSON | **mongo-ftdc** export | `exports/mongo-ftdc/<run_id>/` |
 | 3 | Bundle loading | **SimagixBundleLoader** | `backend/app/simagix/bundle.py` |
 | 5 | REST Phase 2 | **FastAPI** routers | `api/phase2.py` |
-| 5 | Orchestration | **SimagixRCAOrchestrator** | `backend/app/simagix/orchestrator.py` |
+| 5 | Evidence service | **SimagixEvidenceService** | `backend/app/simagix/evidence_service.py` |
 | 5 | Report schemas | **Pydantic** | `backend/app/simagix/output_schema.py` |
 | 5 | Live LLM agent | **cursor-sdk** | `llm/cursor_provider.py` |
 | 5 | Mock LLM | **MockLLMProvider** | `llm/mock_provider.py` |
@@ -206,12 +206,12 @@ flowchart LR
   GetProvider -->|live| Cursor
   Mock --> phases
   Cursor --> phases
-  P2Trace --> Phase2State["phase2/tool_trace.json"]
+  P2Trace --> Phase2State["phase2/llm/{llm}/tool_trace.json"]
 ```
 
-`get_llm_provider`: `force_mock` or missing `CURSOR_API_KEY` → mock; otherwise Cursor SDK.
+`get_llm_provider`: `force_mock` or `LLM_PROVIDER=mock` → mock; `LLM_PROVIDER=gemini` + `GOOGLE_API_KEY` → Gemini ADK; `LLM_PROVIDER=cursor` + `CURSOR_API_KEY` → Cursor SDK; else mock.
 
-Persistence: `simagix-workspace/runs/<run_id>/phase2/` — `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`.
+Persistence: `simagix-workspace/runs/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `exports/mongo-ftdc/<run_id>/` is shared.
 
 ### Zoom C — Step 5 (agent + MCP)
 
@@ -229,7 +229,7 @@ flowchart TB
     Graylog["graylog optional"]
   end
 
-  subgraph orch [SimagixRCAOrchestrator]
+  subgraph orch [SimagixEvidenceService]
     Budget["RetrievalBudget"]
     Tools["get_metric_window get_normalized_series"]
     Bundle["SimagixBundleLoader"]
@@ -269,7 +269,7 @@ sequenceDiagram
   JS->>GF: user opens new tab
 ```
 
-Sources: [`grafana.js`](../backend/app/static/js/grafana.js), [`grafana/service.py`](../backend/app/grafana/service.py).
+Sources: [`grafana.js`](../frontend/static/js/grafana.js), [`grafana/service.py`](../backend/app/grafana/service.py).
 
 ---
 
@@ -357,11 +357,11 @@ Canonical 3-phase flow:
 
 | Phase | Endpoint | MCP | Output |
 |-------|----------|-----|--------|
-| A — Investigation | `POST .../phase2/run` | On | `phase2/investigation.json` |
+| A — Investigation | `POST .../phase2/run` | On | `phase2/llm/{llm}/investigation.json` |
 | B — Clarify | (same request) | Off | Clarifying questions in session state |
-| C — Final RCA | `POST .../phase2/clarify` | On | `RCAReportDraft` → `phase2/latest_report.json` |
+| C — Final RCA | `POST .../phase2/clarify?llm=` | On | `RCAReportDraft` → `phase2/llm/{llm}/latest_report.json` |
 
-Session state: `GET .../phase2/status`. Package builder (`/phase2/package`) remains for tooling and tests.
+Session state: `GET .../phase2/status?llm=`. Package builder (`/phase2/package`) remains for tooling and tests.
 
 See [PHASE2_LLM.md](PHASE2_LLM.md).
 
