@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,7 @@ from backend.app.simagix.llm.service import (
     prepare_phase2_run,
     start_phase2_run,
     submit_clarifications_and_run,
+    upload_chatbot_attachment,
 )
 from backend.app.simagix.llm.session import phase2_session_store
 from backend.app.simagix.llm.tool_trace import load_tool_trace
@@ -62,8 +63,15 @@ class Phase2RunRequest(BaseModel):
     )
 
 
+class ChatbotAttachmentRef(BaseModel):
+    name: str = Field(..., min_length=1)
+    path: str = Field(..., min_length=1)
+    size: int | None = Field(default=None, ge=0)
+
+
 class ChatbotMessageRequest(BaseModel):
-    content: str = Field(..., min_length=1, description="User message for post-report chatbot")
+    content: str = Field(default="", description="User message for post-report chatbot")
+    attachments: list[ChatbotAttachmentRef] = Field(default_factory=list)
 
 
 @router.get("/phase2/llm-providers")
@@ -277,6 +285,30 @@ def get_chatbot(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.post("/{run_id}/phase2/chatbot/attachments")
+async def post_chatbot_attachment(
+    run_id: str,
+    file: Annotated[UploadFile, File(description="Text-friendly attachment for chatbot scratch")],
+    llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
+) -> dict[str, object]:
+    folder = _require_llm(llm)
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="filename required")
+    data = await file.read()
+    try:
+        return upload_chatbot_attachment(
+            _workspace_root(),
+            run_id,
+            llm=folder,
+            filename=file.filename,
+            data=data,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/{run_id}/phase2/chatbot/messages")
 def post_chatbot(
     run_id: str,
@@ -292,6 +324,7 @@ def post_chatbot(
             run_id,
             llm=folder,
             content=body.content,
+            attachments=[a.model_dump() for a in body.attachments],
             force_mock=force_mock,
             llm_provider=llm_provider,
         )

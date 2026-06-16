@@ -12,6 +12,11 @@ from backend.app.simagix.llm.cursor_provider import CursorLLMProvider
 from backend.app.simagix.llm.gemini_adk_provider import GeminiAdkLLMProvider
 from backend.app.simagix.llm.llm_paths import llm_folder_name, list_llm_sessions, update_llm_index
 from backend.app.simagix.llm.mock_provider import MockLLMProvider
+from backend.app.simagix.llm.chatbot_attachments import (
+    format_user_content_with_attachments,
+    save_chatbot_attachment,
+    validate_attachment_refs,
+)
 from backend.app.simagix.llm.prompts import (
     build_chatbot_prompt,
     build_clarify_user_message,
@@ -424,13 +429,18 @@ def save_chatbot(session: Phase2Session, data: dict[str, Any]) -> None:
     session.chatbot_chat_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def _chat_message(role: str, content: str) -> dict[str, Any]:
+def _chat_message(
+    role: str,
+    content: str,
+    *,
+    attachments: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "id": str(uuid.uuid4()),
         "role": role,
         "content": content,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "attachments": [],
+        "attachments": attachments or [],
     }
 
 
@@ -478,6 +488,7 @@ def post_chatbot_message(
     *,
     llm: str,
     content: str,
+    attachments: list[dict[str, Any]] | None = None,
     force_mock: bool = False,
     llm_provider: str | None = None,
 ) -> dict[str, Any]:
@@ -493,12 +504,17 @@ def post_chatbot_message(
         raise FileNotFoundError(f"No report for chatbot: {run_id} llm={llm}")
 
     trimmed = content.strip()
+    attachment_refs = validate_attachment_refs(session, list(attachments or []))
+    if not trimmed and not attachment_refs:
+        raise ValueError("content or attachments required")
     if not trimmed:
-        raise ValueError("content must not be empty")
+        trimmed = "Please analyze the attached file(s)."
+
+    prompt_user_text = format_user_content_with_attachments(trimmed, attachment_refs)
 
     data = load_chatbot(session)
     messages = list(data.get("messages") or [])
-    messages.append(_chat_message("user", trimmed))
+    messages.append(_chat_message("user", trimmed, attachments=attachment_refs))
     data["messages"] = messages
     save_chatbot(session, data)
 
@@ -506,7 +522,15 @@ def post_chatbot_message(
     replay_n = settings.phase2_chatbot_max_replay_messages
     recent = messages[-replay_n:] if replay_n > 0 else []
     recent_payload = [
-        {"role": m.get("role", ""), "content": m.get("content", "")}
+        {
+            "role": m.get("role", ""),
+            "content": format_user_content_with_attachments(
+                str(m.get("content", "")),
+                list(m.get("attachments") or []),
+            )
+            if m.get("role") == "user"
+            else str(m.get("content", "")),
+        }
         for m in recent[:-1]
     ]
     prompt = build_chatbot_prompt(
@@ -514,7 +538,7 @@ def post_chatbot_message(
         investigation=investigation.model_dump() if investigation else None,
         summary_of_older=data.get("summary_of_older"),
         recent_messages=recent_payload,
-        user_message=trimmed,
+        user_message=prompt_user_text,
         scratch_dir=str(session.ensure_chatbot_scratch_dir()),
     )
 
@@ -531,3 +555,23 @@ def post_chatbot_message(
         "message": messages[-1],
         "tool_calls_used": result.tool_calls_used,
     }
+
+
+def upload_chatbot_attachment(
+    workspace_root: Path,
+    run_id: str,
+    *,
+    llm: str,
+    filename: str,
+    data: bytes,
+) -> dict[str, Any]:
+    session = phase2_session_store.get_or_create(
+        run_id,
+        workspace_root,
+        llm=llm,
+        max_tool_calls=get_settings().phase2_chatbot_max_tool_calls,
+    )
+    if session.load_persisted_report() is None:
+        raise FileNotFoundError(f"No report for chatbot: {run_id} llm={llm}")
+    saved = save_chatbot_attachment(session, filename, data)
+    return {"run_id": run_id, "llm": llm, **saved}

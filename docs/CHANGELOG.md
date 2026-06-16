@@ -9,6 +9,76 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-16 — Chatbot attachment button fix
+
+**What:** Paperclip opens the file picker reliably; unsupported types show an inline warning.
+
+**How:** Native `<label for="agent-chat-file">` instead of JS `input.click()`; cache-bust `agent-chat.js?v=2`; `content-visibility: visible` on chat panel.
+
+**Why:** Clicks appeared to do nothing (stale JS cache + programmatic file-input open is flaky in some browsers).
+
+---
+
+## 2026-06-16 — Chatbot file attachments
+
+**What:** Post-report chatbot composer has a paperclip — upload text-friendly files into `chatbot_scratch/attachments/` for the agent to read.
+
+**How:** `POST /phase2/chatbot/attachments` (multipart); messages accept `attachments[]`; UI chips + `agent-chat.js` upload flow; `PHASE2_CHATBOT_MAX_ATTACHMENT_BYTES`.
+
+**Why:** Operators can attach profiler exports, logs, or notes without pasting huge JSON into the textarea.
+
+---
+
+## 2026-06-16 — Favicon: `unnamed.png` only
+
+**What:** Browser tab icon uses single uploaded `unnamed.png`; removed other logo/favicon PNGs.
+
+**How:** `base.html` + `/favicon.ico` → `/static/unnamed.png`; deleted `Sprinklr_Brand_Logo.png`, `favicon-32.png`, `favicon-icon.png`.
+
+**Why:** User-provided asset is the only favicon source.
+
+---
+
+## 2026-06-16 — Sprinklr logo favicon + phase rail scroll fix
+
+**What:** Favicon uses uploaded `Sprinklr_Brand_Logo.png` (cropped splash icon); A→B→C rail shows correct state at page top without scrolling to the bottom.
+
+**How:** `favicon-32.png` / `favicon-icon.png` from brand PNG; simplified `phase-rail.js` scroll-hide (window scroll only, no wheel/sentinel traps); `showShell()` on API status hydrate.
+
+**Why:** User-provided branding; rail was hidden or stuck until full-page scroll due to aggressive wheel/inner-panel hide logic.
+
+---
+
+## 2026-06-16 — Sprinklr-style favicon
+
+**What:** Browser tab shows a Sprinklr-inspired splash icon on all web UI pages.
+
+**How:** `frontend/static/favicon.svg`; `<link rel="icon">` in `base.html`; `GET /favicon.ico` serves the same asset.
+
+**Why:** Intern/demo branding in the tab bar without changing app behavior.
+
+---
+
+## 2026-06-16 — §14 tradeoff habit in doc maintenance
+
+**What:** Documented the habit: architecture “why not X?” decisions go in `DESIGN_NOTES.md` §14 same session as the code.
+
+**How:** `DOC_MAINTENANCE.md` §14 habit + checklist; `.cursor/rules/doc-maintenance.mdc` step 5; `AGENTS.md` step 4.
+
+**Why:** Managers and future you can trace tradeoffs without a sprawl of one-off docs.
+
+---
+
+## 2026-06-16 — Design Notes §14 mentor tradeoffs
+
+**What:** Added **§14 Architecture tradeoffs** to `DESIGN_NOTES.md` — why this, not LangGraph/Hindsight/vector memory/etc.
+
+**How:** Single table + sound bites + “when to revisit”; cross-links from `docs/README.md` and `PROJECT_STATUS.md`. No separate dilemma doc.
+
+**Why:** Manager/mentor can ask “why this approach?” from one living doc alongside §13 code Q&A.
+
+---
+
 ## 2026-06-16 — CI: ADK tool test matches web_fetch
 
 **What:** Fixed failing `test_build_adk_agent_tools_includes_google_search` in GitHub Actions.

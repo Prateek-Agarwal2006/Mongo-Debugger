@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     phase2_chatbot_max_tool_calls: int = 5
     phase2_chatbot_max_replay_messages: int = 12
     phase2_chatbot_summarize_after_messages: int = 20
+    phase2_chatbot_max_attachment_bytes: int = 524_288
     phase2_web_fetch_max_bytes: int = 24_000
     phase2_web_fetch_timeout_s: int = 20
     phase2_web_allowlist_suffixes: str | None = None

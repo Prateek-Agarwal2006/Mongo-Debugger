@@ -6,10 +6,10 @@
 <link rel="stylesheet" href="/static/css/clarify-chat.css"/>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script src="/static/js/phase-rail.js?v=2" defer></script>
+<script src="/static/js/phase-rail.js?v=5" defer></script>
 <script src="/static/js/clarify-wizard.js" defer></script>
 <script src="/static/js/report-viewer.js" defer></script>
-<script src="/static/js/agent-chat.js" defer></script>
+<script src="/static/js/agent-chat.js?v=2" defer></script>
 <script src="/static/js/grafana.js" defer></script>
 <script src="/static/js/rca.js" defer></script>
 {% endblock %}
@@ -192,11 +192,21 @@
 
     <div id="agent-chat-panel" class="agent-chat-panel" {% if not has_report %}hidden{% endif %}>
       <h3 class="h6 mb-1"><i class="bi bi-chat-dots me-2 text-success"></i>Chatbot</h3>
-      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up on the report — MCP, web fetch, and scratch analysis. Paste profiler JSON (array) to upload.</p>
+      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up — attach <code>.json</code>, <code>.log</code>, <code>.txt</code>, or paste profiler JSON in the message.</p>
       <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
-      <form id="agent-chat-form" class="d-flex flex-column gap-2">
+      <div id="agent-chat-pending-files" class="agent-chat-pending-files" hidden></div>
+      <p id="agent-chat-file-error" class="agent-chat-file-error text-warning small mb-2" role="alert" hidden></p>
+      <form id="agent-chat-form" class="agent-chat-composer">
         <textarea class="form-control form-control-sm" id="agent-chat-input" rows="3" placeholder="Ask about root cause, fixes, evidence…" autocomplete="off"></textarea>
-        <button type="submit" class="btn btn-success btn-sm flex-shrink-0"><i class="bi bi-send"></i></button>
+        <div class="agent-chat-composer-actions">
+          <input type="file" id="agent-chat-file" class="agent-chat-file-input" multiple accept=".json,.txt,.log,.md,.csv,.yaml,.yml,text/plain,text/csv,application/json"/>
+          <label for="agent-chat-file" id="agent-chat-attach-label" class="btn btn-outline-secondary btn-sm mb-0 agent-chat-attach-label" role="button" tabindex="0" aria-label="Attach file">
+            <i class="bi bi-paperclip" aria-hidden="true"></i>
+          </label>
+          <button type="submit" class="btn btn-success btn-sm" aria-label="Send message">
+            <i class="bi bi-send" aria-hidden="true"></i>
+          </button>
+        </div>
       </form>
     </div>
 

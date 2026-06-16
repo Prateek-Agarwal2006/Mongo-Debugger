@@ -221,6 +221,7 @@ Optional chatbot / web-fetch env (see `.env.example`):
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PHASE2_CHATBOT_MAX_TOOL_CALLS` | 5 | MCP budget per chatbot message |
+| `PHASE2_CHATBOT_MAX_ATTACHMENT_BYTES` | 524288 | Max chatbot file attachment size (512 KiB) |
 | `PHASE2_CHATBOT_MAX_REPLAY_MESSAGES` | 12 | Recent messages replayed verbatim in prompt |
 | `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES` | 20 | Fold older turns into `summary_of_older` |
 | `PHASE2_WEB_FETCH_MAX_BYTES` | 24000 | HTTPS fetch cap |
