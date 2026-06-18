@@ -4,14 +4,16 @@ import subprocess
 import threading
 from pathlib import Path
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.grafana.service import warm_grafana_for_run
 from backend.app.jobs.store import JobState, JobStatus, job_store
 
 
 class PipelineJobRunner:
     def __init__(self, workspace_root: Path) -> None:
-        self.workspace_root = workspace_root.resolve()
-        self.script = self.workspace_root / "simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh"
+        self.workspace = RunWorkspace(workspace_root)
+        self.workspace_root = self.workspace.root
+        self.script = self.workspace.pipeline_script()
 
     def start(self, job: JobStatus, input_path: Path) -> None:
         thread = threading.Thread(

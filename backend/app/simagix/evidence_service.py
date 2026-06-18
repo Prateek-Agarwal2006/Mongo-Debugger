@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from backend.app.core.run_workspace import RunWorkspace
+
 from backend.app.simagix.budget import RetrievalBudget
 from backend.app.simagix.bundle import SimagixBundleLoader
 from backend.app.simagix.fallback_tools import SimagixFallbackTools
@@ -26,7 +28,8 @@ class SimagixEvidenceService:
     ) -> None:
         self.workspace_root = workspace_root.resolve()
         self.run_id = run_id
-        self.bundle_dir = workspace_root / "simagix-workspace/exports/mongo-ftdc" / run_id
+        ws = RunWorkspace(self.workspace_root)
+        self.bundle_dir = ws.exports_dir(run_id)
         self.loader = SimagixBundleLoader(self.bundle_dir)
         self.tools = SimagixFallbackTools(self.bundle_dir)
         self.budget = budget or RetrievalBudget(max_tool_calls=max_tool_calls)

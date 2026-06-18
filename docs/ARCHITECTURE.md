@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-18
 
 ## Purpose
 
@@ -105,6 +105,23 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | 7 | Report HTML | Jinja2-assembled string | `report_html.py` |
 
 **Layers:** Our code = FastAPI + Simagix Python + vanilla JS. **Deterministic analysis** = mongo-ftdc in Docker (not the LLM). **Reasoning** = cursor-sdk + Cursor Cloud; evidence via MCP reading the export bundle. **Charts** = Grafana + FTDC API (singleton per machine).
+
+### RunWorkspace — path seam (K8s prep)
+
+**Implemented** in `backend/app/core/run_workspace.py`. All backend modules resolve run-scoped paths via `get_run_workspace()` (or `RunWorkspace(root)` in tests/scripts). Set `DATA_ROOT=/data` when the PVC is mounted at `/data`.
+
+- **Root** from `DATA_ROOT` (repo root locally, `/data` PVC in K8s).
+- **Named methods** — `uploads_dir(run_id)`, `exports_dir(run_id)`, `phase2_dir(run_id)`, `list_run_ids()`, etc. — so HTTP handlers never encode folder layout.
+
+Why full `RunWorkspace` instead of only `get_data_root()`: configurable root fixes the mount point; named methods fix duplicated layout strings across 5+ files. Pattern: **Adapter** (domain → paths); later **Strategy** for filesystem vs object storage.
+
+```
+  upload API  ──► RunWorkspace.uploads_dir(run_id)  ──► /data/.../uploads/{id}/
+  evidence    ──► RunWorkspace.exports_dir(run_id)  ──► /data/.../exports/mongo-ftdc/{id}/
+  phase2      ──► RunWorkspace.llm_session_dir(...) ──► /data/.../runs/{id}/phase2/llm/{llm}/
+```
+
+Full comparison table and mentor Q&A: [DESIGN_NOTES.md §14.3](DESIGN_NOTES.md#143-runworkspace--why-full-module-not-just-get_data_root).
 
 ```mermaid
 flowchart LR

@@ -6,6 +6,8 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
+**Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
+
 ---
 
 ## Web UI

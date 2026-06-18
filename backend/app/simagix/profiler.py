@@ -5,8 +5,11 @@ from pathlib import Path
 from typing import Any
 
 
+from backend.app.core.run_workspace import RunWorkspace
+
+
 def profiler_dir(workspace_root: Path, run_id: str) -> Path:
-    return workspace_root / "simagix-workspace/data/uploads" / run_id / "profiler"
+    return RunWorkspace(workspace_root).profiler_dir(run_id)
 
 
 def save_profiler_data(workspace_root: Path, run_id: str, payload: list[dict[str, Any]]) -> Path:

@@ -8,14 +8,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from backend.app.core.run_workspace import get_run_workspace
 from backend.app.jobs.pipeline import PipelineJobRunner
 from backend.app.jobs.store import job_store
 
 router = APIRouter(prefix="/simagix/uploads", tags=["simagix-upload"])
-
-
-def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _new_run_id() -> str:
@@ -51,9 +48,9 @@ async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing filename")
 
-    workspace = _workspace_root()
+    workspace = get_run_workspace()
     run_id = _new_run_id()
-    input_dir = workspace / "simagix-workspace/data/uploads" / run_id / "diagnostic.data"
+    input_dir = workspace.upload_diagnostic_dir(run_id)
     input_dir.mkdir(parents=True, exist_ok=True)
 
     archive_path = input_dir.parent / file.filename
@@ -68,9 +65,9 @@ async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]
         if archive_path.exists():
             archive_path.unlink()
 
-    rel_input = input_dir.relative_to(workspace)
+    rel_input = input_dir.relative_to(workspace.root)
     job = job_store.create(run_id, input_path=str(rel_input))
-    runner = PipelineJobRunner(workspace)
+    runner = PipelineJobRunner(workspace.root)
     runner.start(job, input_dir)
 
     return {

@@ -6,18 +6,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.core.run_workspace import get_run_workspace
 from backend.app.simagix.eval import evaluate_run
 from backend.app.simagix.evidence_service import SimagixEvidenceService
 
 router = APIRouter(prefix="/simagix/runs", tags=["simagix-runs"])
 
 
-def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _evidence_service(run_id: str) -> SimagixEvidenceService:
-    service = SimagixEvidenceService(_workspace_root(), run_id)
+    workspace = get_run_workspace()
+    service = SimagixEvidenceService(workspace.root, run_id)
     if not service.loader.exists():
         raise HTTPException(status_code=404, detail=f"Simagix run bundle not found: {run_id}")
     return service
@@ -25,18 +23,7 @@ def _evidence_service(run_id: str) -> SimagixEvidenceService:
 
 @router.get("")
 def list_runs() -> dict[str, object]:
-    exports_dir = _workspace_root() / "simagix-workspace/exports/mongo-ftdc"
-    if not exports_dir.exists():
-        return {"runs": []}
-    runs = sorted(
-        [
-            item.name
-            for item in exports_dir.iterdir()
-            if item.is_dir() and (item / "manifest.json").exists()
-        ],
-        reverse=True,
-    )
-    return {"runs": runs}
+    return {"runs": get_run_workspace().list_run_ids()}
 
 
 @router.get("/{run_id}/context")
@@ -109,4 +96,4 @@ def get_phase2_package(run_id: str) -> dict[str, object]:
 
 @router.get("/{run_id}/eval")
 def evaluate_simagix_run(run_id: str) -> dict[str, object]:
-    return evaluate_run(_workspace_root(), run_id)
+    return evaluate_run(get_run_workspace().root, run_id)

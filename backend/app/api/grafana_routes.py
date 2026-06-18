@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
+from backend.app.core.run_workspace import get_run_workspace
 from backend.app.grafana.links import build_grafana_links
 from backend.app.grafana.service import load_run_for_grafana
 from backend.app.grafana.stack import GrafanaStackManager
@@ -23,18 +24,11 @@ def _docker_unavailable_detail(raw: str) -> str:
     return raw
 
 
-def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
-def _bundle_dir(run_id: str) -> Path:
-    return _workspace_root() / "simagix-workspace/exports/mongo-ftdc" / run_id
-
-
 @router.post("/{run_id}/grafana/load")
 def load_run_into_grafana(run_id: str) -> dict[str, object]:
+    workspace = get_run_workspace()
     try:
-        return load_run_for_grafana(_workspace_root(), run_id)
+        return load_run_for_grafana(workspace.root, run_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except subprocess.CalledProcessError as exc:
@@ -61,12 +55,13 @@ def load_run_into_grafana(run_id: str) -> dict[str, object]:
 
 @router.get("/{run_id}/grafana/urls")
 def get_grafana_urls(run_id: str) -> dict[str, object]:
-    bundle = _bundle_dir(run_id)
+    workspace = get_run_workspace()
+    bundle = workspace.exports_dir(run_id)
     if not (bundle / "manifest.json").exists():
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
 
-    stack = GrafanaStackManager(_workspace_root())
-    links = build_grafana_links(_workspace_root(), run_id, bundle)
+    stack = GrafanaStackManager(workspace.root)
+    links = build_grafana_links(workspace.root, run_id, bundle)
     return {
         "run_id": run_id,
         "stack": {
@@ -85,7 +80,7 @@ def get_grafana_urls(run_id: str) -> dict[str, object]:
 
 @router.get("/grafana/status")
 def grafana_stack_status() -> dict[str, object]:
-    stack = GrafanaStackManager(_workspace_root())
+    stack = GrafanaStackManager(get_run_workspace().root)
     return {
         "ftdc_api": stack.is_ftdc_api_up(),
         "grafana": stack.is_grafana_up(),

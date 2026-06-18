@@ -90,6 +90,7 @@ MONGO_FTDC_RUN_ID=myincident20260609 ./simagix-workspace/scripts/run-mongo-ftdc-
 | `MONGO_FTDC_EXPORT_TIER` | `normalized` | `analyzed`, `normalized`, or `forensic` |
 | `MONGO_FTDC_RAW_EXPORT` | `false` | Include tier_3 raw decoder output |
 | `MONGO_URI` | — | Required for Keyhole |
+| `DATA_ROOT` | — (repo root) | Root for all Run artifacts (`simagix-workspace/...`). Set to `/data` in K8s when PVC is mounted. See `RunWorkspace` in `backend/app/core/run_workspace.py`. |
 | `GRAFANA_URL` | `http://localhost:3030` | Grafana UI base |
 | `FTDC_API_URL` | `http://localhost:5408` | FTDC API for `/grafana/dir` load |
 | `FTDC_LOAD_TIMEOUT_SECONDS` | `300` | Max wait for large FTDC decode into Grafana |

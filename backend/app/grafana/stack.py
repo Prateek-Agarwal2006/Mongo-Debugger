@@ -6,14 +6,16 @@ import time
 import urllib.request
 from pathlib import Path
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.core.config import Settings, get_settings
 
 
 class GrafanaStackManager:
     def __init__(self, workspace_root: Path, settings: Settings | None = None) -> None:
-        self.workspace_root = workspace_root.resolve()
+        self.workspace = RunWorkspace(workspace_root)
+        self.workspace_root = self.workspace.root
         self.settings = settings or get_settings()
-        self.compose_file = self.workspace_root / "simagix-workspace/docker/grafana-compose.yaml"
+        self.compose_file = self.workspace.grafana_compose_file()
 
     def is_ftdc_api_up(self) -> bool:
         url = f"{self.settings.ftdc_api_url.rstrip('/')}/"

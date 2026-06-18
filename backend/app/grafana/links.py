@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.core.config import Settings, get_settings
 
 # Grafana slug derived from dashboard title "MongoDB FTDC — Anomaly Focus"
@@ -49,7 +50,8 @@ def _load_anomaly_windows(bundle_dir: Path) -> list[dict[str, Any]]:
 
 
 def _resolve_input_path(workspace_root: Path, run_id: str, manifest: dict[str, Any]) -> Path:
-    run_manifest = workspace_root / "simagix-workspace/runs" / run_id / "run_manifest.json"
+    ws = RunWorkspace(workspace_root)
+    run_manifest = ws.run_manifest_path(run_id)
     if run_manifest.exists():
         run_meta = json.loads(run_manifest.read_text(encoding="utf-8"))
         rel = run_meta.get("input", "")

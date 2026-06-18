@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +11,9 @@ from backend.app.api.upload import router as upload_router
 from backend.app.web.api_docs import router as api_docs_router
 from backend.app.web.routes import router as web_router
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+from backend.app.core.run_workspace import repo_root
+
+_REPO_ROOT = repo_root()
 _FRONTEND_STATIC = _REPO_ROOT / "frontend" / "static"
 
 
