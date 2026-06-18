@@ -9,6 +9,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from backend.app.core.run_workspace import RunWorkspace
+
 
 class JobState(str, Enum):
     PENDING = "pending"
@@ -80,7 +82,7 @@ class JobStore:
         return jobs[:limit]
 
     def persist(self, workspace_root: Path, job: JobStatus) -> None:
-        path = workspace_root / "simagix-workspace/runs" / job.run_id / "job_status.json"
+        path = RunWorkspace(workspace_root).job_status_path(job.run_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(job.to_dict(), indent=2), encoding="utf-8")
 

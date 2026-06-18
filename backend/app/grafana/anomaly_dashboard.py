@@ -71,6 +71,8 @@ def write_anomaly_dashboard(path: Path) -> None:
 
 
 if __name__ == "__main__":
-    out = Path(__file__).resolve().parents[3] / "simagix-workspace/grafana/dashboards/anomaly-focus.json"
+    from backend.app.core.run_workspace import RunWorkspace, repo_root
+
+    out = RunWorkspace(repo_root()).grafana_anomaly_dashboard_path()
     write_anomaly_dashboard(out)
     print(f"Wrote {out}")

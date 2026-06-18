@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from backend.app.core.config import get_settings
+from backend.app.core.run_workspace import get_run_workspace, repo_root
 from backend.app.jobs.store import job_store
 from backend.app.simagix.format_report import format_rca_report_pretty
 from backend.app.simagix.llm.llm_paths import LLM_FOLDER_NAMES
@@ -17,7 +18,7 @@ from backend.app.simagix.tool_usage import resolve_tool_usage
 
 router = APIRouter(tags=["web-ui"])
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT = repo_root()
 _TEMPLATES_DIR = _REPO_ROOT / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
@@ -28,22 +29,8 @@ _LLM_LABELS = {
 }
 
 
-def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _list_run_ids() -> list[str]:
-    exports_dir = _workspace_root() / "simagix-workspace/exports/mongo-ftdc"
-    if not exports_dir.exists():
-        return []
-    return sorted(
-        [
-            item.name
-            for item in exports_dir.iterdir()
-            if item.is_dir() and (item / "manifest.json").exists()
-        ],
-        reverse=True,
-    )
+    return get_run_workspace().list_run_ids()
 
 
 def _llm_context_options(settings) -> list[dict[str, object]]:
@@ -87,18 +74,18 @@ def runs_list(request: Request) -> HTMLResponse:
 
 @router.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLResponse:
-    workspace = _workspace_root()
-    exports = workspace / "simagix-workspace/exports/mongo-ftdc" / run_id
+    workspace = get_run_workspace()
+    exports = workspace.exports_dir(run_id)
     if not (exports / "manifest.json").exists():
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
 
     settings = get_settings()
-    llm_sessions = list_run_llm_sessions(workspace, run_id)
+    llm_sessions = list_run_llm_sessions(workspace.root, run_id)
     selected_llm = llm if llm in LLM_FOLDER_NAMES else _default_selected_llm(llm_sessions)
 
     report_text = None
     has_report = False
-    session = phase2_session_store.get_or_load(run_id, workspace, selected_llm)
+    session = phase2_session_store.get_or_load(run_id, workspace.root, selected_llm)
     metadata: dict[str, object] = {}
     if session is not None:
         report = session.load_persisted_report()

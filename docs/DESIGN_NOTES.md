@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-16 (Phase 3 chatbot, per-LLM isolation, `frontend/` split).
+**Last aligned with codebase:** 2026-06-18 (RunWorkspace path adapter implemented across backend).
 
 ---
 
@@ -608,6 +608,84 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 | **Phase A→B→C rail (UI)** | Client state machine in `phase-rail.js`, hydrated from `GET /phase2/status`; sticky shell **hides on scroll** while reading report/chat | Progress feedback during RCA; rail gets out of the way when reading long content | **Always-visible sticky bar** — blocks report/chat (user feedback); **server-driven SSE rail** — unnecessary for three discrete phases | `phase-rail.js`, `rca.js` `setFromApiStatus` |
 | **Charting** | **Grafana** (external tab) for human exploration; MCP slices for agent evidence | Real FTDC dashboards from `simagix/grafana-ftdc`; no duplicate chart stack in app | **Embedded Chart.js / graphs API** — removed as duplicate path | §8, `grafana/service.py` |
 | **Citation trust (future)** | Documented preference: **deterministic verifier** on `tool_trace.json` before any **LLM auditor agent** | Highest ROI for “prove the agent looked” without second agent cost | **Verifier-only LLM** as first step — slower, still probabilistic | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Trust & cost |
+| **Run-scoped paths (K8s prep)** | **`RunWorkspace`** — one module: configurable root + named path methods (`uploads_dir`, `exports_dir`, `phase2_dir`, …) | Fixes K8s `DATA_ROOT` *and* removes duplicated layout strings; routes express intent; tests inject a temp-dir workspace | **Minimal `get_data_root()` only** — fixes mount root but leaves `"simagix-workspace/exports/mongo-ftdc"` copy-pasted in 5+ files | `backend/app/core/run_workspace.py`, `get_run_workspace()`; `DATA_ROOT` in `config.py`; all backend callers migrated (2026-06-18) |
+
+### 14.3 RunWorkspace — why full module, not just `get_data_root()`
+
+**Status:** **Implemented** — `RunWorkspace` + `get_run_workspace()`; all backend modules use named path methods; `_workspace_root()` removed from `backend/app/`.
+
+**Problem before RunWorkspace:** Every HTTP handler and several services discovered disk layout themselves:
+
+1. **Root discovery** — `_workspace_root()` uses `Path(__file__).resolve().parents[3]` (copy-pasted in five modules). That finds the **git repo root**, not a configurable `DATA_ROOT=/data` on Kubernetes.
+2. **Layout strings** — paths like `"simagix-workspace/exports/mongo-ftdc/{run_id}"` are built inline in `upload.py`, `simagix_runs.py`, `evidence_service.py`, `grafana/service.py`, `web/routes.py`, etc. Phase 2 is partly centralized in `llm_paths.py`, but callers still pass `workspace_root` everywhere.
+
+**Two separate problems:**
+
+| Problem | Question it answers |
+|---------|-------------------|
+| **Where is the root?** | Repo checkout locally vs PVC mount `/data` in K8s |
+| **What paths exist under the root?** | Uploads vs exports vs Phase 2 vs job state |
+
+A minimal fix — replace `_workspace_root()` with `get_data_root()` from config — solves **only the first row**. We are implementing **RunWorkspace** to solve **both**.
+
+#### Minimal `get_data_root()` vs `RunWorkspace`
+
+| Problem | Minimal `get_data_root()` | **RunWorkspace** (what we chose) |
+|---------|---------------------------|--------------------------------|
+| Root is `/data` in K8s | Fixed | Fixed |
+| `"simagix-workspace/exports/mongo-ftdc"` in 5+ files | Still duplicated | One method: `exports_dir(run_id)` |
+| Typo / layout change (e.g. drop `simagix-workspace/` prefix) | Edit many files | Edit one module |
+| Route says *what* it needs | Must know folder names | `uploads_dir(run_id)` — intent only |
+| Tests | Patch `get_data_root` in several places | Pass a fake `RunWorkspace` with `tmp_path` root |
+
+**Interview line:** “`get_data_root()` answers *where*; `RunWorkspace` answers *what paths exist* — we need both, so we ship one module.”
+
+#### Why this is an Adapter (and how Strategy fits later)
+
+**Adapter (GoF):** The rest of the app speaks in **domain terms** (Run, Evidence bundle, Phase 2 session). The filesystem speaks in **paths** (`/data/simagix-workspace/exports/mongo-ftdc/abc123`). **RunWorkspace** is the adapter between them — callers ask for `exports_dir(run_id)`; the adapter translates to concrete `Path` objects.
+
+```
+  api/upload.py          RunWorkspace              disk / PVC
+  "save this upload" --> uploads_dir(run_id) --> /data/.../uploads/{id}/...
+  api/phase2.py        exports_dir(run_id)   --> /data/.../exports/mongo-ftdc/{id}/...
+```
+
+Without the adapter, every caller duplicates the translation (today’s `_workspace_root()` + string concat).
+
+**Strategy (related, not the same layer):** When we add **object storage** (S3) later, the *interface* might be `ArtifactStore` or a protocol with `read_bytes` / `write_bytes`. **RunWorkspace** stays the **filesystem** adapter for path-shaped operations; a **Strategy** picks filesystem vs S3 at startup (`STORAGE_BACKEND=filesystem|s3`). RunWorkspace is the first filesystem implementation of the path seam — not the whole storage story.
+
+| Pattern | Role here |
+|---------|-----------|
+| **Adapter** | RunWorkspace maps domain nouns → filesystem paths |
+| **Strategy** (later) | Config chooses filesystem workspace vs object-storage backend for blobs |
+| **Not “just a helper”** | One function `get_data_root()` is a helper; a module with named methods is a deliberate **seam** (see `/codebase-design`: one adapter = hypothetical seam, two = real) |
+
+#### Planned interface (sketch)
+
+```python
+# backend/app/core/run_workspace.py (planned)
+class RunWorkspace:
+    def __init__(self, root: Path): ...
+
+    def uploads_dir(self, run_id: str) -> Path: ...
+    def exports_dir(self, run_id: str) -> Path: ...      # Evidence bundle
+    def phase2_dir(self, run_id: str) -> Path: ...
+    def llm_session_dir(self, run_id: str, llm: str) -> Path: ...
+    def job_status_path(self, run_id: str) -> Path: ...
+```
+
+Factory: `get_run_workspace()` reads `DATA_ROOT` from `config.py` (default: repo root locally, `/data` in container). `llm_paths.py` either moves into this module or delegates to it.
+
+#### Current code pointers (before refactor)
+
+| Artifact | Today |
+|----------|--------|
+| Upload path | `api/upload.py` — `workspace / "simagix-workspace/data/uploads" / run_id / "diagnostic.data"` |
+| Evidence bundle | `evidence_service.py` — `workspace_root / "simagix-workspace/exports/mongo-ftdc" / run_id` |
+| List runs | `simagix_runs.py` + `web/routes.py` — duplicate scan of exports dir |
+| Phase 2 | `llm_paths.py` — `phase2_root_dir`, `llm_session_dir` (partial fix) |
+
+See also [ARCHITECTURE.md](ARCHITECTURE.md) § RunWorkspace.
 
 ### 14.1 Sound bites for a manager
 
@@ -615,6 +693,7 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 2. **“LangGraph would be orchestration sugar on top of a workflow we already encoded in `service.py`.”** We’d still need the same prompts, schemas, and MCP servers.
 3. **“The SDK is the agent runtime; we’re the evidence and workflow layer.”** That’s the intern-project sweet spot: integrate, don’t rebuild OpenAI’s tool loop.
 4. **“Per-LLM folders are like git worktrees for experiments.”** Mock vs Cursor vs Gemini on the same FTDC upload without cross-contamination.
+5. **“RunWorkspace is the adapter between Run and disk.”** Routes ask for `exports_dir(run_id)`; they don’t hardcode `simagix-workspace/exports/...`.
 
 ### 14.2 When to revisit a decision
 

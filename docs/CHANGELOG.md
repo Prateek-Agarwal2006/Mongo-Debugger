@@ -3,9 +3,39 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-16
+**Last updated:** 2026-06-18
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-18 — RunWorkspace path adapter (full backend migration)
+
+**What:** `RunWorkspace` centralizes all run-scoped filesystem paths; optional `DATA_ROOT` env for K8s PVC; every backend caller migrated off `_workspace_root()` and inline `simagix-workspace/...` strings.
+
+**How:** `backend/app/core/run_workspace.py` (`exports_dir`, `uploads_dir`, `phase2_dir`, `llm_session_dir`, `list_run_ids`, …); `config.data_root` from `DATA_ROOT`; callers in `api/*`, `web/routes.py`, `jobs/*`, `simagix/*`, `grafana/*`, `llm_paths.py`; `backend/tests/test_run_workspace.py` (8 tests); `main.py` uses `repo_root()` for static assets.
+
+**Why:** Single path seam for K8s prep — configurable root *and* deduplicated layout strings (DESIGN_NOTES §14.3); tests inject `RunWorkspace(tmp_path)` instead of patching five modules.
+
+---
+
+## 2026-06-18 — RunWorkspace path-seam decision (docs)
+
+**What:** Documented why we implement full **RunWorkspace** (not minimal `get_data_root()` only): comparison table, Adapter vs Strategy, planned interface sketch.
+
+**How:** [DESIGN_NOTES.md](DESIGN_NOTES.md) §14 row + §14.3; [ARCHITECTURE.md](ARCHITECTURE.md) § RunWorkspace.
+
+**Why:** K8s prep and architecture review — one seam for configurable root *and* deduplicated layout strings; learning reference before implementation.
+
+---
+
+## 2026-06-18 — Matt Pocock skills repo setup
+
+**What:** Per-repo agent config for `.agents/skills/` — local issue tracker, triage labels, domain doc rules.
+
+**How:** `docs/agents/{issue-tracker,triage-labels,domain}.md`; `## Agent skills` block in `AGENTS.md`.
+
+**Why:** `/to-issues`, `/triage`, `/to-prd`, and domain skills know where issues and tradeoffs live.
 
 ---
 

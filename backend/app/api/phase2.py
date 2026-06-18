@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from backend.app.core.config import get_settings
+from backend.app.core.run_workspace import get_run_workspace
 from backend.app.simagix.format_report import format_rca_report_pretty
 from backend.app.simagix.llm.llm_paths import llm_folder_name
 from backend.app.simagix.llm.service import (
@@ -33,10 +34,6 @@ from backend.app.simagix.anomaly_correlation import build_correlation_package
 ReportFormat = Literal["json", "pretty"]
 
 router = APIRouter(prefix="/simagix/runs", tags=["simagix-phase2"])
-
-
-def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _require_llm(llm: str | None) -> str:
@@ -85,7 +82,7 @@ def list_llm_providers() -> dict[str, object]:
 
 @router.get("/{run_id}/phase2/llm")
 def list_run_llm_slots(run_id: str) -> dict[str, object]:
-    sessions = list_run_llm_sessions(_workspace_root(), run_id)
+    sessions = list_run_llm_sessions(get_run_workspace().root, run_id)
     return {"run_id": run_id, "llm_sessions": sessions}
 
 
@@ -101,7 +98,7 @@ def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[
         )
     try:
         return start_phase2_run(
-            _workspace_root(),
+            get_run_workspace().root,
             run_id,
             force_mock=force_mock,
             llm_provider=llm_provider,
@@ -130,7 +127,7 @@ def get_phase2_status(
     llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
 ) -> dict[str, object]:
     folder = _require_llm(llm)
-    session = phase2_session_store.get_or_load(run_id, _workspace_root(), folder)
+    session = phase2_session_store.get_or_load(run_id, get_run_workspace().root, folder)
     if session is None:
         return {
             "run_id": run_id,
@@ -161,7 +158,7 @@ def get_phase2_tool_trace(
     llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
 ) -> dict[str, object]:
     folder = _require_llm(llm)
-    session = phase2_session_store.get_or_load(run_id, _workspace_root(), folder)
+    session = phase2_session_store.get_or_load(run_id, get_run_workspace().root, folder)
     if session is None:
         return {
             "run_id": run_id,
@@ -189,7 +186,7 @@ def run_phase2_clarify(
         )
     try:
         return submit_clarifications_and_run(
-            _workspace_root(),
+            get_run_workspace().root,
             run_id,
             body,
             force_mock=force_mock,
@@ -211,7 +208,7 @@ def get_latest_phase2_report(
     format: Annotated[ReportFormat, Query(description="json (default) or pretty plain-text report")] = "json",
 ):
     folder = _require_llm(llm)
-    session = phase2_session_store.get_or_load(run_id, _workspace_root(), folder)
+    session = phase2_session_store.get_or_load(run_id, get_run_workspace().root, folder)
     if session is None:
         raise HTTPException(status_code=404, detail=f"No Phase 2 session for run: {run_id} llm={folder}")
     report = session.load_persisted_report()
@@ -255,7 +252,7 @@ def get_latest_phase2_report(
 @router.get("/{run_id}/phase2/anomaly-correlation")
 def get_anomaly_correlation(run_id: str) -> dict[str, object]:
     try:
-        session, _ = prepare_phase2_run(_workspace_root(), run_id, llm="mock")
+        session, _ = prepare_phase2_run(get_run_workspace().root, run_id, llm="mock")
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     tier1 = session.evidence.load_tier1()
@@ -264,13 +261,13 @@ def get_anomaly_correlation(run_id: str) -> dict[str, object]:
 
 @router.post("/{run_id}/phase2/profiler")
 def upload_profiler_data(run_id: str, body: list[dict[str, object]]) -> dict[str, object]:
-    path = save_profiler_data(_workspace_root(), run_id, body)
+    path = save_profiler_data(get_run_workspace().root, run_id, body)
     return {"run_id": run_id, "path": str(path), "sample_count": len(body)}
 
 
 @router.get("/{run_id}/phase2/profiler")
 def get_profiler_data(run_id: str, limit: int = 50) -> dict[str, object]:
-    return load_profiler_data(_workspace_root(), run_id, limit=limit)
+    return load_profiler_data(get_run_workspace().root, run_id, limit=limit)
 
 
 @router.get("/{run_id}/phase2/chatbot")
@@ -280,7 +277,7 @@ def get_chatbot(
 ) -> dict[str, object]:
     folder = _require_llm(llm)
     try:
-        return get_chatbot_history(_workspace_root(), run_id, llm=folder)
+        return get_chatbot_history(get_run_workspace().root, run_id, llm=folder)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -297,7 +294,7 @@ async def post_chatbot_attachment(
     data = await file.read()
     try:
         return upload_chatbot_attachment(
-            _workspace_root(),
+            get_run_workspace().root,
             run_id,
             llm=folder,
             filename=file.filename,
@@ -320,7 +317,7 @@ def post_chatbot(
     folder = _require_llm(llm)
     try:
         return post_chatbot_message(
-            _workspace_root(),
+            get_run_workspace().root,
             run_id,
             llm=folder,
             content=body.content,
@@ -342,7 +339,7 @@ def view_latest_phase2_report_html(
     llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
 ) -> HTMLResponse:
     folder = _require_llm(llm)
-    session = phase2_session_store.get_or_load(run_id, _workspace_root(), folder)
+    session = phase2_session_store.get_or_load(run_id, get_run_workspace().root, folder)
     if session is None:
         raise HTTPException(status_code=404, detail=f"No Phase 2 report for run: {run_id} llm={folder}")
     report = session.load_persisted_report()

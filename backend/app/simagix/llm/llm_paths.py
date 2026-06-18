@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from backend.app.core.run_workspace import RunWorkspace
+
 LLM_FOLDER_NAMES = frozenset({"mock", "cursor", "gemini"})
 
 _LLM_LABELS = {
@@ -27,19 +29,23 @@ def llm_folder_name(provider: str | None) -> str:
     raise ValueError(f"Unknown llm folder: {provider}")
 
 
+def _workspace(workspace_root: Path) -> RunWorkspace:
+    return RunWorkspace(workspace_root)
+
+
 def phase2_root_dir(workspace_root: Path, run_id: str) -> Path:
-    return workspace_root / "simagix-workspace/runs" / run_id / "phase2"
+    return _workspace(workspace_root).phase2_dir(run_id)
 
 
 def llm_session_dir(workspace_root: Path, run_id: str, llm: str) -> Path:
     folder = llm_folder_name(llm) if llm not in LLM_FOLDER_NAMES else llm
     if folder not in LLM_FOLDER_NAMES:
         raise ValueError(f"Unknown llm folder: {llm}")
-    return phase2_root_dir(workspace_root, run_id) / "llm" / folder
+    return _workspace(workspace_root).llm_session_dir(run_id, folder)
 
 
 def llm_index_path(workspace_root: Path, run_id: str) -> Path:
-    return phase2_root_dir(workspace_root, run_id) / "llm_index.json"
+    return _workspace(workspace_root).llm_index_path(run_id)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

@@ -4,12 +4,13 @@ import subprocess
 import urllib.error
 from pathlib import Path
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.grafana.links import build_grafana_links
 from backend.app.grafana.stack import GrafanaStackManager
 
 
 def _bundle_dir(workspace_root: Path, run_id: str) -> Path:
-    return workspace_root / "simagix-workspace/exports/mongo-ftdc" / run_id
+    return RunWorkspace(workspace_root).exports_dir(run_id)
 
 
 def load_run_for_grafana(workspace_root: Path, run_id: str) -> dict[str, object]:
