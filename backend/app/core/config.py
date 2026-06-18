@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     ftdc_api_url: str = "http://localhost:5408"
     ftdc_load_timeout_seconds: int = 300
     grafana_startup_wait_seconds: int = 240
+    pipeline_worker_poll_seconds: float = 2.0
 
 
 @lru_cache

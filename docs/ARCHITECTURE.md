@@ -22,7 +22,8 @@ flowchart TB
   end
 
   subgraph step2 [Step 2 Pipeline Docker]
-    Pipeline["PipelineJobRunner"]
+    Worker["PipelineWorker"]
+    Queue["FileJobQueue on DATA_ROOT"]
     MFTDC["mongo-ftdc"]
   end
 
@@ -56,7 +57,7 @@ flowchart TB
     ReportHTML["reports/latest/view"]
   end
 
-  UploadUI --> UploadAPI --> Pipeline --> MFTDC --> Exports
+  UploadUI --> UploadAPI --> Queue --> Worker --> MFTDC --> Exports
   Exports --> RunManifest --> RunPage
   RunPage --> RCAjs --> P2API --> Service --> Provider --> Agent
   Agent --> Phase2Disk --> ReportJSON --> ReportHTML
@@ -149,7 +150,7 @@ flowchart LR
 
 | Master step | UI element | JS / page | API endpoint | Backend module |
 |-------------|------------|-----------|--------------|----------------|
-| 1–2 | Upload FTDC | `upload.html` | `POST /simagix/uploads` | `upload.py` → `PipelineJobRunner` |
+| 1–2 | Upload FTDC | `upload.html` | `POST /simagix/uploads` | `upload.py` → `FileJobQueue` → `PipelineWorker` |
 | 4 | Run list | `runs.html` | `GET /runs` (HTML) | `web/routes.py` |
 | 5 | Run RCA | `rca.js` | `POST .../phase2/run`, `.../clarify` | `phase2.py` → `service.py` |
 | 5 | Tool trace | `rca.js` | `GET .../phase2/tool-trace` | `tool_trace.py` |
@@ -165,21 +166,41 @@ flowchart LR
 sequenceDiagram
   participant UI as upload.html
   participant API as POST /simagix/uploads
-  participant Job as PipelineJobRunner
+  participant Q as FileJobQueue pending/
+  participant W as PipelineWorker
   participant Docker as mongo-ftdc pipeline
   participant Disk as exports/mongo-ftdc/run_id
   participant Warm as warm_grafana_for_run
 
   UI->>API: multipart FTDC archive
   API->>Disk: save diagnostic.data
-  API->>Job: start background thread
-  Job->>Docker: run-mongo-ftdc-pipeline.sh
+  API->>Q: enqueue job_id.json
+  W->>Q: claim (rename pending → processing)
+  W->>Docker: run-mongo-ftdc-pipeline.sh
   Docker->>Disk: tier_1 + tier_2 JSON bundle
-  Job->>Warm: optional POST grafana/load
+  W->>Warm: optional Grafana warmup
   UI->>API: GET /simagix/uploads/jobs/job_id
 ```
 
-Sources: [`backend/app/api/upload.py`](../backend/app/api/upload.py), [`backend/app/jobs/pipeline.py`](../backend/app/jobs/pipeline.py).
+Sources: [`backend/app/api/upload.py`](../backend/app/api/upload.py), [`backend/app/jobs/worker.py`](../backend/app/jobs/worker.py), [`backend/app/jobs/pipeline.py`](../backend/app/jobs/pipeline.py).
+
+### Pipeline worker — durable queue (K8s prep)
+
+**Implemented** as a **standalone process** (not a thread inside the API).
+
+| Piece | Path / command |
+|-------|----------------|
+| Enqueue | API writes `data/job_queue/pending/{job_id}.json` |
+| Claim | Worker atomic rename → `processing/` |
+| Status | `data/jobs/{job_id}.json` (+ `runs/{run_id}/job_status.json`) |
+| Run | `uv run python -m backend.app.jobs.worker` |
+| Shared root | `DATA_ROOT` (repo locally, PVC mount `/data` in K8s) |
+
+**Crash recovery:** on worker startup, every file in `processing/` moves back to `pending/` (assumes previous worker died mid-run; pipeline re-runs for that `run_id`).
+
+**v1 ops:** run **one** worker replica. Multi-worker needs file locking or a broker queue (see DESIGN_NOTES §14.4).
+
+Full comparison: [DESIGN_NOTES.md §14.4](DESIGN_NOTES.md#144-pipeline-worker--file-queue-not-upload-thread).
 
 ### Zoom B — Step 5 (Phase 2)
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.app.core.run_workspace import get_run_workspace
-from backend.app.jobs.pipeline import PipelineJobRunner
+from backend.app.jobs.queue import FileJobQueue
 from backend.app.jobs.store import job_store
 
 router = APIRouter(prefix="/simagix/uploads", tags=["simagix-upload"])
@@ -66,9 +66,8 @@ async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]
             archive_path.unlink()
 
     rel_input = input_dir.relative_to(workspace.root)
-    job = job_store.create(run_id, input_path=str(rel_input))
-    runner = PipelineJobRunner(workspace.root)
-    runner.start(job, input_dir)
+    job = job_store.create(run_id, input_path=str(rel_input), workspace_root=workspace.root)
+    FileJobQueue(workspace).enqueue(job, input_dir)
 
     return {
         "job_id": job.job_id,

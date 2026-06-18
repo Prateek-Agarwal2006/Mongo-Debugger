@@ -14,6 +14,8 @@ All project docs live in `docs/`. See `docs/DOC_MAINTENANCE.md` for the full map
 3. **Bump `Last updated:`** on each touched doc.
 4. **Fix cross-links** if paths or names changed; keep root `README.md` and subsystem stubs as pointers only.
 5. **Architecture / “why not X?” decisions:** add or extend a row in `docs/DESIGN_NOTES.md` **§14** (what we chose, why, why not the alternative, code pointer). Same session as the decision — do not open a separate dilemma doc.
+6. **Low-level concepts** (locks, disk I/O, id semantics, polling, etc.): add **Talking points** under the matching **§14** section in `DESIGN_NOTES.md` — see `DOC_MAINTENANCE.md` § Low-level concept notes.
+7. **In-flight tradeoffs while coding** (chose X over Y in implementation): same session — **§14 row** if architectural, plus **Talking points** or a short **Decision** bullet under the relevant §14 subsection — see `DOC_MAINTENANCE.md` § In-flight tradeoffs. Do not leave rationale only in chat or agent reasoning.
 
 ## Skip CHANGELOG only when
 

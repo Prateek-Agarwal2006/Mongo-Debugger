@@ -9,6 +9,36 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-18 — Doc habit: in-flight tradeoffs + talking points
+
+**What:** Agents must document **low-level concepts** and **decisions made while coding** (not only post-hoc Q&A) in DESIGN_NOTES §14 same session.
+
+**How:** DOC_MAINTENANCE § Low-level concept notes + § In-flight tradeoffs; cursor rule step 7; AGENTS.md step 6; §14.4 decision table example.
+
+**Why:** Chain-of-thought tradeoffs should not live only in chat — mentor demos and future you need §14.
+
+---
+
+## 2026-06-18 — Pipeline worker talking points + doc habit (low-level concepts)
+
+**What:** Mentor/demo notes in DESIGN_NOTES §14.4 (`job_id` vs `run_id`, extra load, rename-as-lock, poll loop); new **Low-level concept notes** rule in DOC_MAINTENANCE + AGENTS + cursor rule.
+
+**How:** §14.4 “Talking points” subsection; DOC_MAINTENANCE matrix row; `.cursor/rules/doc-maintenance.mdc` step 6.
+
+**Why:** Low-level explanations from review/grill should not live only in chat — capture for next presentation.
+
+---
+
+## 2026-06-18 — Standalone pipeline worker (file queue + crash recovery)
+
+**What:** Upload enqueues jobs to disk; a **standalone worker process** claims and runs the mongo-ftdc pipeline. Durable job status survives API/worker restarts. Crash recovery requeues `processing/` → `pending/` on worker startup.
+
+**How:** `backend/app/jobs/queue.py` (`FileJobQueue`), `worker.py` (`python -m backend.app.jobs.worker`), `run_pipeline_job()` in `pipeline.py`; `JobStore` persists to `data/jobs/{job_id}.json`; queue under `data/job_queue/pending|processing/`; removed upload daemon thread.
+
+**Why:** K8s-ready long work — API pod and worker pod share PVC via `DATA_ROOT`; atomic rename claims jobs (v1: **one worker replica**). See DESIGN_NOTES §14.4.
+
+---
+
 ## 2026-06-18 — RunWorkspace path adapter (full backend migration)
 
 **What:** `RunWorkspace` centralizes all run-scoped filesystem paths; optional `DATA_ROOT` env for K8s PVC; every backend caller migrated off `_workspace_root()` and inline `simagix-workspace/...` strings.

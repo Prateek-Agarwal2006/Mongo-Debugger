@@ -50,6 +50,27 @@ class RunWorkspace:
     def job_status_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "job_status.json"
 
+    def jobs_root(self) -> Path:
+        return self.simagix_root / "data/jobs"
+
+    def job_record_path(self, job_id: str) -> Path:
+        return self.jobs_root() / f"{job_id}.json"
+
+    def job_queue_root(self) -> Path:    # made a diff function for the root so that if path changes all functions using it dont have to change that string of path .....so basically we can change the path in one place and all functions using it will still work....reduced redundancy and increased maintainability....DRY principle...
+        return self.simagix_root / "data/job_queue"
+
+    def job_queue_pending_dir(self) -> Path:
+        return self.job_queue_root() / "pending"
+
+    def job_queue_processing_dir(self) -> Path:
+        return self.job_queue_root() / "processing"
+
+    def job_queue_pending_path(self, job_id: str) -> Path:
+        return self.job_queue_pending_dir() / f"{job_id}.json"
+
+    def job_queue_processing_path(self, job_id: str) -> Path:
+        return self.job_queue_processing_dir() / f"{job_id}.json"
+
     def phase2_dir(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "phase2"
 

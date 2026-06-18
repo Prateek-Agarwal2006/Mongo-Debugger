@@ -174,7 +174,7 @@ def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:
         zf.writestr("metrics.2026-06-10T00-00-00Z-00000", b"fake-ftdc-content")
     buf.seek(0)
 
-    with patch("backend.app.api.upload.PipelineJobRunner.start") as mock_start:
+    with patch("backend.app.api.upload.FileJobQueue.enqueue") as mock_enqueue:
         response = client.post(
             "/simagix/uploads",
             files={"file": ("diagnostic.zip", buf.getvalue(), "application/zip")},
@@ -183,7 +183,7 @@ def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:
     body = response.json()
     assert "job_id" in body
     assert "run_id" in body
-    mock_start.assert_called_once()
+    mock_enqueue.assert_called_once()
 
 
 def test_phase2_report_persists_on_disk(client: TestClient) -> None:

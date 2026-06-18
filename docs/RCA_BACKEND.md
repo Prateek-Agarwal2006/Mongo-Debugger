@@ -32,7 +32,7 @@ Content-Type: multipart/form-data
 
 Form field: `file` — `.zip` or `.tar.gz` archive containing `metrics.*` files, or a single `metrics.*` FTDC file. Nested archive folders (e.g. `diagnostic.data/metrics.*`) are flattened when all metrics share one parent directory.
 
-Uploads are stored at `simagix-workspace/data/uploads/<run_id>/diagnostic.data/`. Processing requires Docker (same pipeline as CLI).
+Uploads are stored at `simagix-workspace/data/uploads/<run_id>/diagnostic.data/`. The API **enqueues** a file-queue job; the **standalone worker** (`python -m backend.app.jobs.worker`) runs the Docker pipeline. Processing requires Docker (same pipeline as CLI).
 
 Response:
 

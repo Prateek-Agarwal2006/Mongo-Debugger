@@ -44,8 +44,13 @@ def test_phase2_and_llm_session_paths(tmp_path: Path) -> None:
 def test_run_manifest_and_job_status_paths(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     run_id = "r1"
+    job_id = "job-abc"
     assert workspace.run_manifest_path(run_id) == tmp_path / "simagix-workspace/runs/r1/run_manifest.json"
     assert workspace.job_status_path(run_id) == tmp_path / "simagix-workspace/runs/r1/job_status.json"
+    assert workspace.job_record_path(job_id) == tmp_path / "simagix-workspace/data/jobs/job-abc.json"
+    assert workspace.job_queue_pending_path(job_id) == (
+        tmp_path / "simagix-workspace/data/job_queue/pending/job-abc.json"
+    )
 
 
 def test_tooling_paths(tmp_path: Path) -> None:

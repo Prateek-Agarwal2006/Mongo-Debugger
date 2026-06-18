@@ -91,6 +91,7 @@ MONGO_FTDC_RUN_ID=myincident20260609 ./simagix-workspace/scripts/run-mongo-ftdc-
 | `MONGO_FTDC_RAW_EXPORT` | `false` | Include tier_3 raw decoder output |
 | `MONGO_URI` | — | Required for Keyhole |
 | `DATA_ROOT` | — (repo root) | Root for all Run artifacts (`simagix-workspace/...`). Set to `/data` in K8s when PVC is mounted. See `RunWorkspace` in `backend/app/core/run_workspace.py`. |
+| `PIPELINE_WORKER_POLL_SECONDS` | `2.0` | How often the standalone worker polls an empty queue. |
 | `GRAFANA_URL` | `http://localhost:3030` | Grafana UI base |
 | `FTDC_API_URL` | `http://localhost:5408` | FTDC API for `/grafana/dir` load |
 | `FTDC_LOAD_TIMEOUT_SECONDS` | `300` | Max wait for large FTDC decode into Grafana |
@@ -156,7 +157,17 @@ Requires **Docker** for the background pipeline (Colima on Mac).
 3. Open **http://localhost:8000/upload**.
 4. Upload a `.zip` or `.tar.gz` containing `metrics.*` files, or a single `metrics.*` file.
    On Mac, if the file picker is awkward, zip first: `cd tmp && zip -r diagnostic.zip diagnostic.data`
-5. The app saves uploads under `simagix-workspace/data/uploads/<run_id>/diagnostic.data/`, runs the Docker pipeline in the background, and redirects to the run page when complete.
+5. The app saves uploads under `simagix-workspace/data/uploads/<run_id>/diagnostic.data/` and **enqueues** a pipeline job. A **separate worker process** must be running to execute the pipeline (see **Starting the pipeline worker** below). Poll job status until `succeeded`, then open the run page.
+
+**Local “fake PVC”:** both API and worker must share the same root:
+
+```bash
+export DATA_ROOT=/tmp/mongo-debugger-data
+mkdir -p "$DATA_ROOT"
+ln -sf "$(pwd)/simagix-workspace" "$DATA_ROOT/simagix-workspace"   # once, for scripts/docker paths
+```
+
+**K8s:** mount the same PVC at `/data` on API and worker Deployments; set `DATA_ROOT=/data` on both.
 
 API equivalent:
 
@@ -172,7 +183,12 @@ curl http://localhost:8000/simagix/uploads/jobs/<job_id>
 colima start --cpu 4 --memory 8
 
 uv sync --extra dev --extra llm
+
+# Terminal 1 — API
 uv run uvicorn backend.app.main:app --reload --port 8000
+
+# Terminal 2 — pipeline worker (required for uploads to process)
+uv run python -m backend.app.jobs.worker
 ```
 
 Web UI: **http://localhost:8000**
