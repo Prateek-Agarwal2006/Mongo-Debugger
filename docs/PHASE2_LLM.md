@@ -2,7 +2,7 @@
 
 Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc evidence pipeline.
 
-**Last updated:** 2026-06-16
+**Last updated:** 2026-06-21
 
 **Status:** Complete (Cursor SDK **or** Gemini ADK + MCP/evidence tools + 3-phase RCA flow + live Graylog client).
 
@@ -41,7 +41,7 @@ Install Gemini deps: `uv sync --extra dev --extra llm`.
 
 | Layer | Scoped by | Notes |
 |-------|-----------|-------|
-| FTDC export bundle | `run_id` only | `exports/mongo-ftdc/{run_id}/` — same tier-1 data for all LLMs |
+| FTDC export bundle | `run_id` only | `uploads/{run_id}/phase1/evidence/` — same tier-1 data for all LLMs |
 | `SimagixEvidenceService` | `(run_id, llm)` | New instance per `Phase2Session`; own `RetrievalBudget` |
 | Phase 2 artifacts | `llm` | investigation, iterative_state, tool_trace, report, budget, metadata |
 
@@ -162,7 +162,7 @@ simagix-workspace/runs/<run_id>/phase2/
       ...
 ```
 
-FTDC bundle (`exports/mongo-ftdc/<run_id>/`) is **not** duplicated per LLM.
+FTDC bundle (`uploads/<run_id>/phase1/evidence/`) is **not** duplicated per LLM.
 
 ## Tool trace (one schema, provider adapters)
 
