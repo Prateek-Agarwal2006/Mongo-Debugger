@@ -6,7 +6,7 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
-**Last updated:** 2026-06-17
+**Last updated:** 2026-06-21
 
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
@@ -456,11 +456,13 @@ FastAPI app under `backend/app/`.
 ### Phase 2 persistence
 
 ```text
-simagix-workspace/runs/<run_id>/phase2/llm/{mock|cursor|gemini}/
+simagix-workspace/uploads/<run_id>/phase2/llm/{mock|cursor|gemini}/
   investigation.json, iterative_state.json, tool_trace.json,
   latest_report.json, budget_state.json, session_metadata.json,
   chatbot_chat.json, chatbot_scratch/
 ```
+
+Evidence bundle: `uploads/<run_id>/phase1/evidence/` (legacy `exports/mongo-ftdc/` still readable).
 
 ### Environment
 

@@ -1,5 +1,7 @@
 # Operations Guide
 
+**Last updated:** 2026-06-21
+
 ## Prerequisites
 
 ### Required
@@ -260,14 +262,14 @@ uv run pytest backend/tests/test_simagix_rca.py -q
 
 ## Output locations
 
-After a pipeline run with `run_id=20260609T133314Z`:
+After a pipeline run with `run_id=phase1test20260609T133314Z` (or your upload `run_id`):
 
 ```text
-simagix-workspace/reports/mongo-ftdc/20260609T133314Z/
+simagix-workspace/reports/mongo-ftdc/<run_id>/
   ftdc_diagnosis.html
   mftdc-console.txt
 
-simagix-workspace/exports/mongo-ftdc/20260609T133314Z/
+simagix-workspace/uploads/<run_id>/phase1/evidence/
   manifest.json
   llm/executive_context.json
   diagnosis/findings.json
@@ -275,17 +277,18 @@ simagix-workspace/exports/mongo-ftdc/20260609T133314Z/
   bundle_index.json
   validation.json
 
-simagix-workspace/runs/20260609T133314Z/
-  run_manifest.json
+simagix-workspace/uploads/<run_id>/
+  phase1/run_manifest.json
   phase2/llm/mock/latest_report.json    # persisted RCA per LLM slot
   phase2/llm/mock/budget_state.json
 ```
 
-Latest run pointers:
+Latest run pointers (pipeline scripts):
 
 ```text
-simagix-workspace/exports/mongo-ftdc/latest_run_id.txt
-simagix-workspace/exports/mongo-ftdc/latest_export_path.txt
+simagix-workspace/uploads/latest_run_id.txt
+simagix-workspace/uploads/latest_export_path.txt
+simagix-workspace/uploads/latest          # symlink to latest run dir
 ```
 
 ## Troubleshooting

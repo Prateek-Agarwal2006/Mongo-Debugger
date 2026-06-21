@@ -3,9 +3,19 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-17
+**Last updated:** 2026-06-21
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-21 — Docs: align remaining paths with Option A layout
+
+**What:** Updated stale `exports/mongo-ftdc/`, `data/uploads/`, and `runs/` references in README, ARCHITECTURE, OPERATIONS, PHASE2_LLM, RCA_BACKEND, FTDC_REFERENCE.
+
+**How:** Point evidence bundle and Phase 2 paths at `uploads/{run_id}/phase1/evidence/` and `uploads/{run_id}/phase2/`; note legacy read fallbacks where relevant.
+
+**Why:** Option A migration was documented in SIMAGIX_WORKSPACE/CHANGELOG but index and ops docs still showed the old tree.
 
 ---
 

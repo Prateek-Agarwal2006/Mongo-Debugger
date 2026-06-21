@@ -106,18 +106,22 @@ Mongo Debugger/
   backend/                      FastAPI APIs + web route wiring
   scripts/demo.sh               One-command demo
   simagix-workspace/
-    data/uploads/               Web upload staging (per run_id)
-    exports/mongo-ftdc/         Tiered evidence bundles
+    uploads/<run_id>/           One tree per upload (Option A)
+      raw/diagnostic.data/      Web upload FTDC
+      phase1/evidence/          Tiered evidence bundle
+      phase1/jobs|queue/        Pipeline worker state
+      phase2/llm/               RCA session artifacts
     reports/mongo-ftdc/         Human HTML + console reports
-    runs/                       run_manifest.json, phase2 RCA state
     scripts/                    Docker pipeline wrappers
     repos/                      Cloned simagix tool sources
-  tmp/                          Default FTDC input (symlinked)
+  tmp/                          Default FTDC input for CLI (gitignored)
 ```
+
+See [SIMAGIX_WORKSPACE.md](SIMAGIX_WORKSPACE.md) for full layout.
 
 ## Evidence bundle (quick reference)
 
-Each export under `simagix-workspace/exports/mongo-ftdc/<run_id>/`:
+Each export under `simagix-workspace/uploads/<run_id>/phase1/evidence/`:
 
 ```text
 tier_1_analyzed   → primary LLM input (findings, anomalies, assessment)
