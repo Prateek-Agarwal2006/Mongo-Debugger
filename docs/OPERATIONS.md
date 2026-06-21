@@ -41,11 +41,7 @@ Pins and layout: [Simagix Workspace](SIMAGIX_WORKSPACE.md).
 
 The workspace references a local sample via symlink:
 
-```text
-simagix-workspace/data/diagnostic.data -> ../../tmp/diagnostic.data
-```
-
-Place your own `diagnostic.data` directory at `tmp/diagnostic.data` or point scripts at a custom path.
+Place your FTDC sample at `tmp/diagnostic.data/` or pass a custom path to pipeline scripts.
 
 ## Running the pipeline
 
@@ -125,7 +121,7 @@ The FTDC API (`:5408`) is a **singleton**: it holds one `diagnostic.data` direct
 When you load (UI button or `POST /simagix/runs/{run_id}/grafana/load`):
 
 1. Ensures the Docker Grafana stack is running (`GrafanaStackManager.ensure_running`).
-2. Resolves the **host path** to this run’s raw FTDC capture via `run_manifest.json` → `input` (e.g. `simagix-workspace/data/diagnostic.data` or an upload path). Falls back to export `manifest.json` or `tmp/diagnostic.data` if needed.
+2. Resolves the **host path** to this run’s raw FTDC capture via `run_manifest.json` → `input` (e.g. `tmp/diagnostic.data` or an upload path under `uploads/{run_id}/raw/`). Falls back to export `manifest.json` or `tmp/diagnostic.data` if needed.
 3. Maps that path to the container path `/workspace/...` and `POST`s it to the FTDC API `POST /grafana/dir`.
 4. Returns dashboard URLs with the correct time windows (anomaly-padded window vs full capture range).
 
@@ -157,7 +153,9 @@ Requires **Docker** for the background pipeline (Colima on Mac).
 3. Open **http://localhost:8000/upload**.
 4. Upload a `.zip` or `.tar.gz` containing `metrics.*` files, or a single `metrics.*` file.
    On Mac, if the file picker is awkward, zip first: `cd tmp && zip -r diagnostic.zip diagnostic.data`
-5. The app saves uploads under `simagix-workspace/data/uploads/<run_id>/diagnostic.data/` and **enqueues** a pipeline job. A **separate worker process** must be running to execute the pipeline (see **Starting the pipeline worker** below). Poll job status until `succeeded`, then open the run page.
+5. The app saves uploads under `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/` and **enqueues** a Phase 1 job under `uploads/<run_id>/phase1/queue/pending/`. A **separate worker process** must be running to execute the pipeline (see **Starting the pipeline worker** below). Poll job status until `succeeded`, then open the run page.
+
+**If the pipeline fails** (e.g. Docker not running): the upload files remain; the job record shows `failed` under `uploads/<run_id>/phase1/jobs/{job_id}.json`. The queue entry is removed — nothing blocks other jobs. If a job is `pending` but never enqueued, the catalog shows **Not enqueued** (stale). Open **http://localhost:8000/runs**, find the upload, click **Retry** (or use the Phase 1 page). Fix Docker first (`colima start`), ensure the worker is running, then retry — no need to upload again.
 
 **Local “fake PVC”:** both API and worker must share the same root:
 
@@ -174,6 +172,7 @@ API equivalent:
 ```bash
 curl -F "file=@diagnostic.zip" http://localhost:8000/simagix/uploads
 curl http://localhost:8000/simagix/uploads/jobs/<job_id>
+curl -X POST http://localhost:8000/simagix/uploads/runs/<run_id>/retry
 ```
 
 ## Starting the RCA backend
@@ -305,7 +304,7 @@ simagix-workspace/exports/mongo-ftdc/latest_export_path.txt
 These require additional input artifacts:
 
 ```bash
-# Needs logs in simagix-workspace/data/mongodb-logs/
+# Needs logs in tmp/mongodb-logs/
 ./simagix-workspace/scripts/run-hatchet.sh
 
 # Needs MONGO_URI

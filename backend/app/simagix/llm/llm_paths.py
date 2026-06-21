@@ -34,7 +34,7 @@ def _workspace(workspace_root: Path) -> RunWorkspace:
 
 
 def phase2_root_dir(workspace_root: Path, run_id: str) -> Path:
-    return _workspace(workspace_root).phase2_dir(run_id)
+    return _workspace(workspace_root).resolve_phase2_dir(run_id)
 
 
 def llm_session_dir(workspace_root: Path, run_id: str, llm: str) -> Path:

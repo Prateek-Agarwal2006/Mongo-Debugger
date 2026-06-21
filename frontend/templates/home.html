@@ -9,15 +9,15 @@
         <span class="badge text-bg-success mb-3 px-3 py-2">MongoDB diagnostics</span>
         <h1 class="display-4 fw-bold mb-3 hero-title">AI-Powered FTDC Analyzer</h1>
         <p class="lead text-secondary mb-4">
-          Upload <code class="text-success">diagnostic.data</code>, run deterministic mongo-ftdc analysis,
-          then generate evidence-backed root-cause reports with MCP tools and your choice of LLM.
+          <strong>Upload</strong> <code class="text-success">diagnostic.data</code>, run <strong>Phase 1</strong> decode (mongo-ftdc),
+          then start a full <strong>Run analysis</strong> (Phase 2 RCA) with MCP tools and your choice of LLM.
         </p>
         <div class="d-flex flex-wrap gap-2">
           <a class="btn btn-success btn-lg px-4 btn-glow" href="/upload">
             <i class="bi bi-cloud-upload me-2"></i>Upload FTDC
           </a>
           <a class="btn btn-outline-light btn-lg" href="/runs">
-            <i class="bi bi-collection me-2"></i>Browse Runs
+            <i class="bi bi-collection me-2"></i>Browse uploads
           </a>
         </div>
       </div>
@@ -26,14 +26,14 @@
           <div class="col-6">
             <div class="float-card h-100 reveal-panel" data-reveal="right" data-reveal-delay="0.1" data-depth="0.25">
               <i class="bi bi-cpu text-info"></i>
-              <div class="fw-semibold">Tier-1 findings</div>
-              <div class="small text-secondary">Deterministic lab</div>
+              <div class="fw-semibold">Phase 1</div>
+              <div class="small text-secondary">Decode &amp; export</div>
             </div>
           </div>
           <div class="col-6">
             <div class="float-card h-100 reveal-panel" data-reveal="right" data-reveal-delay="0.2" data-depth="0.35">
               <i class="bi bi-robot text-warning"></i>
-              <div class="fw-semibold">3-phase RCA</div>
+              <div class="fw-semibold">Phase 2 RCA</div>
               <div class="small text-secondary">A → B → C</div>
             </div>
           </div>
@@ -79,79 +79,38 @@
   </div>
 </section>
 
-<div class="row g-4">
-  <div class="col-lg-6">
-    <div class="glass-card h-100 reveal-panel" data-reveal="up">
-      <div class="card-header bg-transparent border-secondary-subtle d-flex justify-content-between align-items-center px-4 pt-3">
-        <h2 class="h5 mb-0"><i class="bi bi-clock-history me-2 text-success"></i>Recent Runs</h2>
-        <a href="/runs" class="btn btn-sm btn-outline-secondary">View all</a>
-      </div>
-      <div class="card-body p-0">
-        {% if runs %}
-        <div class="table-responsive runs-table">
-          <table class="table table-hover table-borderless mb-0 align-middle">
-            <thead class="table-secondary table-opacity-25">
-              <tr><th>Run ID</th><th class="text-end">Open</th></tr>
-            </thead>
-            <tbody>
-              {% for run_id in runs[:10] %}
-              <tr>
-                <td><code class="text-break">{{ run_id }}</code></td>
-                <td class="text-end">
-                  <a class="btn btn-sm btn-outline-success" href="/runs/{{ run_id }}">
-                    <i class="bi bi-arrow-right"></i>
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div class="p-4 text-center text-secondary">
-          <i class="bi bi-inbox display-6 d-block mb-2 opacity-50"></i>
-          No completed runs yet. <a href="/upload">Upload FTDC data</a> to get started.
-        </div>
-        {% endif %}
-      </div>
-    </div>
+<div class="glass-card reveal-panel" data-reveal="up">
+  <div class="card-header bg-transparent border-secondary-subtle d-flex justify-content-between align-items-center px-4 pt-3">
+    <h2 class="h5 mb-0"><i class="bi bi-cloud-upload me-2 text-success"></i>Recent uploads</h2>
+    <a href="/runs" class="btn btn-sm btn-outline-secondary">View all</a>
   </div>
-
-  {% if jobs %}
-  <div class="col-lg-6">
-    <div class="glass-card h-100 reveal-panel" data-reveal="up" data-reveal-delay="0.15">
-      <div class="card-header bg-transparent border-secondary-subtle px-4 pt-3">
-        <h2 class="h5 mb-0"><i class="bi bi-arrow-repeat me-2 text-info"></i>Recent Upload Jobs</h2>
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive runs-table">
-          <table class="table table-hover table-borderless mb-0 align-middle">
-            <thead class="table-secondary table-opacity-25">
-              <tr><th>Job</th><th>Run</th><th>State</th><th>Message</th></tr>
-            </thead>
-            <tbody>
-              {% for job in jobs %}
-              <tr>
-                <td><code>{{ job.job_id[:8] }}…</code></td>
-                <td><a href="/runs/{{ job.run_id }}">{{ job.run_id }}</a></td>
-                <td>
-                  {% if job.state == 'succeeded' %}
-                  <span class="badge text-bg-success">{{ job.state }}</span>
-                  {% elif job.state == 'failed' %}
-                  <span class="badge text-bg-danger">{{ job.state }}</span>
-                  {% else %}
-                  <span class="badge text-bg-warning text-dark">{{ job.state }}</span>
-                  {% endif %}
-                </td>
-                <td class="small text-secondary">{{ job.message }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <div class="card-body p-0">
+    {% if run_entries %}
+    {% with show_index=false, compact=true %}
+    {% include "partials/upload_catalog_table.html" %}
+    {% endwith %}
+    {% else %}
+    <div class="p-4 text-center text-secondary">
+      <i class="bi bi-inbox display-6 d-block mb-2 opacity-50"></i>
+      No uploads yet. <a href="/upload">Upload FTDC data</a> to get started.
     </div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
+<script>
+document.querySelectorAll(".retry-pipeline-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    const runId = btn.dataset.runId;
+    const resp = await fetch(`/simagix/uploads/runs/${runId}/retry`, { method: "POST" });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      alert(body.detail || "Retry failed");
+      btn.disabled = false;
+      return;
+    }
+    window.location.href = `/runs/${runId}/pipeline`;
+  });
+});
+</script>
 {% endblock %}

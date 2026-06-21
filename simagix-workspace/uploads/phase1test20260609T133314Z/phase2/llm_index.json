@@ -1,0 +1,16 @@
+[
+  {
+    "llm": "mock",
+    "label": "Mock",
+    "status": "completed",
+    "last_run_at": 1782045991.285362,
+    "has_report": true
+  },
+  {
+    "llm": "gemini",
+    "label": "Gemini ADK",
+    "status": "not_started",
+    "last_run_at": null,
+    "has_report": false
+  }
+]

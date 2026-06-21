@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from backend.app.core.run_workspace import get_run_workspace
 from backend.app.jobs.queue import FileJobQueue
+from backend.app.jobs.retry import PipelineRetryError, retry_pipeline_for_run
 from backend.app.jobs.store import job_store
 
 router = APIRouter(prefix="/simagix/uploads", tags=["simagix-upload"])
@@ -43,6 +44,11 @@ def _unpack_archive(archive_path: Path, dest_dir: Path) -> None:
                 shutil.move(str(item), str(target))
 
 
+def _remove_upload_tree(upload_dir: Path) -> None:
+    if upload_dir.is_dir():
+        shutil.rmtree(upload_dir, ignore_errors=True)
+
+
 @router.post("")
 async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]:
     if not file.filename:
@@ -50,31 +56,40 @@ async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]
 
     workspace = get_run_workspace()
     run_id = _new_run_id()
+    upload_dir = workspace.upload_dir(run_id)
     input_dir = workspace.upload_diagnostic_dir(run_id)
-    input_dir.mkdir(parents=True, exist_ok=True)
 
-    archive_path = input_dir.parent / file.filename
-    content = await file.read()
-    archive_path.write_bytes(content)
+    try:
+        input_dir.mkdir(parents=True, exist_ok=True)
 
-    filename_lower = file.filename.lower()
-    if filename_lower.startswith("metrics."):
-        shutil.move(str(archive_path), str(input_dir / file.filename))
-    else:
-        _unpack_archive(archive_path, input_dir)
-        if archive_path.exists():
-            archive_path.unlink()
+        archive_path = input_dir.parent / file.filename
+        content = await file.read()
+        archive_path.write_bytes(content)
 
-    rel_input = input_dir.relative_to(workspace.root)
-    job = job_store.create(run_id, input_path=str(rel_input), workspace_root=workspace.root)
-    FileJobQueue(workspace).enqueue(job, input_dir)
+        filename_lower = file.filename.lower()
+        if filename_lower.startswith("metrics."):
+            shutil.move(str(archive_path), str(input_dir / file.filename))
+        else:
+            _unpack_archive(archive_path, input_dir)
+            if archive_path.exists():
+                archive_path.unlink()
 
-    return {
-        "job_id": job.job_id,
-        "run_id": run_id,
-        "input_path": str(rel_input),
-        "status": job.state.value,
-    }
+        rel_input = input_dir.relative_to(workspace.root)
+        job = job_store.create(run_id, input_path=str(rel_input), workspace_root=workspace.root)
+        FileJobQueue(workspace).enqueue(job, input_dir)
+
+        return {
+            "job_id": job.job_id,
+            "run_id": run_id,
+            "input_path": str(rel_input),
+            "status": job.state.value,
+        }
+    except HTTPException:
+        _remove_upload_tree(upload_dir)
+        raise
+    except Exception:
+        _remove_upload_tree(upload_dir)
+        raise
 
 
 @router.get("/jobs/{job_id}")
@@ -83,3 +98,18 @@ def get_job_status(job_id: str) -> dict[str, object]:
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
     return job.to_dict()
+
+
+@router.post("/runs/{run_id}/retry")
+def retry_pipeline_run(run_id: str) -> dict[str, str]:
+    workspace = get_run_workspace()
+    try:
+        job = retry_pipeline_for_run(workspace.root, run_id)
+    except PipelineRetryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    return {
+        "job_id": job.job_id,
+        "run_id": job.run_id,
+        "input_path": job.input_path or "",
+        "status": job.state.value,
+    }

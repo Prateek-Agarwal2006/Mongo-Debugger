@@ -3,16 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.app.grafana.links import ANOMALY_DASHBOARD_SLUG, build_grafana_links
+from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists, fixture_exports_dir
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_RUN_ID = "phase1test20260609T133314Z"
 
 
 def test_build_grafana_links() -> None:
-    bundle = WORKSPACE_ROOT / "simagix-workspace/exports/mongo-ftdc" / FIXTURE_RUN_ID
-    if not (bundle / "manifest.json").exists():
+    if not fixture_bundle_exists():
         return
 
+    bundle = fixture_exports_dir()
     links = build_grafana_links(WORKSPACE_ROOT, FIXTURE_RUN_ID, bundle)
     assert links.run_id == FIXTURE_RUN_ID
     assert "simagix-grafana-anomaly" in links.anomaly_focus_url
@@ -26,8 +26,7 @@ def test_grafana_urls_api() -> None:
 
     from backend.app.main import create_app
 
-    bundle = WORKSPACE_ROOT / "simagix-workspace/exports/mongo-ftdc" / FIXTURE_RUN_ID
-    if not (bundle / "manifest.json").exists():
+    if not fixture_bundle_exists():
         return
 
     client = TestClient(create_app())

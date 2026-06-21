@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ run_id }} — FTDC Analyzer{% endblock %}
+{% block title %}{{ run_id }} — Run analysis (Phase 2){% endblock %}
 {% block body_class %}page-run-detail{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="/static/css/report-viewer.css"/>
@@ -16,8 +16,8 @@
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="/runs">Runs</a></li>
-    <li class="breadcrumb-item active" aria-current="page"><code>{{ run_id }}</code></li>
+    <li class="breadcrumb-item"><a href="/runs">Uploads</a></li>
+    <li class="breadcrumb-item active" aria-current="page"><code>{{ run_id }}</code> · Phase 2</li>
   </ol>
 </nav>
 

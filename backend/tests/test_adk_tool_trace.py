@@ -46,10 +46,11 @@ def test_record_grounding_metadata_writes_web_row(tmp_path: Path) -> None:
 def test_build_adk_agent_tools_includes_web_fetch() -> None:
     from backend.app.simagix.evidence_service import SimagixEvidenceService
 
+    from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists
+
     workspace = Path(__file__).resolve().parents[2]
-    run_id = "phase1test20260609T133314Z"
-    bundle = workspace / "simagix-workspace/exports/mongo-ftdc" / run_id / "manifest.json"
-    if not bundle.exists():
+    run_id = FIXTURE_RUN_ID
+    if not fixture_bundle_exists():
         import pytest
 
         pytest.skip("fixture bundle missing")

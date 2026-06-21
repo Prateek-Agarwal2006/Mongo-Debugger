@@ -26,19 +26,20 @@ html/
 simagix-workspace/repos/
 
 # Simagix: runtime uploads and reports (large / machine-local)
-simagix-workspace/data/uploads/
 simagix-workspace/reports/
 
-# Simagix: exports — keep test fixture only (see backend/tests)
-simagix-workspace/exports/mongo-ftdc/*
-!simagix-workspace/exports/mongo-ftdc/phase1test20260609T133314Z/
-simagix-workspace/exports/mongo-ftdc/latest_*.txt
+# Option A upload tree — keep test fixture only (see backend/tests/fixture_paths.py)
+simagix-workspace/uploads/*
+!simagix-workspace/uploads/phase1test20260609T133314Z/
+!simagix-workspace/uploads/phase1test20260609T133314Z/**
+simagix-workspace/uploads/latest_*.txt
 
-# Simagix: run state — ignore ad-hoc uploads; keep phase1test fixture
-simagix-workspace/runs/upload*
-simagix-workspace/runs/phase1test20260605*
-simagix-workspace/runs/latest
-simagix-workspace/runs/latest_run_id.txt
+# Legacy paths (removed on disk; ignore if recreated locally)
+simagix-workspace/exports/
+simagix-workspace/runs/
+
+# Local agent issue tracker (Matt Pocock skills — see docs/agents/issue-tracker.md)
+.scratch/
 
 # Local FTDC sample (symlink target; add your own diagnostic.data here)
 tmp/

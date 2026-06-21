@@ -34,7 +34,7 @@ class PipelineWorker:
         try:
             run_pipeline_job(self.workspace.root, claimed.job_id, claimed.run_id, input_path)  # want both job_id and run_id(this is id given when we uploadeded the data) as same run_id may run multiple times so job_id should be unique for each run....
         finally:
-            self._queue.complete(claimed.job_id)
+            self._queue.complete(claimed.run_id, claimed.job_id)
         return True
 
     def run_forever(self) -> None:  # so nothing else calls this function....only this function calls the process_one function....so this function is the main entry point for the worker....and it sleeps for the poll_seconds and then calls the process_one function....and if the process_one function returns False then it sleeps for the poll_seconds again....and if the process_one function returns True then it breaks out of the loop and exits the function....

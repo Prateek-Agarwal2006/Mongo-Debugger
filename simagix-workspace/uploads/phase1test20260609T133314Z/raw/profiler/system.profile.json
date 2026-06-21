@@ -1,0 +1,7 @@
+[
+  {
+    "op": "query",
+    "millis": 120,
+    "ns": "test.orders"
+  }
+]

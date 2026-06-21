@@ -9,7 +9,13 @@ from fastapi.templating import Jinja2Templates
 
 from backend.app.core.config import get_settings
 from backend.app.core.run_workspace import get_run_workspace, repo_root
-from backend.app.jobs.store import job_store
+from backend.app.jobs.catalog import (
+    list_phase1_attempts,
+    list_run_catalog,
+    latest_job_for_run,
+    pipeline_display_status,
+    upload_time_utc_from_run_id,
+)
 from backend.app.simagix.format_report import format_rca_report_pretty
 from backend.app.simagix.llm.llm_paths import LLM_FOLDER_NAMES
 from backend.app.simagix.llm.service import list_run_llm_sessions, llm_provider_options
@@ -60,23 +66,56 @@ def _default_selected_llm(sessions: list[dict[str, object]]) -> str:
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request) -> HTMLResponse:
+    workspace = get_run_workspace()
+    entries = [entry.to_dict() for entry in list_run_catalog(workspace.root)]
     return templates.TemplateResponse(
         request,
         "home.html",
-        {"runs": _list_run_ids(), "jobs": [job.to_dict() for job in job_store.list_recent(10)]},
+        {"run_entries": entries[:10]},
     )
 
 
 @router.get("/runs", response_class=HTMLResponse)
 def runs_list(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "runs.html", {"runs": _list_run_ids()})
+    workspace = get_run_workspace()
+    entries = [entry.to_dict() for entry in list_run_catalog(workspace.root)]
+    return templates.TemplateResponse(request, "runs.html", {"run_entries": entries})
+
+
+@router.get("/runs/{run_id}/pipeline", response_class=HTMLResponse)
+def run_pipeline_status(request: Request, run_id: str) -> HTMLResponse:
+    workspace = get_run_workspace()
+    job = latest_job_for_run(workspace.root, run_id)
+    if job is None and not (workspace.resolve_exports_dir(run_id) / "manifest.json").exists():
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    status = "finished"
+    if job is not None:
+        status = pipeline_display_status(workspace, job)
+    elif (workspace.resolve_exports_dir(run_id) / "manifest.json").exists():
+        status = "finished"
+    return templates.TemplateResponse(
+        request,
+        "run_pipeline.html",
+        {
+            "run_id": run_id,
+            "pipeline_status": status,
+            "phase1_status": status,
+            "job": job.to_dict() if job else None,
+            "job_id": job.job_id if job else None,
+            "phase1_attempts": [attempt.to_dict() for attempt in list_phase1_attempts(workspace.root, run_id)],
+            "upload_time_utc": upload_time_utc_from_run_id(run_id),
+        },
+    )
 
 
 @router.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLResponse:
     workspace = get_run_workspace()
-    exports = workspace.exports_dir(run_id)
+    exports = workspace.resolve_exports_dir(run_id)
     if not (exports / "manifest.json").exists():
+        job = latest_job_for_run(workspace.root, run_id)
+        if job is not None or workspace.upload_exists(run_id):
+            return run_pipeline_status(request, run_id)
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
 
     settings = get_settings()

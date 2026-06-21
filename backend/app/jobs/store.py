@@ -56,6 +56,26 @@ class JobStatus:
         )
 
 
+def _iter_job_record_paths(workspace: RunWorkspace) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[str] = set()
+    for run_dir in workspace.iter_upload_run_dirs():
+        jobs_dir = run_dir / "phase1" / "jobs"
+        if not jobs_dir.is_dir():
+            continue
+        for path in jobs_dir.glob("*.json"):
+            if path.stem not in seen:
+                seen.add(path.stem)
+                paths.append(path)
+    legacy = workspace.legacy_jobs_root()
+    if legacy.is_dir():
+        for path in legacy.glob("*.json"):
+            if path.stem not in seen:
+                seen.add(path.stem)
+                paths.append(path)
+    return paths
+
+
 class JobStore:
     def __init__(self) -> None:
         self._jobs: dict[str, JobStatus] = {}
@@ -76,16 +96,21 @@ class JobStore:
         return job
 
     def get(self, job_id: str, *, workspace_root: Path | None = None) -> JobStatus | None:
-        with self._lock:
-            cached = self._jobs.get(job_id)
-        if cached is not None:
-            return cached
         root = workspace_root
         if root is None:
             from backend.app.core.run_workspace import get_run_workspace
 
             root = get_run_workspace().root
-        return self.load(root, job_id)
+        disk_job = self._read_from_disk(root, job_id)
+        with self._lock:
+            cached = self._jobs.get(job_id)
+        if disk_job is None:
+            return cached
+        if cached is None or disk_job.updated_at >= cached.updated_at:
+            with self._lock:
+                self._jobs[job_id] = disk_job
+            return disk_job
+        return cached
 
     def update(self, job_id: str, *, workspace_root: Path | None = None, **kwargs: Any) -> JobStatus | None:
         root = workspace_root
@@ -107,9 +132,24 @@ class JobStore:
         self.persist(root, job)
         return job
 
-    def list_recent(self, limit: int = 20) -> list[JobStatus]:
-        with self._lock:
-            jobs = sorted(self._jobs.values(), key=lambda item: item.created_at, reverse=True)
+    def list_recent(self, limit: int = 20, *, workspace_root: Path | None = None) -> list[JobStatus]:
+        root = workspace_root
+        if root is None:
+            from backend.app.core.run_workspace import get_run_workspace
+
+            root = get_run_workspace().root
+        workspace = RunWorkspace(root)
+        paths = _iter_job_record_paths(workspace)
+        if not paths:
+            with self._lock:
+                jobs = sorted(self._jobs.values(), key=lambda item: item.created_at, reverse=True)
+            return jobs[:limit]
+        jobs: list[JobStatus] = []
+        for path in paths:
+            job = self._read_from_disk(root, path.stem)
+            if job is not None:
+                jobs.append(job)
+        jobs.sort(key=lambda item: item.updated_at, reverse=True)
         return jobs[:limit]
 
     def load(self, workspace_root: Path, job_id: str) -> JobStatus | None:
@@ -121,8 +161,9 @@ class JobStore:
         return job
 
     def _read_from_disk(self, workspace_root: Path, job_id: str) -> JobStatus | None:
-        path = RunWorkspace(workspace_root).job_record_path(job_id)
-        if not path.exists():
+        workspace = RunWorkspace(workspace_root)
+        path = workspace.find_job_record_path(job_id)
+        if path is None:
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
         return JobStatus.from_dict(data)
@@ -130,7 +171,7 @@ class JobStore:
     def persist(self, workspace_root: Path, job: JobStatus) -> None:
         workspace = RunWorkspace(workspace_root)
         payload = json.dumps(job.to_dict(), indent=2)
-        record_path = workspace.job_record_path(job.job_id)
+        record_path = workspace.job_record_path(job.run_id, job.job_id)
         record_path.parent.mkdir(parents=True, exist_ok=True)
         record_path.write_text(payload, encoding="utf-8")
         run_status_path = workspace.job_status_path(job.run_id)

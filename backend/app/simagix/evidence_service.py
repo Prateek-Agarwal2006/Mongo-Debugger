@@ -29,7 +29,7 @@ class SimagixEvidenceService:
         self.workspace_root = workspace_root.resolve()
         self.run_id = run_id
         ws = RunWorkspace(self.workspace_root)
-        self.bundle_dir = ws.exports_dir(run_id)
+        self.bundle_dir = ws.resolve_exports_dir(run_id)
         self.loader = SimagixBundleLoader(self.bundle_dir)
         self.tools = SimagixFallbackTools(self.bundle_dir)
         self.budget = budget or RetrievalBudget(max_tool_calls=max_tool_calls)

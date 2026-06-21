@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIMAGIX_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="$(cd "${SIMAGIX_DIR}/.." && pwd)"
-LOG_DIR="${1:-simagix-workspace/data/mongodb-logs}"
+LOG_DIR="${1:-tmp/mongodb-logs}"
 REPORT_DIR="${SIMAGIX_DIR}/reports/hatchet"
 
 mkdir -p "${REPORT_DIR}"

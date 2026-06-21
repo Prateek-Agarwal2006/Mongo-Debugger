@@ -4,10 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIMAGIX_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="$(cd "${SIMAGIX_DIR}/.." && pwd)"
-OUTPUT_DIR="simagix-workspace/data/keyhole-output"
+OUTPUT_DIR="tmp/keyhole-output"
 REPORT_DIR="${SIMAGIX_DIR}/reports/keyhole"
 
-mkdir -p "${SIMAGIX_DIR}/data/keyhole-output" "${REPORT_DIR}"
+mkdir -p "${PROJECT_ROOT}/tmp/keyhole-output" "${REPORT_DIR}"
 
 if [ -z "${MONGO_URI:-}" ]; then
   echo "MONGO_URI is required for Keyhole."

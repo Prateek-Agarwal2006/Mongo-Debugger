@@ -1,48 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Runs — FTDC Analyzer{% endblock %}
+{% block title %}Uploads — FTDC Analyzer{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
   <div>
-    <h1 class="h2 mb-1"><i class="bi bi-collection me-2 text-success"></i>Analysis Runs</h1>
-    <p class="text-secondary mb-0">Completed exports under <code>simagix-workspace/exports/mongo-ftdc/</code></p>
+    <h1 class="h2 mb-1"><i class="bi bi-collection me-2 text-success"></i>Uploads &amp; analyses</h1>
+    <p class="text-secondary mb-0">Each row is one upload — <strong>Phase 1</strong> decode/export, then optional <strong>Phase 2</strong> run analysis (LLM RCA)</p>
   </div>
   <a class="btn btn-success btn-glow" href="/upload"><i class="bi bi-cloud-upload me-2"></i>New upload</a>
 </div>
 
 <div class="glass-card reveal-panel" data-reveal="left">
   <div class="card-body p-0">
-    {% if runs %}
-    <div class="table-responsive">
-      <table class="table table-hover mb-0 align-middle runs-table">
-        <thead class="table-secondary table-opacity-25">
-          <tr>
-            <th>#</th>
-            <th>Run ID</th>
-            <th class="text-end">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for run_id in runs %}
-          <tr>
-            <td class="text-secondary">{{ loop.index }}</td>
-            <td><code class="text-break">{{ run_id }}</code></td>
-            <td class="text-end">
-              <a class="btn btn-sm btn-outline-success" href="/runs/{{ run_id }}">
-                <i class="bi bi-box-arrow-up-right me-1"></i>Open run
-              </a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% if run_entries %}
+    {% with show_index=true, compact=false %}
+    {% include "partials/upload_catalog_table.html" %}
+    {% endwith %}
     {% else %}
     <div class="p-5 text-center text-secondary">
       <i class="bi bi-folder2-open display-4 d-block mb-3 opacity-50"></i>
-      <p class="mb-3">No runs found yet.</p>
+      <p class="mb-3">No uploads found yet.</p>
       <a class="btn btn-success btn-glow" href="/upload">Upload your first FTDC archive</a>
     </div>
     {% endif %}
   </div>
 </div>
+<script>
+document.querySelectorAll(".retry-pipeline-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    const runId = btn.dataset.runId;
+    const resp = await fetch(`/simagix/uploads/runs/${runId}/retry`, { method: "POST" });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      alert(body.detail || "Retry failed");
+      btn.disabled = false;
+      return;
+    }
+    window.location.href = `/runs/${runId}/pipeline`;
+  });
+});
+</script>
 {% endblock %}

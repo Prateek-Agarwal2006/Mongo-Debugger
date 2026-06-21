@@ -56,7 +56,7 @@ def load_run_into_grafana(run_id: str) -> dict[str, object]:
 @router.get("/{run_id}/grafana/urls")
 def get_grafana_urls(run_id: str) -> dict[str, object]:
     workspace = get_run_workspace()
-    bundle = workspace.exports_dir(run_id)
+    bundle = workspace.resolve_exports_dir(run_id)
     if not (bundle / "manifest.json").exists():
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
 

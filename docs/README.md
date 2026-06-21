@@ -61,7 +61,7 @@ Manual pipeline from disk (Docker required): see [Operations](OPERATIONS.md#pipe
 
 | Document | Description |
 |----------|-------------|
-| [Simagix Workspace](SIMAGIX_WORKSPACE.md) | Folder layout, cloned repos, input artifacts |
+| [Simagix Workspace](SIMAGIX_WORKSPACE.md) | Folder layout, **RunWorkspace adapter**, **symlinks**, **on-disk JSON catalog**, cloned repos, inputs |
 | [Simagix Toolchain](SIMAGIX_TOOLCHAIN.md) | mongo-ftdc, Hatchet, Keyhole, Maobi roles |
 | [Export Contract](export_contract.md) | Tiered evidence bundle schema (`v1.0.0`) |
 | [Evidence Guide](EVIDENCE_GUIDE.md) | Why the bundle is optimized for LLM context |

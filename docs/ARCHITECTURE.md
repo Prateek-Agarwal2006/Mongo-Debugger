@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-17
 
 ## Purpose
 
@@ -89,7 +89,7 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | 2 | Background job | **Python** `threading` + `subprocess` | `jobs/pipeline.py` |
 | 2 | FTDC analysis | **mongo-ftdc** (Go, Docker) | `simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh` |
 | 2 | Container runtime | **Docker Compose** | `simagix-workspace/docker/grafana-compose.yaml` |
-| 3 | Evidence JSON | **mongo-ftdc** export | `exports/mongo-ftdc/<run_id>/` |
+| 3 | Evidence JSON | **mongo-ftdc** export | `uploads/<run_id>/phase1/evidence/` |
 | 3 | Bundle loading | **SimagixBundleLoader** | `backend/app/simagix/bundle.py` |
 | 5 | REST Phase 2 | **FastAPI** routers | `api/phase2.py` |
 | 5 | Evidence service | **SimagixEvidenceService** | `backend/app/simagix/evidence_service.py` |
@@ -117,9 +117,9 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 Why full `RunWorkspace` instead of only `get_data_root()`: configurable root fixes the mount point; named methods fix duplicated layout strings across 5+ files. Pattern: **Adapter** (domain → paths); later **Strategy** for filesystem vs object storage.
 
 ```
-  upload API  ──► RunWorkspace.uploads_dir(run_id)  ──► /data/.../uploads/{id}/
-  evidence    ──► RunWorkspace.exports_dir(run_id)  ──► /data/.../exports/mongo-ftdc/{id}/
-  phase2      ──► RunWorkspace.llm_session_dir(...) ──► /data/.../runs/{id}/phase2/llm/{llm}/
+  upload API  ──► RunWorkspace.upload_diagnostic_dir(run_id) ──► /data/.../uploads/{id}/raw/diagnostic.data/
+  evidence    ──► RunWorkspace.exports_dir(run_id)           ──► /data/.../uploads/{id}/phase1/evidence/
+  phase2      ──► RunWorkspace.llm_session_dir(...)          ──► /data/.../uploads/{id}/phase2/llm/{llm}/
 ```
 
 Full comparison table and mentor Q&A: [DESIGN_NOTES.md §14.3](DESIGN_NOTES.md#143-runworkspace--why-full-module-not-just-get_data_root).
@@ -190,9 +190,9 @@ Sources: [`backend/app/api/upload.py`](../backend/app/api/upload.py), [`backend/
 
 | Piece | Path / command |
 |-------|----------------|
-| Enqueue | API writes `data/job_queue/pending/{job_id}.json` |
+| Enqueue | API writes `uploads/{run_id}/phase1/queue/pending/{job_id}.json` |
 | Claim | Worker atomic rename → `processing/` |
-| Status | `data/jobs/{job_id}.json` (+ `runs/{run_id}/job_status.json`) |
+| Status | `uploads/{run_id}/phase1/jobs/{job_id}.json` (+ `phase1/job_status.json`) |
 | Run | `uv run python -m backend.app.jobs.worker` |
 | Shared root | `DATA_ROOT` (repo locally, PVC mount `/data` in K8s) |
 
@@ -249,7 +249,7 @@ flowchart LR
 
 `get_llm_provider`: `force_mock` or `LLM_PROVIDER=mock` → mock; `LLM_PROVIDER=gemini` + `GOOGLE_API_KEY` → Gemini ADK; `LLM_PROVIDER=cursor` + `CURSOR_API_KEY` → Cursor SDK; else mock.
 
-Persistence: `simagix-workspace/runs/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `exports/mongo-ftdc/<run_id>/` is shared.
+Persistence: `simagix-workspace/uploads/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `uploads/<run_id>/phase1/evidence/` is shared (legacy `exports/mongo-ftdc/` and `runs/` still readable).
 
 ### Zoom C — Step 5 (agent + MCP)
 
@@ -379,10 +379,13 @@ The active backend is **Simagix-only**. It reads pre-analyzed mongo-ftdc export 
 Every pipeline execution uses a shared `run_id`:
 
 ```text
-simagix-workspace/
-  reports/mongo-ftdc/<run_id>/     # Human HTML + console report
-  exports/mongo-ftdc/<run_id>/     # Tiered evidence bundle
-  runs/<run_id>/run_manifest.json  # Links report + export
+simagix-workspace/uploads/<run_id>/
+  raw/diagnostic.data/              # FTDC input
+  phase1/
+    evidence/                       # Tiered evidence bundle
+    run_manifest.json               # Links report + export
+  phase2/llm/{llm}/                 # RCA session artifacts
+simagix-workspace/reports/mongo-ftdc/<run_id>/   # Human HTML + console report
 ```
 
 This prevents mismatched time windows between human reports and machine-readable exports.
@@ -419,7 +422,7 @@ One **shared** local stack per machine (Grafana `:3030`, FTDC API `:5408`). Each
 
 ## Web upload
 
-`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/data/uploads/<run_id>/diagnostic.data/`, then the Docker pipeline produces the export bundle under `exports/mongo-ftdc/<run_id>/`.
+`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/`, then the Docker pipeline produces the export bundle under `uploads/<run_id>/phase1/evidence/`.
 
 ## Future enrichers
 

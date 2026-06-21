@@ -1,0 +1,12 @@
+{
+  "run_id": "phase1test20260609T133314Z",
+  "generated_at": "2026-06-09T13:36:40Z",
+  "input": "tmp/diagnostic.data",
+  "latest": 0,
+  "export_tier": "normalized",
+  "raw_export": false,
+  "report_dir": "simagix-workspace/reports/mongo-ftdc/phase1test20260609T133314Z",
+  "export_dir": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/evidence",
+  "executive_context": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/evidence/llm/executive_context.json",
+  "manifest": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/evidence/manifest.json"
+}
