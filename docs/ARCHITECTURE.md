@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-06-17
+**Last updated:** 2026-06-21
 
 ## Purpose
 
@@ -28,8 +28,8 @@ flowchart TB
   end
 
   subgraph step3 [Step 3 Evidence bundle]
-    Exports["exports/mongo-ftdc/run_id/"]
-    RunManifest["runs/run_id/run_manifest.json"]
+    Exports["uploads/run_id/phase1/evidence/"]
+    RunManifest["uploads/run_id/phase1/run_manifest.json"]
   end
 
   subgraph step4 [Step 4 Run page :8000]
@@ -43,7 +43,7 @@ flowchart TB
     Service["service.py"]
     Provider["Mock or CursorLLMProvider"]
     Agent["Cursor SDK Agent + MCP"]
-    Phase2Disk["runs/run_id/phase2/llm/mock|cursor|gemini/"]
+    Phase2Disk["uploads/run_id/phase2/llm/mock|cursor|gemini/"]
   end
 
   subgraph step6 [Step 6 Grafana charts]
@@ -169,11 +169,11 @@ sequenceDiagram
   participant Q as FileJobQueue pending/
   participant W as PipelineWorker
   participant Docker as mongo-ftdc pipeline
-  participant Disk as exports/mongo-ftdc/run_id
+  participant Disk as uploads/run_id/phase1/evidence
   participant Warm as warm_grafana_for_run
 
   UI->>API: multipart FTDC archive
-  API->>Disk: save diagnostic.data
+  API->>Disk: save uploads/run_id/raw/diagnostic.data
   API->>Q: enqueue job_id.json
   W->>Q: claim (rename pending → processing)
   W->>Docker: run-mongo-ftdc-pipeline.sh
