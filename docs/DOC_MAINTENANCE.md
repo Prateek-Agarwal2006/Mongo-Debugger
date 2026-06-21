@@ -2,7 +2,7 @@
 
 How agents and humans keep project docs accurate. **This is the source of truth for which file to update when.**
 
-**Last updated:** 2026-06-16
+**Last updated:** 2026-06-18
 
 ---
 
@@ -52,6 +52,8 @@ Root [README.md](../README.md), [backend/README.md](../backend/README.md), and [
 | **Milestone done or spec gap closed** | `CHANGELOG.md`, `PROJECT_STATUS.md` |
 | **New future idea (not implemented)** | `PROJECT_STATUS.md` § Future enhancements only |
 | **Demo / interview narrative** | `DESIGN_NOTES.md`, optionally `CHANGELOG.md` if behavior tied |
+| **Low-level concept explained in chat** (locks, I/O, ids, polling) | `DESIGN_NOTES.md` **§14** talking points (see § Low-level concept notes) |
+| **Tradeoff decided while implementing** (agent or human chose X over Y mid-task) | `DESIGN_NOTES.md` **§14** row and/or talking points (see § In-flight tradeoffs) |
 | **Tests/demo script paths** | `CHANGELOG.md`, `OPERATIONS.md`, `PROJECT_STATUS.md` § How to demo |
 | **New doc file or doc consolidation** | `CHANGELOG.md`, `README.md` (index), this file if matrix changes |
 | **Research / external product analysis** | New or existing research doc + `CHANGELOG.md` + link from `README.md` |
@@ -77,6 +79,43 @@ When in doubt, add a short `CHANGELOG.md` entry and at least one technical doc.
 **Do not:** Create `DESIGN_DILEMMAS.md`, `MY_UNDERSTANDING.md`, or duplicate the table elsewhere. **§14** is the single source for “why this, not that.”
 
 **Optional:** Add a sound bite under §14.1 if it will come up in demos.
+
+---
+
+## Low-level concept notes (required)
+
+**When:** During implementation or Q&A you explain **how something works under the hood** — locks, disk I/O, id semantics, polling vs events, atomic renames, RAM vs PVC, “extra load,” etc.
+
+**Do:** In the **same session**, add or extend a **Talking points** subsection under the relevant **DESIGN_NOTES.md §14** topic (e.g. §14.4 Pipeline worker). Include:
+
+- Plain-language definition (what the mechanism is)
+- Why we chose it vs the alternative
+- Mentor/demo **sound bite** (one line)
+- Code pointer (`jobs/queue.py`, `store.py`, …)
+
+**Do not:** Leave good explanations only in chat — if it came up in review, it belongs in docs for the next demo.
+
+**Examples to capture:** `job_id` vs `run_id`; claim = `Path.replace()`; worker poll interval; queue denormalization vs second disk read; crash recovery `processing/` → `pending/`.
+
+---
+
+## In-flight tradeoffs (required)
+
+**When:** While **writing code** (including agent implementation), you **decide** between plausible options — e.g. standalone worker vs embedded thread, queue denormalization vs job-id-only, soft reset scope, where to persist first.
+
+**Do:** In the **same session** (before finishing the task), record the decision in [DESIGN_NOTES.md](DESIGN_NOTES.md) **§14**:
+
+| If the decision is… | Write… |
+|---------------------|--------|
+| Architectural / “why not X?” | New or updated **§14 table row** (Topic, What we chose, Why, Why not, Code pointer) |
+| Implementation detail worth explaining in demos | **Talking points** or **Decision:** bullet under the relevant §14 subsection (e.g. §14.4) |
+| Both | Row + talking points |
+
+Include **what you rejected** and **why**, not only what you shipped. If the choice is provisional (“target refactor”), say so explicitly.
+
+**Do not:** Rely on chat history or chain-of-thought as the only record — if you reasoned “I’ll use atomic rename because…”, that belongs in §14 for the mentor.
+
+**Same as §14 tradeoff habit:** one table (§14), no separate dilemma docs. In-flight coding decisions use the same destination as mentor Q&A.
 
 ---
 

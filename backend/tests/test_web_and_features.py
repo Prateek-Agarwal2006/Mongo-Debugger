@@ -8,8 +8,10 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.main import create_app
 from backend.app.simagix.anomaly_correlation import build_correlation_package
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.simagix.llm.service import (
     generate_clarifying_questions_for_run,
     run_investigation,
@@ -104,12 +106,7 @@ def test_investigation_before_clarify() -> None:
     assert investigation.findings_reviewed
     assert investigation.tool_calls_made
 
-    inv_path = (
-        WORKSPACE_ROOT
-        / "simagix-workspace/runs"
-        / FIXTURE_RUN_ID
-        / "phase2/llm/mock/investigation.json"
-    )
+    inv_path = RunWorkspace(WORKSPACE_ROOT).llm_session_dir(FIXTURE_RUN_ID, "mock") / "investigation.json"
     assert inv_path.exists()
 
     questions = generate_clarifying_questions_for_run(
@@ -174,7 +171,7 @@ def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:
         zf.writestr("metrics.2026-06-10T00-00-00Z-00000", b"fake-ftdc-content")
     buf.seek(0)
 
-    with patch("backend.app.api.upload.PipelineJobRunner.start") as mock_start:
+    with patch("backend.app.api.upload.FileJobQueue.enqueue") as mock_enqueue:
         response = client.post(
             "/simagix/uploads",
             files={"file": ("diagnostic.zip", buf.getvalue(), "application/zip")},
@@ -183,16 +180,11 @@ def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:
     body = response.json()
     assert "job_id" in body
     assert "run_id" in body
-    mock_start.assert_called_once()
+    mock_enqueue.assert_called_once()
 
 
 def test_phase2_report_persists_on_disk(client: TestClient) -> None:
     run_id = FIXTURE_RUN_ID
     _complete_mock_rca(client, run_id)
-    report_path = (
-        WORKSPACE_ROOT
-        / "simagix-workspace/runs"
-        / run_id
-        / "phase2/llm/mock/latest_report.json"
-    )
+    report_path = RunWorkspace(WORKSPACE_ROOT).llm_session_dir(run_id, "mock") / "latest_report.json"
     assert report_path.exists()

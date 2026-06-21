@@ -6,6 +6,8 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
+**Last updated:** 2026-06-17
+
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
 ---
@@ -32,7 +34,7 @@ Content-Type: multipart/form-data
 
 Form field: `file` — `.zip` or `.tar.gz` archive containing `metrics.*` files, or a single `metrics.*` FTDC file. Nested archive folders (e.g. `diagnostic.data/metrics.*`) are flattened when all metrics share one parent directory.
 
-Uploads are stored at `simagix-workspace/data/uploads/<run_id>/diagnostic.data/`. Processing requires Docker (same pipeline as CLI).
+Uploads are stored at `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/` (legacy reads: `data/uploads/...`). The API **enqueues** a per-upload file-queue job; the **standalone worker** (`python -m backend.app.jobs.worker`) runs the Docker pipeline. Processing requires Docker (same pipeline as CLI).
 
 Response:
 
@@ -40,7 +42,7 @@ Response:
 {
   "job_id": "uuid",
   "run_id": "upload20260610T120000Z",
-  "input_path": "simagix-workspace/data/uploads/.../diagnostic.data",
+  "input_path": "simagix-workspace/uploads/<run_id>/raw/diagnostic.data",
   "status": "pending"
 }
 ```
@@ -50,6 +52,73 @@ Response:
 ```http
 GET /simagix/uploads/jobs/{job_id}
 ```
+
+### Retry failed pipeline (Phase 1 decode)
+
+```http
+POST /simagix/uploads/runs/{run_id}/retry
+```
+
+Re-enqueues Phase 1 for an **existing upload** (same `run_id`, new `job_id`). Does **not** re-upload the file.
+
+| Response | Meaning |
+|----------|---------|
+| **200** | New job created and enqueued |
+| **404** | Upload folder missing |
+| **409** | Export bundle already exists (`manifest.json`), **or** pipeline already queued/running for this run |
+
+Response shape matches upload: `{ job_id, run_id, input_path, status }`.
+
+UI: Retry buttons on Home, `/runs`, and `/runs/{run_id}/pipeline` when status is **failed** or **stale** (Not enqueued).
+
+Business logic lives in `backend/app/jobs/retry.py` (see [Jobs module layout](#jobs-module-layout) below).
+
+---
+
+## Pipeline worker and queue cleanup (`finally`)
+
+The API **does not** run the pipeline in-process. A separate process polls the file queue:
+
+```bash
+uv run python -m backend.app.jobs.worker
+```
+
+### Two files per in-flight job
+
+| File | Meaning |
+|------|---------|
+| `phase1/queue/pending\|processing/{job_id}.json` | **Work ticket** — worker owns this while scheduled or running |
+| `phase1/jobs/{job_id}.json` | **Outcome record** — `pending` / `running` / `succeeded` / `failed` |
+
+### Worker `try` / `finally`
+
+```python
+# backend/app/jobs/worker.py — process_one()
+try:
+    run_pipeline_job(...)
+finally:
+    self._queue.complete(claimed.run_id, claimed.job_id)  # deletes processing/{job_id}.json
+```
+
+**`finally` always runs** after `run_pipeline_job` returns — whether the pipeline succeeded, failed, timed out, or raised an exception. It deletes the queue file so the run is no longer “in flight.”
+
+| What happened | Queue file after `finally` | Where failure/success is recorded |
+|---------------|----------------------------|----------------------------------|
+| Pipeline succeeded | Deleted | `jobs/{job_id}.json` → `succeeded` |
+| Pipeline failed | Deleted | `jobs/{job_id}.json` → `failed` |
+| Worker process killed (`kill -9`) mid-run | May remain in `processing/` | Requeued to `pending/` on next worker startup |
+
+### If `finally` / `complete()` were omitted on failure
+
+| Problem | Effect |
+|---------|--------|
+| `processing/{job_id}.json` left behind | Catalog shows **processing** forever |
+| `has_active_job_for_run()` stays **True** | **Retry returns 409** even though worker finished |
+| Stale recovery on restart | Job silently **re-run** — confusing for failed uploads |
+
+**Design rule:** Queue files are **scheduling only**. Terminal state lives in **`jobs/{job_id}.json`**. Never leave failed jobs in `pending/` or `processing/`.
+
+See also [SIMAGIX_WORKSPACE.md](SIMAGIX_WORKSPACE.md) § On-disk JSON catalog (Layer 1) and [DESIGN_NOTES.md](DESIGN_NOTES.md) §14.4.
 
 ---
 
@@ -342,9 +411,38 @@ FastAPI app under `backend/app/`.
 | Simagix RCA | `app/simagix/` | Bundle loader, fallback tools, evidence service |
 | Phase 2 LLM | `app/simagix/llm/` | Cursor or Gemini ADK agent, MCP/evidence tools, 3-phase RCA flow |
 | Web UI | `app/web/` | Jinja2 templates, pages |
-| Upload jobs | `app/jobs/` | Background pipeline runner |
+| Upload jobs | `app/jobs/` | File queue, worker, job store, catalog, retry (see below) |
 | API | `app/api/` | REST routes (runs, phase2, upload, grafana) |
 | Static | `frontend/static/` | Bootstrap theme CSS, RCA + Grafana client JS |
+
+### Jobs module layout (`app/jobs/`)
+
+| File | Role |
+|------|------|
+| `queue.py` | `FileJobQueue` — enqueue, claim, `complete()`, `has_active_job_for_run()` |
+| `store.py` | `JobStore` — create/update/persist `phase1/jobs/{job_id}.json` + `job_status.json` |
+| `worker.py` | `PipelineWorker` — poll queue, `try`/`finally` + `complete()` |
+| `pipeline.py` | `run_pipeline_job()` — subprocess to Docker pipeline script |
+| `catalog.py` | Run list display status (queued / processing / finished / failed / stale) |
+| `retry.py` | `retry_pipeline_for_run()` — re-enqueue rules for failed/stale runs |
+
+#### Why `retry.py` is separate from `upload.py`
+
+| Concern | `upload.py` (API route) | `retry.py` (service) |
+|---------|-------------------------|----------------------|
+| Input | Multipart file stream | Existing `run_id` on disk |
+| Creates | New upload folder + `run_id` | New `job_id` only; reuses `raw/diagnostic.data/` |
+| Validation | Archive format, `metrics.*` present | No export yet; no active queue; upload path exists |
+| Errors | `HTTPException` from FastAPI | `PipelineRetryError` → mapped to HTTP in route |
+
+**Reasons for a dedicated module:**
+
+1. **Different domain action** — upload is ingest; retry is re-schedule. Mixing both in one file bloats the upload handler with 409/404 rules that do not apply to new uploads.
+2. **Test without HTTP** — `test_pipeline_retry.py` calls `retry_pipeline_for_run()` directly with a temp `RunWorkspace`; no TestClient or multipart needed.
+3. **Thin HTTP layer** — `POST .../retry` is ~10 lines: call service, map `PipelineRetryError` to status code.
+4. **Reuse** — same function could be invoked from a CLI, admin script, or future automation without importing FastAPI.
+
+`has_active_job_for_run()` is used **only** in `retry.py` to block double-enqueue when the user clicks Retry twice or a job is still running.
 
 ### Web UI routes
 

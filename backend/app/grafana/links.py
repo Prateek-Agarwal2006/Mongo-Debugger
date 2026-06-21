@@ -51,7 +51,7 @@ def _load_anomaly_windows(bundle_dir: Path) -> list[dict[str, Any]]:
 
 def _resolve_input_path(workspace_root: Path, run_id: str, manifest: dict[str, Any]) -> Path:
     ws = RunWorkspace(workspace_root)
-    run_manifest = ws.run_manifest_path(run_id)
+    run_manifest = ws.resolve_run_manifest_path(run_id)
     if run_manifest.exists():
         run_meta = json.loads(run_manifest.read_text(encoding="utf-8"))
         rel = run_meta.get("input", "")
@@ -59,6 +59,10 @@ def _resolve_input_path(workspace_root: Path, run_id: str, manifest: dict[str, A
             candidate = workspace_root / rel
             if candidate.exists():
                 return candidate.resolve()
+
+    upload_diag = ws.resolve_upload_diagnostic_dir(run_id)
+    if upload_diag.is_dir():
+        return upload_diag.resolve()
 
     raw = manifest.get("input", "")
     if raw.startswith("/workspace/"):

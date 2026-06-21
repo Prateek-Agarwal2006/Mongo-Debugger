@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-17
 
 ## Purpose
 
@@ -22,7 +22,8 @@ flowchart TB
   end
 
   subgraph step2 [Step 2 Pipeline Docker]
-    Pipeline["PipelineJobRunner"]
+    Worker["PipelineWorker"]
+    Queue["FileJobQueue on DATA_ROOT"]
     MFTDC["mongo-ftdc"]
   end
 
@@ -56,7 +57,7 @@ flowchart TB
     ReportHTML["reports/latest/view"]
   end
 
-  UploadUI --> UploadAPI --> Pipeline --> MFTDC --> Exports
+  UploadUI --> UploadAPI --> Queue --> Worker --> MFTDC --> Exports
   Exports --> RunManifest --> RunPage
   RunPage --> RCAjs --> P2API --> Service --> Provider --> Agent
   Agent --> Phase2Disk --> ReportJSON --> ReportHTML
@@ -88,7 +89,7 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | 2 | Background job | **Python** `threading` + `subprocess` | `jobs/pipeline.py` |
 | 2 | FTDC analysis | **mongo-ftdc** (Go, Docker) | `simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh` |
 | 2 | Container runtime | **Docker Compose** | `simagix-workspace/docker/grafana-compose.yaml` |
-| 3 | Evidence JSON | **mongo-ftdc** export | `exports/mongo-ftdc/<run_id>/` |
+| 3 | Evidence JSON | **mongo-ftdc** export | `uploads/<run_id>/phase1/evidence/` |
 | 3 | Bundle loading | **SimagixBundleLoader** | `backend/app/simagix/bundle.py` |
 | 5 | REST Phase 2 | **FastAPI** routers | `api/phase2.py` |
 | 5 | Evidence service | **SimagixEvidenceService** | `backend/app/simagix/evidence_service.py` |
@@ -116,9 +117,9 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 Why full `RunWorkspace` instead of only `get_data_root()`: configurable root fixes the mount point; named methods fix duplicated layout strings across 5+ files. Pattern: **Adapter** (domain → paths); later **Strategy** for filesystem vs object storage.
 
 ```
-  upload API  ──► RunWorkspace.uploads_dir(run_id)  ──► /data/.../uploads/{id}/
-  evidence    ──► RunWorkspace.exports_dir(run_id)  ──► /data/.../exports/mongo-ftdc/{id}/
-  phase2      ──► RunWorkspace.llm_session_dir(...) ──► /data/.../runs/{id}/phase2/llm/{llm}/
+  upload API  ──► RunWorkspace.upload_diagnostic_dir(run_id) ──► /data/.../uploads/{id}/raw/diagnostic.data/
+  evidence    ──► RunWorkspace.exports_dir(run_id)           ──► /data/.../uploads/{id}/phase1/evidence/
+  phase2      ──► RunWorkspace.llm_session_dir(...)          ──► /data/.../uploads/{id}/phase2/llm/{llm}/
 ```
 
 Full comparison table and mentor Q&A: [DESIGN_NOTES.md §14.3](DESIGN_NOTES.md#143-runworkspace--why-full-module-not-just-get_data_root).
@@ -149,7 +150,7 @@ flowchart LR
 
 | Master step | UI element | JS / page | API endpoint | Backend module |
 |-------------|------------|-----------|--------------|----------------|
-| 1–2 | Upload FTDC | `upload.html` | `POST /simagix/uploads` | `upload.py` → `PipelineJobRunner` |
+| 1–2 | Upload FTDC | `upload.html` | `POST /simagix/uploads` | `upload.py` → `FileJobQueue` → `PipelineWorker` |
 | 4 | Run list | `runs.html` | `GET /runs` (HTML) | `web/routes.py` |
 | 5 | Run RCA | `rca.js` | `POST .../phase2/run`, `.../clarify` | `phase2.py` → `service.py` |
 | 5 | Tool trace | `rca.js` | `GET .../phase2/tool-trace` | `tool_trace.py` |
@@ -165,21 +166,41 @@ flowchart LR
 sequenceDiagram
   participant UI as upload.html
   participant API as POST /simagix/uploads
-  participant Job as PipelineJobRunner
+  participant Q as FileJobQueue pending/
+  participant W as PipelineWorker
   participant Docker as mongo-ftdc pipeline
   participant Disk as exports/mongo-ftdc/run_id
   participant Warm as warm_grafana_for_run
 
   UI->>API: multipart FTDC archive
   API->>Disk: save diagnostic.data
-  API->>Job: start background thread
-  Job->>Docker: run-mongo-ftdc-pipeline.sh
+  API->>Q: enqueue job_id.json
+  W->>Q: claim (rename pending → processing)
+  W->>Docker: run-mongo-ftdc-pipeline.sh
   Docker->>Disk: tier_1 + tier_2 JSON bundle
-  Job->>Warm: optional POST grafana/load
+  W->>Warm: optional Grafana warmup
   UI->>API: GET /simagix/uploads/jobs/job_id
 ```
 
-Sources: [`backend/app/api/upload.py`](../backend/app/api/upload.py), [`backend/app/jobs/pipeline.py`](../backend/app/jobs/pipeline.py).
+Sources: [`backend/app/api/upload.py`](../backend/app/api/upload.py), [`backend/app/jobs/worker.py`](../backend/app/jobs/worker.py), [`backend/app/jobs/pipeline.py`](../backend/app/jobs/pipeline.py).
+
+### Pipeline worker — durable queue (K8s prep)
+
+**Implemented** as a **standalone process** (not a thread inside the API).
+
+| Piece | Path / command |
+|-------|----------------|
+| Enqueue | API writes `uploads/{run_id}/phase1/queue/pending/{job_id}.json` |
+| Claim | Worker atomic rename → `processing/` |
+| Status | `uploads/{run_id}/phase1/jobs/{job_id}.json` (+ `phase1/job_status.json`) |
+| Run | `uv run python -m backend.app.jobs.worker` |
+| Shared root | `DATA_ROOT` (repo locally, PVC mount `/data` in K8s) |
+
+**Crash recovery:** on worker startup, every file in `processing/` moves back to `pending/` (assumes previous worker died mid-run; pipeline re-runs for that `run_id`).
+
+**v1 ops:** run **one** worker replica. Multi-worker needs file locking or a broker queue (see DESIGN_NOTES §14.4).
+
+Full comparison: [DESIGN_NOTES.md §14.4](DESIGN_NOTES.md#144-pipeline-worker--file-queue-not-upload-thread).
 
 ### Zoom B — Step 5 (Phase 2)
 
@@ -228,7 +249,7 @@ flowchart LR
 
 `get_llm_provider`: `force_mock` or `LLM_PROVIDER=mock` → mock; `LLM_PROVIDER=gemini` + `GOOGLE_API_KEY` → Gemini ADK; `LLM_PROVIDER=cursor` + `CURSOR_API_KEY` → Cursor SDK; else mock.
 
-Persistence: `simagix-workspace/runs/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `exports/mongo-ftdc/<run_id>/` is shared.
+Persistence: `simagix-workspace/uploads/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `uploads/<run_id>/phase1/evidence/` is shared (legacy `exports/mongo-ftdc/` and `runs/` still readable).
 
 ### Zoom C — Step 5 (agent + MCP)
 
@@ -358,10 +379,13 @@ The active backend is **Simagix-only**. It reads pre-analyzed mongo-ftdc export 
 Every pipeline execution uses a shared `run_id`:
 
 ```text
-simagix-workspace/
-  reports/mongo-ftdc/<run_id>/     # Human HTML + console report
-  exports/mongo-ftdc/<run_id>/     # Tiered evidence bundle
-  runs/<run_id>/run_manifest.json  # Links report + export
+simagix-workspace/uploads/<run_id>/
+  raw/diagnostic.data/              # FTDC input
+  phase1/
+    evidence/                       # Tiered evidence bundle
+    run_manifest.json               # Links report + export
+  phase2/llm/{llm}/                 # RCA session artifacts
+simagix-workspace/reports/mongo-ftdc/<run_id>/   # Human HTML + console report
 ```
 
 This prevents mismatched time windows between human reports and machine-readable exports.
@@ -398,7 +422,7 @@ One **shared** local stack per machine (Grafana `:3030`, FTDC API `:5408`). Each
 
 ## Web upload
 
-`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/data/uploads/<run_id>/diagnostic.data/`, then the Docker pipeline produces the export bundle under `exports/mongo-ftdc/<run_id>/`.
+`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/`, then the Docker pipeline produces the export bundle under `uploads/<run_id>/phase1/evidence/`.
 
 ## Future enrichers
 

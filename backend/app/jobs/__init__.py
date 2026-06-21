@@ -1,4 +1,10 @@
-from backend.app.jobs.pipeline import PipelineJobRunner
+from backend.app.jobs.pipeline import run_pipeline_job
+from backend.app.jobs.queue import FileJobQueue
 from backend.app.jobs.store import JobStatus, job_store
 
-__all__ = ["JobStatus", "PipelineJobRunner", "job_store"]
+__all__ = [
+    "FileJobQueue",
+    "JobStatus",
+    "job_store",
+    "run_pipeline_job",
+]

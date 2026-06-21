@@ -3,9 +3,127 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-17
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-21 — Fix Grafana link tests on CI (no tmp/diagnostic.data)
+
+**What:** GitHub Actions failed `test_grafana_links` / `test_grafana_urls_api` with `FileNotFoundError: No diagnostic.data path found`.
+
+**How:** `_resolve_input_path` falls back to `RunWorkspace.resolve_upload_diagnostic_dir(run_id)`; fixture gets `raw/diagnostic.data/.gitkeep`; `run_manifest.json` input points at Option A upload path.
+
+**Why:** CI has no gitignored `tmp/diagnostic.data`; local dev masked the bug via that fallback.
+
+---
+
+## 2026-06-17 — Docs: worker `finally`, retry module layout
+
+**What:** Documented worker `try`/`finally` + `complete()` (queue lease vs job JSON), failure implications without `finally`, and why `retry.py` is separate from `upload.py`.
+
+**How:** New sections in `RCA_BACKEND.md` (retry API, pipeline worker, jobs module table); expanded Layer 1 in `SIMAGIX_WORKSPACE.md`; DESIGN_NOTES §14.4 talking points + §14 decision row.
+
+**Why:** Onboarding from chat — single reference for cleanup semantics and retry architecture.
+
+---
+
+## 2026-06-17 — SIMAGIX_WORKSPACE reference: JSON catalog, RunWorkspace, symlinks
+
+**What:** Added onboarding sections to `SIMAGIX_WORKSPACE.md`: three workspace concepts, RunWorkspace adapter + `resolve()`, symlinks (`uploads/latest`), and full per-upload JSON catalog (four layers).
+
+**How:** Copied from mentor/grill session into docs; aligned DESIGN_NOTES §14.3 adapter diagram with Option A paths.
+
+**Why:** Single place for “what lives on disk and who writes it” without spelunking chat or five files.
+
+---
+
+## 2026-06-20 — Upload rollback + fix false “2 tries” on catalog
+
+**What:** Rejected uploads (wrong file type, no `metrics.*`) no longer leave orphan folders. Catalog “(2 tries)” no longer appears for a single decode when `uploads/latest` symlink duplicates the job scan.
+
+**How:** `upload.py` removes `uploads/{run_id}/` on validation failure; `iter_upload_run_dirs()` skips `latest`; job reads dedupe by `job_id`. Deleted three failed log-upload folders manually.
+
+**Why:** Failed log zips were saved without jobs; pipeline script’s `latest` symlink double-counted the same job JSON.
+
+---
+
+## 2026-06-17 — Remove simagix-workspace/data/ (CLI inputs → tmp/)
+
+**What:** Deleted `simagix-workspace/data/` entirely. Local FTDC sample moved to `tmp/diagnostic.data/`; Hatchet/Keyhole placeholders use `tmp/mongodb-logs/` and `tmp/keyhole-output/`.
+
+**How:** Updated pipeline script defaults; docs for SIMAGIX_WORKSPACE, OPERATIONS, SIMAGIX_TOOLCHAIN.
+
+**Why:** Web uploads use `uploads/{run_id}/` only; `data/` was legacy clutter.
+
+---
+
+## 2026-06-17 — Physical workspace layout (remove legacy scaffold)
+
+**What:** On-disk `simagix-workspace` now uses **only** the Option A tree under `uploads/`. Removed empty legacy dirs (`data/uploads`, `data/jobs`, `data/job_queue`, `exports/`, `runs/`). Test fixture moved to `uploads/phase1test20260609T133314Z/`.
+
+**How:** Migrated committed fixture; updated `.gitignore` and `backend/tests/fixture_paths.py`.
+
+**Why:** Code already wrote to Option A paths but old top-level folders remained and caused confusion.
+
+---
+
+## 2026-06-17 — Option A upload tree (one folder per upload)
+
+**What:** Each upload lives under `simagix-workspace/uploads/{run_id}/` with `raw/`, `phase1/` (jobs, queue, evidence), and `phase2/` (LLM RCA). Orphaned `pending` jobs without a queue file show **Not enqueued** (stale) with Retry. Legacy `data/uploads`, `data/jobs`, `exports/mongo-ftdc`, and `runs/` remain readable.
+
+**How:** `RunWorkspace` canonical paths + `resolve_*` fallbacks; per-run queue at `uploads/{run_id}/phase1/queue/`; pipeline scripts write evidence to `phase1/evidence/`; catalog `stale` status; UI badges + retry for stale/failed.
+
+**Why:** One tree per incident is easier to reason about on PVC/K8s and fixes false “Queued” when job JSON existed but the queue file did not.
+
+---
+
+**What:** Home and `/runs` share one upload catalog with **Upload ID**, **Phase 1** (decode), and **Phase 2** (run analysis) columns; Phase 1 detail page lists decode attempts; user-facing “Upload” / “Run analysis” vocabulary.
+
+**How:** Extended `list_run_catalog()` with `phase2_status`, `upload_time_utc`, attempt counts; shared `partials/upload_catalog_table.html`; Home drops separate jobs table.
+
+**Why:** “Job” vs “run” was ambiguous; Home and `/runs` showed different rows.
+
+---
+
+## 2026-06-18 — Failed pipeline retry + runs catalog (queued / processing / finished / failed)
+
+**What:** Failed uploads stay on disk and can be **retried without re-uploading**. `/runs` lists all runs (exports + in-flight/failed jobs) with pipeline status badges. Failed jobs are **removed from the file queue** when the worker finishes; retry enqueues a **new** `job_id` for the same `run_id`.
+
+**How:** `POST /simagix/uploads/runs/{run_id}/retry` (`backend/app/jobs/retry.py`); `FileJobQueue.has_active_job_for_run()` blocks double-enqueue; `list_run_catalog()` + `/runs/{run_id}/pipeline` UI; Retry buttons on runs table and pipeline page; tests in `test_pipeline_retry.py`, `test_run_catalog.py`.
+
+**Why:** Docker/Colima failures should not force a second upload; operators need one place to see queued, processing, finished, and failed runs.
+
+---
+
+## 2026-06-18 — Doc habit: in-flight tradeoffs + talking points
+
+**What:** Agents must document **low-level concepts** and **decisions made while coding** (not only post-hoc Q&A) in DESIGN_NOTES §14 same session.
+
+**How:** DOC_MAINTENANCE § Low-level concept notes + § In-flight tradeoffs; cursor rule step 7; AGENTS.md step 6; §14.4 decision table example.
+
+**Why:** Chain-of-thought tradeoffs should not live only in chat — mentor demos and future you need §14.
+
+---
+
+## 2026-06-18 — Pipeline worker talking points + doc habit (low-level concepts)
+
+**What:** Mentor/demo notes in DESIGN_NOTES §14.4 (`job_id` vs `run_id`, extra load, rename-as-lock, poll loop); new **Low-level concept notes** rule in DOC_MAINTENANCE + AGENTS + cursor rule.
+
+**How:** §14.4 “Talking points” subsection; DOC_MAINTENANCE matrix row; `.cursor/rules/doc-maintenance.mdc` step 6.
+
+**Why:** Low-level explanations from review/grill should not live only in chat — capture for next presentation.
+
+---
+
+## 2026-06-18 — Standalone pipeline worker (file queue + crash recovery)
+
+**What:** Upload enqueues jobs to disk; a **standalone worker process** claims and runs the mongo-ftdc pipeline. Durable job status survives API/worker restarts. Crash recovery requeues `processing/` → `pending/` on worker startup.
+
+**How:** `backend/app/jobs/queue.py` (`FileJobQueue`), `worker.py` (`python -m backend.app.jobs.worker`), `run_pipeline_job()` in `pipeline.py`; `JobStore` persists to `data/jobs/{job_id}.json`; queue under `data/job_queue/pending|processing/`; removed upload daemon thread.
+
+**Why:** K8s-ready long work — API pod and worker pod share PVC via `DATA_ROOT`; atomic rename claims jobs (v1: **one worker replica**). See DESIGN_NOTES §14.4.
 
 ---
 

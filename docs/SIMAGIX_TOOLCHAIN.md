@@ -43,7 +43,7 @@ All scripts require Docker. On Mac: `colima start --cpu 4 --memory 8` before run
 
 **Repository:** `repos/hatchet` ([simagix/hatchet](https://github.com/simagix/hatchet))
 
-**Input:** MongoDB log files in `data/mongodb-logs/`
+**Input:** MongoDB log files in `tmp/mongodb-logs/`
 
 **Output:** `reports/hatchet/` — slow queries, COLLSCANs, connection issues
 
@@ -55,7 +55,7 @@ All scripts require Docker. On Mac: `colima start --cpu 4 --memory 8` before run
 
 **Input:** Live MongoDB connection (`MONGO_URI`)
 
-**Output:** `data/keyhole-output/` — indexes, collections, schema stats
+**Output:** `tmp/keyhole-output/` — indexes, collections, schema stats
 
 **Blocked because:** No `MONGO_URI` configured.
 

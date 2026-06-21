@@ -5,28 +5,23 @@ from pathlib import Path
 
 import pytest
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.simagix.llm.session import Phase2SessionStore
 from backend.app.simagix.llm.tool_trace import ToolTraceCollector, ToolTraceEntry
+from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_RUN_ID = "phase1test20260609T133314Z"
 
 
 @pytest.fixture
 def fixture_run_id() -> str:
-    bundle = WORKSPACE_ROOT / "simagix-workspace/exports/mongo-ftdc" / FIXTURE_RUN_ID
-    if not (bundle / "manifest.json").exists():
+    if not fixture_bundle_exists():
         pytest.skip(f"Fixture bundle not found: {FIXTURE_RUN_ID}")
     return FIXTURE_RUN_ID
 
 
 def _budget_path(run_id: str, llm: str) -> Path:
-    return (
-        WORKSPACE_ROOT
-        / "simagix-workspace/runs"
-        / run_id
-        / f"phase2/llm/{llm}/budget_state.json"
-    )
+    return RunWorkspace(WORKSPACE_ROOT).llm_session_dir(run_id, llm) / "budget_state.json"
 
 
 def test_separate_sessions_and_budgets_per_llm(fixture_run_id: str) -> None:

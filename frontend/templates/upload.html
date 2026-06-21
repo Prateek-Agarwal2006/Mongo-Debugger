@@ -5,7 +5,7 @@
   <div class="col-xl-8">
     <div class="page-hero-compact reveal-panel" data-reveal="up">
       <h1 class="h2 mb-1 hero-title" style="font-size: 2rem;"><i class="bi bi-cloud-upload me-2 text-success"></i>Upload diagnostic.data</h1>
-      <p class="text-secondary mb-0">Start a new analysis run from FTDC metrics files.</p>
+      <p class="text-secondary mb-0">Upload FTDC metrics, then Phase 1 decode runs automatically (Phase 2 run analysis comes after).</p>
     </div>
 
     <div class="alert alert-secondary border-secondary-subtle d-flex gap-3 align-items-start reveal-panel" data-reveal="left">
@@ -29,7 +29,7 @@
           </div>
           <div class="d-grid d-sm-flex gap-2">
             <button type="submit" class="btn btn-success btn-lg px-4 btn-glow">
-              <i class="bi bi-play-fill me-2"></i>Upload &amp; Run Pipeline
+              <i class="bi bi-play-fill me-2"></i>Upload &amp; start Phase 1
             </button>
           </div>
         </form>
@@ -93,17 +93,17 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
       status.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${detail}</span>`;
       return;
     }
-    status.innerHTML = `Job <code>${body.job_id}</code> started for run <a href="/runs/${body.run_id}">${body.run_id}</a>. Polling…`;
+    status.innerHTML = `Phase 1 queued for upload <a href="/runs/${body.run_id}/pipeline">${body.run_id}</a>. Polling decode…`;
     const poll = setInterval(async () => {
       const job = await fetch(`/simagix/uploads/jobs/${body.job_id}`).then((r) => r.json());
-      status.textContent = `Job ${job.state}: ${job.message}`;
+      status.textContent = `Phase 1 ${job.state}: ${job.message}`;
       if (job.state === 'succeeded') {
         clearInterval(poll);
         window.location.href = `/runs/${body.run_id}`;
       }
       if (job.state === 'failed') {
         clearInterval(poll);
-        status.innerHTML = `<span class="text-danger">Failed: ${job.error || job.message}</span>`;
+        status.innerHTML = `<span class="text-danger">Phase 1 failed: ${job.error || job.message}</span> — <a href="/runs/${body.run_id}/pipeline">View details</a>`;
       }
     }, 3000);
   } catch (err) {

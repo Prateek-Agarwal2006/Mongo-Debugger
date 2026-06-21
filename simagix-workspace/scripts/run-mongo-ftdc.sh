@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIMAGIX_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="$(cd "${SIMAGIX_DIR}/.." && pwd)"
-INPUT_PATH="${1:-simagix-workspace/data/diagnostic.data}"
+INPUT_PATH="${1:-tmp/diagnostic.data}"
 LATEST="${MONGO_FTDC_LATEST:-0}"
 RUN_ID="${MONGO_FTDC_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 REPORT_DIR="${SIMAGIX_DIR}/reports/mongo-ftdc/${RUN_ID}"

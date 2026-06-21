@@ -1,0 +1,26 @@
+{
+  "updated_at": "2026-06-21T12:44:38.826581+00:00",
+  "summary_of_older": null,
+  "messages": [
+    {
+      "id": "46f46d95-cccd-42ab-95aa-2f7bacc9f943",
+      "role": "user",
+      "content": "What does the attached notes file say?",
+      "created_at": "2026-06-21T12:44:38.807532+00:00",
+      "attachments": [
+        {
+          "name": "notes.txt",
+          "path": "attachments/7c410446_notes.txt",
+          "size": 20
+        }
+      ]
+    },
+    {
+      "id": "2ea40930-c1fd-42e0-b160-8d7e29c7adae",
+      "role": "assistant",
+      "content": "Root cause: [mock] Not inferred \u2014 live agent must derive mechanism from metric/profiler/log tool results.",
+      "created_at": "2026-06-21T12:44:38.826548+00:00",
+      "attachments": []
+    }
+  ]
+}

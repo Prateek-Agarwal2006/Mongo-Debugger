@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-18 (RunWorkspace path adapter implemented across backend).
+**Last aligned with codebase:** 2026-06-17 (Option A upload tree + pipeline worker; §14.4 talking points).
 
 ---
 
@@ -609,6 +609,99 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 | **Charting** | **Grafana** (external tab) for human exploration; MCP slices for agent evidence | Real FTDC dashboards from `simagix/grafana-ftdc`; no duplicate chart stack in app | **Embedded Chart.js / graphs API** — removed as duplicate path | §8, `grafana/service.py` |
 | **Citation trust (future)** | Documented preference: **deterministic verifier** on `tool_trace.json` before any **LLM auditor agent** | Highest ROI for “prove the agent looked” without second agent cost | **Verifier-only LLM** as first step — slower, still probabilistic | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Trust & cost |
 | **Run-scoped paths (K8s prep)** | **`RunWorkspace`** — one module: configurable root + named path methods (`uploads_dir`, `exports_dir`, `phase2_dir`, …) | Fixes K8s `DATA_ROOT` *and* removes duplicated layout strings; routes express intent; tests inject a temp-dir workspace | **Minimal `get_data_root()` only** — fixes mount root but leaves `"simagix-workspace/exports/mongo-ftdc"` copy-pasted in 5+ files | `backend/app/core/run_workspace.py`, `get_run_workspace()`; `DATA_ROOT` in `config.py`; all backend callers migrated (2026-06-18) |
+| **Upload folder layout (Option A)** | **One tree per upload:** `uploads/{run_id}/raw`, `phase1/` (jobs, queue, evidence), `phase2/` (LLM) | Single PVC subtree per incident; per-run queue avoids global `job_queue/` races; `resolve_*` reads legacy paths | **Scattered layout** (`data/uploads`, `data/jobs`, global queue, `exports/mongo-ftdc`, `runs/phase2`) — hard to mount, orphan job JSON showed false “Queued” | `run_workspace.py`; `jobs/queue.py`, `store.py`; pipeline scripts; catalog `stale` status |
+| **Pipeline jobs (K8s prep)** | **Standalone worker** + **file queue** on `DATA_ROOT`; atomic rename claim; crash recovery requeues `processing/` → `pending/` | Upload survives API restart; worker survives pod restart; same PVC as RunWorkspace; no Redis in v1 | **Daemon thread in API** — lost on pod death; in-memory `JobStore` only; **embedded worker in FastAPI** — duplicate entrypoints | `jobs/worker.py`, `jobs/queue.py`, `jobs/pipeline.py`; `PIPELINE_WORKER_POLL_SECONDS`; **1 worker replica** in v1 |
+| **Queue placement (v1)** | **Per-upload queue dirs** under `uploads/{run_id}/phase1/queue/`; worker scans all uploads and claims oldest by mtime | Option A cohesion (queue lives with jobs/evidence); `has_active_job_for_run()` is O(1) per run; worker behavior is already one global FIFO | **Single central dir** (`data/job_queue/` or `uploads/_queue/`) — simpler scan, but splits scheduling from incident tree; revisit when scaling **>1 worker** or adding Redis/SQS | `queue.py` `iter_phase1_queue_pending_paths()`; `claim_next()` mtime sort; legacy global queue read-only |
+
+### 14.4 Pipeline worker — file queue, not upload thread
+
+**Status:** **Implemented** — upload enqueues; `python -m backend.app.jobs.worker` consumes queue.
+
+**Problem before:** `PipelineJobRunner.start()` spawned a **daemon thread** in the API process. `JobStore` was mostly **in-memory**. Pod restart → thread gone, status gone, upload stuck with no retry.
+
+**What we chose:**
+
+```text
+API                          Worker (separate process)
+ |                                |
+ save upload                     poll pending/
+ enqueue pending/{id}.json  -->  claim (rename → processing/)
+ persist uploads/{run_id}/phase1/jobs/{id}.json   run_pipeline_job(subprocess)
+ return job_id                    complete (unlink processing/)
+```
+
+**PVC / local:** No special queue code for K8s. Both processes set the same `DATA_ROOT` (repo root locally, `/data` PVC in cluster). Queue files live under `{DATA_ROOT}/simagix-workspace/uploads/{run_id}/phase1/queue/` (legacy global queue under `data/job_queue/` is read-only fallback).
+
+**Crash recovery (demo sound bite):** On worker startup, move every `processing/*.json` back to `pending/`. Assumes the previous worker crashed mid-pipeline; re-run is safe because work is keyed by `run_id`.
+
+**Claim = lock (v1):** `Path.replace()` from `pending/` to `processing/` is atomic on one filesystem. That is the job lock when **exactly one worker** polls the queue.
+
+**Multi-worker (future — document, not v1):** Two workers can race on the same `pending/` file before rename. Options if scaling workers:
+
+| Option | Notes |
+|--------|--------|
+| `fcntl.flock` / `portalocker` on pending file during claim | Works on POSIX shared volume; test NFS storage class |
+| Stale lease in `processing/` (`worker_id`, `claimed_at`) | Extends crash recovery |
+| Redis / SQS / Hatchet | Broker queue with visibility timeout |
+| One K8s Job per upload | Different architecture (no shared consumer) |
+
+**Interview line:** “RunWorkspace is where artifacts live; the pipeline worker is who runs long work — upload enqueues, worker claims from disk, PVC keeps both alive across restarts.”
+
+#### Talking points (low-level — mentor / demo)
+
+Capture these when explaining the worker in reviews; full habit: [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) § Low-level concept notes and § In-flight tradeoffs.
+
+**`job_id` vs `run_id` (both required in the model, not always in every function arg):**
+
+| ID | Role |
+|----|------|
+| **`run_id`** | Domain incident — upload folder, exports, Phase 2, `MONGO_FTDC_RUN_ID` |
+| **`job_id`** | Unique async task (UUID) — poll `GET /jobs/{job_id}`, queue filename |
+
+**Multiple jobs per run:** Same `run_id`, different `job_id` (retry / reprocess). **`run_id` lives in `JobStore`** (`uploads/{run_id}/phase1/jobs/{job_id}.json`); callers can pass **`job_id` only** and load `run_id` + `input_path` from disk. Queue JSON currently **denormalizes** `run_id` + `input_path` to avoid a second read on claim (see below).
+
+**Worker loop (not event-driven):** Upload writes a file; worker **polls** `pending/` every `PIPELINE_WORKER_POLL_SECONDS` (default 2s). No HTTP callback from API → worker.
+
+**Claim “lock”:** No `threading.Lock` on claim — **`Path.replace(pending → processing)`** is atomic on one filesystem (the lock). v1: **one worker replica**.
+
+**Crash recovery:** Worker startup moves `processing/` → `pending/` (previous pod died mid-run; safe to retry — work keyed by `run_id`).
+
+**Failed job vs queue:** On pipeline failure the worker still runs `complete()` in a `finally` block — the queue file is deleted. `state: failed` lives only in `uploads/{run_id}/phase1/jobs/{job_id}.json`. **`pending` without a queue file** → catalog status **stale** (“Not enqueued”). Manual retry via `POST .../runs/{run_id}/retry` creates a **new** job and `pending/` entry; 409 only if that run already has something in `pending/` or `processing/`.
+
+**Python `finally` (implications if omitted):**
+
+| Exit path | Without `finally` + `complete()` |
+|-----------|----------------------------------|
+| Pipeline returns failure | `processing/` stuck → UI “processing”; retry **409** |
+| Exception / timeout in worker | Same ghost lease |
+| Pipeline success | Usually OK if `complete()` only after success — but any missed branch leaves stuck jobs |
+
+`finally` guarantees **one cleanup site** for all exit paths. Queue = scheduling lease; job JSON = outcome.
+
+**Why `retry.py` is not in `upload.py`:** Upload = multipart ingest + new `run_id`. Retry = re-schedule existing upload (new `job_id`, same FTDC on disk) with different guards (no export, no active queue). Separate module keeps routes thin, tests direct (`test_pipeline_retry.py`), and allows non-HTTP callers. HTTP mapping stays in `api/upload.py` only.
+
+**“Extra load” (queue denormalization vs single source of truth):**
+
+| Approach | Reads on claim | Tradeoff |
+|----------|----------------|----------|
+| Queue file includes `run_id` + `input_path` | **1** (queue JSON only) | Duplicate fields vs `JobStore` |
+| Queue file = `job_id` only | **2** (queue + `data/jobs/{id}.json`) | One source of truth; extra read is ~ms vs **minutes** of pipeline |
+
+**Target refactor (when touching queue):** queue holds **`job_id` only**; worker loads `JobStatus` before `run_pipeline_job(workspace_root, job_id)`.
+
+**Decisions logged during implementation (examples):**
+
+| Decision | Chose | Over | Why |
+|----------|-------|------|-----|
+| Worker deployment | Standalone process only | Embedded thread in FastAPI | One code path; matches K8s API + worker pods; no duplicate entrypoints |
+| Job claim lock | Atomic `Path.replace` | `threading.Lock` / Redis | Same-filesystem rename is enough for **1 worker replica**; no broker in v1 |
+| Queue payload | Denormalize `run_id` + `input_path` | `job_id` only (see target refactor) | One disk read on claim; negligible vs pipeline runtime |
+| Status source of truth | `data/jobs/{job_id}.json` + RAM cache | RAM only | API and worker are separate processes; PVC survives restart |
+| Failed job vs queue | `complete()` always unlinks `processing/`; failed state only in job JSON | Leave failed jobs in `pending/` | Queue is work-only; terminal failures must not block FIFO or retries |
+| Pipeline retry | New `job_id` + new `pending/` entry; same `run_id` + upload path | Re-upload archive; reuse same `job_id` | Upload already on PVC; audit trail per attempt; poll new job after retry |
+| Retry service location | `jobs/retry.py` + thin route in `upload.py` | All logic in `upload.py` | Different validation and test surface; upload stays file-ingest only | `retry.py`, `test_pipeline_retry.py`, `has_active_job_for_run()` |
+
+See also [ARCHITECTURE.md](ARCHITECTURE.md) § Pipeline worker, [OPERATIONS.md](OPERATIONS.md) § Starting the RCA backend.
 
 ### 14.3 RunWorkspace — why full module, not just `get_data_root()`
 
@@ -646,11 +739,14 @@ A minimal fix — replace `_workspace_root()` with `get_data_root()` from config
 
 ```
   api/upload.py          RunWorkspace              disk / PVC
-  "save this upload" --> uploads_dir(run_id) --> /data/.../uploads/{id}/...
-  api/phase2.py        exports_dir(run_id)   --> /data/.../exports/mongo-ftdc/{id}/...
+  "save this upload" --> upload_diagnostic_dir(run_id) --> .../uploads/{id}/raw/diagnostic.data/
+  api/phase2.py        exports_dir(run_id)         --> .../uploads/{id}/phase1/evidence/
+  jobs/worker.py       iter_phase1_queue_pending_paths() --> .../uploads/*/phase1/queue/pending/
 ```
 
 Without the adapter, every caller duplicates the translation (today’s `_workspace_root()` + string concat).
+
+Constructor stores an absolute root: `self.root = root.resolve()` — see [SIMAGIX_WORKSPACE.md](SIMAGIX_WORKSPACE.md) § RunWorkspace.
 
 **Strategy (related, not the same layer):** When we add **object storage** (S3) later, the *interface* might be `ArtifactStore` or a protocol with `read_bytes` / `write_bytes`. **RunWorkspace** stays the **filesystem** adapter for path-shaped operations; a **Strategy** picks filesystem vs S3 at startup (`STORAGE_BACKEND=filesystem|s3`). RunWorkspace is the first filesystem implementation of the path seam — not the whole storage story.
 
@@ -694,6 +790,9 @@ See also [ARCHITECTURE.md](ARCHITECTURE.md) § RunWorkspace.
 3. **“The SDK is the agent runtime; we’re the evidence and workflow layer.”** That’s the intern-project sweet spot: integrate, don’t rebuild OpenAI’s tool loop.
 4. **“Per-LLM folders are like git worktrees for experiments.”** Mock vs Cursor vs Gemini on the same FTDC upload without cross-contamination.
 5. **“RunWorkspace is the adapter between Run and disk.”** Routes ask for `exports_dir(run_id)`; they don’t hardcode `simagix-workspace/exports/...`.
+6. **“Upload enqueues; the worker claims from disk.”** PVC + `DATA_ROOT` keep the queue across pod restarts; startup requeue handles crash recovery.
+7. **“job_id is the task ticket; run_id is the incident folder.”** Same run can have many jobs; store holds `run_id` — pass `job_id` through the worker.
+8. **“The claim lock is a rename, not a mutex.”** `pending/` → `processing/` is atomic on the shared volume.
 
 ### 14.2 When to revisit a decision
 

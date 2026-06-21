@@ -13,19 +13,15 @@ from backend.app.simagix.grounding import GroundingRules
 from backend.app.simagix.evidence_service import SimagixEvidenceService
 from backend.app.simagix.output_schema import RCAReportDraft
 
+from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists, fixture_exports_dir
+
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
-EXPORTS_DIR = WORKSPACE_ROOT / "simagix-workspace/exports/mongo-ftdc"
 
 
 def _latest_run_id() -> str | None:
-    latest_path = EXPORTS_DIR / "latest_run_id.txt"
-    if latest_path.exists():
-        return latest_path.read_text(encoding="utf-8").strip()
-    runs = sorted(
-        [item.name for item in EXPORTS_DIR.iterdir() if item.is_dir() and (item / "manifest.json").exists()],
-        reverse=True,
-    )
-    return runs[0] if runs else None
+    if fixture_bundle_exists():
+        return FIXTURE_RUN_ID
+    return None
 
 
 @pytest.fixture(scope="module")
@@ -62,7 +58,7 @@ def test_grounding_allowed_sources_include_web_and_investigation() -> None:
 
 
 def test_score_semantics_in_context(run_id: str) -> None:
-    loader = SimagixBundleLoader(EXPORTS_DIR / run_id)
+    loader = SimagixBundleLoader(fixture_exports_dir())
     context = loader.assemble_prompt_context(run_id)
     assert "score_semantics" in context
     assert context["score_semantics"]["101"]["meaning"].startswith("not assessed")
@@ -71,7 +67,7 @@ def test_score_semantics_in_context(run_id: str) -> None:
 def test_prompt_includes_score_legend(run_id: str) -> None:
     from backend.app.simagix.prompt import build_phase2_prompt
 
-    loader = SimagixBundleLoader(EXPORTS_DIR / run_id)
+    loader = SimagixBundleLoader(fixture_exports_dir())
     prompt = build_phase2_prompt(loader.assemble_prompt_context(run_id))
     assert "Score 101" in prompt
     assert "NOT ASSESSED" in prompt
@@ -80,7 +76,7 @@ def test_prompt_includes_score_legend(run_id: str) -> None:
 def test_tier1_evidence_block_includes_suggestion(run_id: str) -> None:
     from backend.app.simagix.prompt import build_tier1_evidence_block
 
-    loader = SimagixBundleLoader(EXPORTS_DIR / run_id)
+    loader = SimagixBundleLoader(fixture_exports_dir())
     context = loader.assemble_prompt_context(run_id)
     block = build_tier1_evidence_block(context)
     assert "suggestion:" in block
@@ -108,7 +104,7 @@ def test_output_schema_shape() -> None:
 
 
 def test_tier1_loader(run_id: str) -> None:
-    bundle_dir = EXPORTS_DIR / run_id
+    bundle_dir = fixture_exports_dir()
     if not (bundle_dir / "llm/executive_context.json").exists():
         pytest.skip("Bundle uses legacy format; regenerate export with updated llm-export")
     loader = SimagixBundleLoader(bundle_dir)
@@ -120,7 +116,7 @@ def test_tier1_loader(run_id: str) -> None:
 
 
 def test_fallback_metric_window(run_id: str) -> None:
-    bundle_dir = EXPORTS_DIR / run_id
+    bundle_dir = fixture_exports_dir()
     if not (bundle_dir / "llm/fallback_retrieval_index.json").exists():
         pytest.skip("Bundle missing fallback index; regenerate export")
     evidence = SimagixEvidenceService(WORKSPACE_ROOT, run_id)
@@ -130,7 +126,7 @@ def test_fallback_metric_window(run_id: str) -> None:
 
 
 def test_simagix_api_endpoints(run_id: str) -> None:
-    bundle_dir = EXPORTS_DIR / run_id
+    bundle_dir = fixture_exports_dir()
     if not (bundle_dir / "llm/executive_context.json").exists():
         pytest.skip("Bundle uses legacy format; regenerate export")
     client = TestClient(create_app())
@@ -152,7 +148,7 @@ def test_simagix_api_endpoints(run_id: str) -> None:
 
 
 def test_golden_incident_eval(run_id: str) -> None:
-    bundle_dir = EXPORTS_DIR / run_id
+    bundle_dir = fixture_exports_dir()
     if not (bundle_dir / "llm/executive_context.json").exists():
         pytest.skip("Bundle uses legacy format; regenerate export")
     result = evaluate_run(WORKSPACE_ROOT, run_id)

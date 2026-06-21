@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.core.run_workspace import RunWorkspace
 from backend.app.core.config import get_settings
 from backend.app.main import create_app
 from backend.app.simagix.llm import mcp_evidence_server as mcp_server
@@ -22,13 +23,19 @@ from backend.app.simagix.llm.session import Phase2SessionStore, phase2_session_s
 from backend.app.simagix.evidence_service import SimagixEvidenceService
 from backend.app.simagix.output_schema import RCAReportDraft
 
+from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists, fixture_exports_dir
+
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_RUN_ID = "phase1test20260609T133314Z"
-EXPORTS_DIR = WORKSPACE_ROOT / "simagix-workspace/exports/mongo-ftdc"
+
+
+def _mock_session_dir(run_id: str) -> Path:
+    return RunWorkspace(WORKSPACE_ROOT).llm_session_dir(run_id, "mock")
 
 
 def _bundle_exists(run_id: str) -> bool:
-    return (EXPORTS_DIR / run_id / "manifest.json").exists()
+    if run_id != FIXTURE_RUN_ID:
+        return False
+    return fixture_bundle_exists()
 
 
 @pytest.fixture
@@ -244,7 +251,7 @@ def test_mcp_server_env_includes_pythonpath(fixture_run_id: str, session_store: 
     assert env["SIMAGIX_BUDGET_STATE_PATH"].endswith("phase2/llm/mock/budget_state.json")
 
 def test_mcp_evidence_tools_with_fixture(fixture_run_id: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    if not (EXPORTS_DIR / fixture_run_id / "llm/fallback_retrieval_index.json").exists():
+    if not (fixture_exports_dir() / "llm/fallback_retrieval_index.json").exists():
         pytest.skip("Bundle missing fallback index")
 
     session_store = Phase2SessionStore()
@@ -269,12 +276,7 @@ def test_mcp_evidence_tools_with_fixture(fixture_run_id: str, monkeypatch: pytes
 
 def test_session_budget_shared_via_sync_file(fixture_run_id: str) -> None:
     store = Phase2SessionStore()
-    budget_path = (
-        WORKSPACE_ROOT
-        / "simagix-workspace/runs"
-        / fixture_run_id
-        / "phase2/llm/mock/budget_state.json"
-    )
+    budget_path = _mock_session_dir(fixture_run_id) / "budget_state.json"
     if budget_path.exists():
         budget_path.unlink()
     store.reset(fixture_run_id, "mock")
@@ -502,7 +504,7 @@ def test_llm_providers_api() -> None:
 
 
 def test_chatbot_404_without_report(fixture_run_id: str) -> None:
-    session_dir = WORKSPACE_ROOT / "simagix-workspace/runs" / fixture_run_id / "phase2/llm/mock"
+    session_dir = _mock_session_dir(fixture_run_id)
     report_path = session_dir / "latest_report.json"
     backup = report_path.read_text(encoding="utf-8") if report_path.exists() else None
     if report_path.exists():
@@ -520,9 +522,7 @@ def test_chatbot_404_without_report(fixture_run_id: str) -> None:
 def test_chatbot_api_mock(fixture_run_id: str) -> None:
     client = TestClient(create_app())
     _complete_mock_rca(client, fixture_run_id)
-    chat_path = (
-        WORKSPACE_ROOT / "simagix-workspace/runs" / fixture_run_id / "phase2/llm/mock/chatbot_chat.json"
-    )
+    chat_path = _mock_session_dir(fixture_run_id) / "chatbot_chat.json"
     if chat_path.exists():
         chat_path.unlink()
     phase2_session_store.reset(fixture_run_id, "mock")
@@ -544,9 +544,7 @@ def test_chatbot_api_mock(fixture_run_id: str) -> None:
 def test_chatbot_attachment_upload_and_message(fixture_run_id: str) -> None:
     client = TestClient(create_app())
     _complete_mock_rca(client, fixture_run_id)
-    chat_path = (
-        WORKSPACE_ROOT / "simagix-workspace/runs" / fixture_run_id / "phase2/llm/mock/chatbot_chat.json"
-    )
+    chat_path = _mock_session_dir(fixture_run_id) / "chatbot_chat.json"
     if chat_path.exists():
         chat_path.unlink()
     phase2_session_store.reset(fixture_run_id, "mock")
@@ -578,12 +576,6 @@ def test_chatbot_attachment_upload_and_message(fixture_run_id: str) -> None:
     user_msg = history.json()["messages"][0]
     assert user_msg["attachments"][0]["path"] == attachment["path"]
 
-    scratch_file = (
-        WORKSPACE_ROOT
-        / "simagix-workspace/runs"
-        / fixture_run_id
-        / "phase2/llm/mock/chatbot_scratch"
-        / attachment["path"]
-    )
+    scratch_file = _mock_session_dir(fixture_run_id) / "chatbot_scratch" / attachment["path"]
     assert scratch_file.is_file()
     assert b"slow query" in scratch_file.read_bytes()

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Upload {{ run_id }} — Phase 1{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
+  <div>
+    <h1 class="h2 mb-1"><i class="bi bi-cpu me-2 text-info"></i>Phase 1 — Decode &amp; export</h1>
+    <p class="text-secondary mb-0">
+      Upload <code>{{ run_id }}</code>
+      {% if upload_time_utc %}<span class="ms-1">· {{ upload_time_utc }}</span>{% endif %}
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/runs"><i class="bi bi-arrow-left me-2"></i>All uploads</a>
+</div>
+
+<div class="glass-card reveal-panel mb-4" data-reveal="left">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <span class="h5 mb-0">Phase 1 status</span>
+      {% if pipeline_status == 'finished' %}
+      <span class="badge text-bg-success">Complete</span>
+      {% elif pipeline_status == 'processing' %}
+      <span class="badge text-bg-warning text-dark">Decoding…</span>
+      {% elif pipeline_status == 'failed' %}
+      <span class="badge text-bg-danger">Failed</span>
+      {% elif pipeline_status == 'stale' %}
+      <span class="badge text-bg-dark">Not enqueued</span>
+      {% else %}
+      <span class="badge text-bg-secondary">Queued</span>
+      {% endif %}
+    </div>
+    {% if job %}
+    <p class="mb-1"><strong>Latest decode attempt:</strong> <code>{{ job.job_id }}</code></p>
+    <p class="mb-1"><strong>Message:</strong> {{ job.message }}</p>
+    {% if job.error %}
+    <div class="alert alert-danger mt-3 mb-0"><strong>Error:</strong> {{ job.error }}</div>
+    {% endif %}
+    {% else %}
+    <p class="text-secondary mb-0">No Phase 1 job record found for this upload.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if phase1_attempts|length > 1 %}
+<div class="glass-card reveal-panel mb-4" data-reveal="left">
+  <div class="card-header bg-transparent border-secondary-subtle px-4 pt-3">
+    <h2 class="h6 mb-0">Decode attempts ({{ phase1_attempts|length }})</h2>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-secondary table-opacity-25">
+          <tr><th>Attempt</th><th>State</th><th>Message</th></tr>
+        </thead>
+        <tbody>
+          {% for attempt in phase1_attempts %}
+          <tr>
+            <td><code>{{ attempt.job_id[:8] }}…</code></td>
+            <td><span class="badge text-bg-secondary">{{ attempt.state }}</span></td>
+            <td class="small text-secondary">{{ attempt.message }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if pipeline_status == 'finished' %}
+<div class="alert alert-success">
+  Phase 1 complete — evidence bundle is ready.
+  <a href="/runs/{{ run_id }}">Start run analysis (Phase 2)</a>
+</div>
+{% elif pipeline_status in ['queued', 'processing'] %}
+<div id="pipeline-poll" class="alert alert-info mb-0" data-job-id="{{ job_id }}" data-run-id="{{ run_id }}">
+  Pipeline worker must be running: <code>uv run python -m backend.app.jobs.worker</code>
+  {% if job %}
+  <br><span class="small">Polling latest decode attempt <code>{{ job.job_id[:8] }}…</code></span>
+  {% endif %}
+</div>
+{% elif pipeline_status == 'failed' or pipeline_status == 'stale' %}
+<div class="alert alert-warning mb-0">
+  Upload files remain under <code>simagix-workspace/uploads/{{ run_id }}/raw/diagnostic.data/</code>.
+  Fix the error (often <code>colima start</code> for Docker), then retry Phase 1 decode.
+  <button type="button" class="btn btn-sm btn-warning ms-2" id="retry-pipeline-btn" data-run-id="{{ run_id }}">
+    <i class="bi bi-arrow-repeat me-1"></i>Retry Phase 1
+  </button>
+</div>
+{% endif %}
+
+{% if job_id and pipeline_status in ['queued', 'processing'] %}
+<script>
+(function poll() {
+  const jobId = document.getElementById("pipeline-poll").dataset.jobId;
+  const runId = document.getElementById("pipeline-poll").dataset.runId;
+  async function tick() {
+    const job = await fetch(`/simagix/uploads/jobs/${jobId}`).then((r) => r.json());
+    if (job.state === 'succeeded') {
+      window.location.href = `/runs/${runId}`;
+      return;
+    }
+    if (job.state === 'failed') {
+      window.location.reload();
+      return;
+    }
+    setTimeout(tick, 3000);
+  }
+  tick();
+})();
+</script>
+{% elif pipeline_status == 'failed' or pipeline_status == 'stale' %}
+<script>
+(function () {
+  const btn = document.getElementById("retry-pipeline-btn");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    const runId = btn.dataset.runId;
+    const resp = await fetch(`/simagix/uploads/runs/${runId}/retry`, { method: "POST" });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      alert(body.detail || "Retry failed");
+      btn.disabled = false;
+      return;
+    }
+    window.location.reload();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

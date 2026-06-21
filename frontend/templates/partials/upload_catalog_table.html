@@ -1,0 +1,76 @@
+{# Shared upload catalog table. Expects: run_entries (list of dicts), show_index (bool), compact (bool) #}
+<div class="table-responsive">
+  <table class="table table-hover {% if not compact %}mb-0{% else %}table-borderless mb-0{% endif %} align-middle runs-table">
+    <thead class="table-secondary table-opacity-25">
+      <tr>
+        {% if show_index %}<th>#</th>{% endif %}
+        <th>Upload ID</th>
+        {% if not compact %}<th>Uploaded (UTC)</th>{% endif %}
+        <th>Phase 1</th>
+        <th>Phase 2</th>
+        {% if not compact %}<th>Message</th>{% endif %}
+        <th class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in run_entries %}
+      <tr>
+        {% if show_index %}<td class="text-secondary">{{ loop.index }}</td>{% endif %}
+        <td><code class="text-break">{{ entry.run_id }}</code></td>
+        {% if not compact %}<td class="small text-secondary text-nowrap">{{ entry.upload_time_utc or '—' }}</td>{% endif %}
+        <td>
+          {% if entry.phase1_status == 'finished' %}
+          <span class="badge text-bg-success">Complete</span>
+          {% elif entry.phase1_status == 'processing' %}
+          <span class="badge text-bg-warning text-dark">Decoding…</span>
+              {% elif entry.phase1_status == 'failed' %}
+              <span class="badge text-bg-danger">Failed</span>
+              {% elif entry.phase1_status == 'stale' %}
+              <span class="badge text-bg-dark">Not enqueued</span>
+              {% else %}
+          <span class="badge text-bg-secondary">Queued</span>
+          {% endif %}
+          {% if entry.phase1_attempt_count > 1 %}
+          <span class="small text-secondary ms-1">({{ entry.phase1_attempt_count }} tries)</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if entry.phase2_status == 'completed' %}
+          <span class="badge text-bg-success">Report ready</span>
+          {% elif entry.phase2_status == 'in_progress' %}
+          <span class="badge text-bg-warning text-dark">In progress</span>
+          {% elif entry.phase2_status == 'not_started' %}
+          <span class="badge text-bg-secondary">Not started</span>
+          {% else %}
+          <span class="text-secondary">—</span>
+          {% endif %}
+        </td>
+        {% if not compact %}
+        <td class="small text-secondary text-break">
+          {{ entry.message }}
+          {% if entry.error %}
+          <br><span class="text-danger">{{ entry.error[:120] }}{% if entry.error|length > 120 %}…{% endif %}</span>
+          {% endif %}
+        </td>
+        {% endif %}
+        <td class="text-end text-nowrap">
+          {% if entry.phase1_status == 'finished' and entry.has_export %}
+          <a class="btn btn-sm btn-outline-success" href="/runs/{{ entry.run_id }}">
+            <i class="bi bi-robot me-1"></i>Run analysis
+          </a>
+          {% else %}
+          <a class="btn btn-sm btn-outline-warning" href="/runs/{{ entry.run_id }}/pipeline">
+            <i class="bi bi-cpu me-1"></i>Phase 1
+          </a>
+              {% if entry.phase1_status == 'failed' or entry.phase1_status == 'stale' %}
+          <button type="button" class="btn btn-sm btn-warning retry-pipeline-btn" data-run-id="{{ entry.run_id }}">
+            <i class="bi bi-arrow-repeat me-1"></i>Retry
+          </button>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

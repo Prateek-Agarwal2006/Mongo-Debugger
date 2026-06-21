@@ -5,17 +5,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIMAGIX_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROJECT_ROOT="$(cd "${SIMAGIX_DIR}/.." && pwd)"
 
-INPUT_PATH="${1:-simagix-workspace/data/diagnostic.data}"
+INPUT_PATH="${1:-tmp/diagnostic.data}"
 export MONGO_FTDC_LATEST="${MONGO_FTDC_LATEST:-0}"
 export MONGO_FTDC_RAW_EXPORT="${MONGO_FTDC_RAW_EXPORT:-false}"
 export MONGO_FTDC_EXPORT_TIER="${MONGO_FTDC_EXPORT_TIER:-normalized}"
 export MONGO_FTDC_RUN_ID="${MONGO_FTDC_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 REPORT_DIR="${SIMAGIX_DIR}/reports/mongo-ftdc/${MONGO_FTDC_RUN_ID}"
-EXPORT_DIR="${SIMAGIX_DIR}/exports/mongo-ftdc/${MONGO_FTDC_RUN_ID}"
-RUN_MANIFEST="${SIMAGIX_DIR}/runs/${MONGO_FTDC_RUN_ID}/run_manifest.json"
+EXPORT_DIR="${SIMAGIX_DIR}/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence"
+RUN_MANIFEST="${SIMAGIX_DIR}/uploads/${MONGO_FTDC_RUN_ID}/phase1/run_manifest.json"
 
-mkdir -p "$(dirname "${RUN_MANIFEST}")"
+mkdir -p "$(dirname "${RUN_MANIFEST}")" "${EXPORT_DIR}"
 
 echo "=== Mongo FTDC unified pipeline ==="
 echo "Run ID: ${MONGO_FTDC_RUN_ID}"
@@ -37,14 +37,14 @@ cat > "${RUN_MANIFEST}" <<EOF
   "export_tier": "${MONGO_FTDC_EXPORT_TIER}",
   "raw_export": ${MONGO_FTDC_RAW_EXPORT},
   "report_dir": "simagix-workspace/reports/mongo-ftdc/${MONGO_FTDC_RUN_ID}",
-  "export_dir": "simagix-workspace/exports/mongo-ftdc/${MONGO_FTDC_RUN_ID}",
-  "executive_context": "simagix-workspace/exports/mongo-ftdc/${MONGO_FTDC_RUN_ID}/llm/executive_context.json",
-  "manifest": "simagix-workspace/exports/mongo-ftdc/${MONGO_FTDC_RUN_ID}/manifest.json"
+  "export_dir": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence",
+  "executive_context": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence/llm/executive_context.json",
+  "manifest": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence/manifest.json"
 }
 EOF
 
-printf '%s\n' "${MONGO_FTDC_RUN_ID}" > "${SIMAGIX_DIR}/runs/latest_run_id.txt"
-ln -sfn "${SIMAGIX_DIR}/runs/${MONGO_FTDC_RUN_ID}" "${SIMAGIX_DIR}/runs/latest" 2>/dev/null || true
+printf '%s\n' "${MONGO_FTDC_RUN_ID}" > "${SIMAGIX_DIR}/uploads/latest_run_id.txt"
+ln -sfn "${SIMAGIX_DIR}/uploads/${MONGO_FTDC_RUN_ID}" "${SIMAGIX_DIR}/uploads/latest" 2>/dev/null || true
 
 echo "Pipeline complete."
 echo "Run manifest: ${RUN_MANIFEST}"

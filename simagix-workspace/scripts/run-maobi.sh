@@ -11,7 +11,7 @@ mkdir -p "${REPORT_DIR}"
 if [ "${1:-}" != "" ]; then
   INPUT_PATH="$1"
 else
-  INPUT_PATH="$(ls -t "${SIMAGIX_DIR}/data/keyhole-output"/* 2>/dev/null | head -n 1 || true)"
+  INPUT_PATH="$(ls -t "${PROJECT_ROOT}/tmp/keyhole-output"/* 2>/dev/null | head -n 1 || true)"
   if [ -n "${INPUT_PATH}" ]; then
     INPUT_PATH="${INPUT_PATH#${PROJECT_ROOT}/}"
   fi

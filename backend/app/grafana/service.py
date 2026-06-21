@@ -10,7 +10,7 @@ from backend.app.grafana.stack import GrafanaStackManager
 
 
 def _bundle_dir(workspace_root: Path, run_id: str) -> Path:
-    return RunWorkspace(workspace_root).exports_dir(run_id)
+    return RunWorkspace(workspace_root).resolve_exports_dir(run_id)
 
 
 def load_run_for_grafana(workspace_root: Path, run_id: str) -> dict[str, object]:
