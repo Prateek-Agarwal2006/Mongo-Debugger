@@ -60,6 +60,10 @@ def _resolve_input_path(workspace_root: Path, run_id: str, manifest: dict[str, A
             if candidate.exists():
                 return candidate.resolve()
 
+    upload_diag = ws.resolve_upload_diagnostic_dir(run_id)
+    if upload_diag.is_dir():
+        return upload_diag.resolve()
+
     raw = manifest.get("input", "")
     if raw.startswith("/workspace/"):
         raw = raw.removeprefix("/workspace/")

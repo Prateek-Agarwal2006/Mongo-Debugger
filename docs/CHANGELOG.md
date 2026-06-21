@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-21 — Fix Grafana link tests on CI (no tmp/diagnostic.data)
+
+**What:** GitHub Actions failed `test_grafana_links` / `test_grafana_urls_api` with `FileNotFoundError: No diagnostic.data path found`.
+
+**How:** `_resolve_input_path` falls back to `RunWorkspace.resolve_upload_diagnostic_dir(run_id)`; fixture gets `raw/diagnostic.data/.gitkeep`; `run_manifest.json` input points at Option A upload path.
+
+**Why:** CI has no gitignored `tmp/diagnostic.data`; local dev masked the bug via that fallback.
+
+---
+
 ## 2026-06-17 — Docs: worker `finally`, retry module layout
 
 **What:** Documented worker `try`/`finally` + `complete()` (queue lease vs job JSON), failure implications without `finally`, and why `retry.py` is separate from `upload.py`.

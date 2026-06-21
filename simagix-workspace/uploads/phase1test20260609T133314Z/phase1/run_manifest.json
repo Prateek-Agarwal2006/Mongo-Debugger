@@ -1,7 +1,7 @@
 {
   "run_id": "phase1test20260609T133314Z",
   "generated_at": "2026-06-09T13:36:40Z",
-  "input": "tmp/diagnostic.data",
+  "input": "simagix-workspace/uploads/phase1test20260609T133314Z/raw/diagnostic.data",
   "latest": 0,
   "export_tier": "normalized",
   "raw_export": false,
