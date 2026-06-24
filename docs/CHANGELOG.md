@@ -3,9 +3,21 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-25
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-25 — README conceptual flow diagram + CONTEXT.md glossary
+
+**What:** Added a single role-lane Mermaid flow diagram to the README **Architecture (30 seconds)** section (mentor/manager audience) and a new root `CONTEXT.md` ubiquitous-language glossary.
+
+**How:** The diagram groups boxes by role left-to-right — Input → Backend (FastAPI) → Deterministic analysis (mongo-ftdc + Hatchet) → Evidence bundle → Reasoning (RCA agent + MCP + LLM providers) → Outputs (report/chatbot + Grafana) — with the deterministic-vs-reasoning split made explicit and pipe-separated capability labels. `CONTEXT.md` defines the project's terms (Run, evidence bundle, tier-1 findings, RCA agent, LLM slot, etc.) per the domain-modeling format.
+
+**Why:** A `/grill-with-docs` session asked for a clear, non-low-level flow picture for explaining the system to a mentor/manager, plus a glossary so the diagram's terms are unambiguous.
+
+**Docs:** [README.md](../README.md) § Architecture (30 seconds), [CONTEXT.md](../CONTEXT.md).
 
 ---
 

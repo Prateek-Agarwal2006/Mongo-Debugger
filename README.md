@@ -100,6 +100,56 @@ uv run pytest backend/tests -q
 
 ## Architecture (30 seconds)
 
+The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics.
+
+```mermaid
+flowchart LR
+  User(["User / operator"])
+
+  subgraph input [Input]
+    Upload["Upload UI — diagnostic.data zip | mongod.log"]
+  end
+
+  subgraph backend [Backend — FastAPI :8000]
+    API["FastAPI :8000 — upload jobs | REST + MCP access | serves web UI"]
+    Worker["Pipeline worker — file queue on DATA_ROOT | runs Docker jobs off the API process"]
+  end
+
+  subgraph det [Deterministic analysis — Docker]
+    MFTDC["mongo-ftdc — decode FTDC | score | diagnose | tiered export"]
+    Hatchet["Hatchet — parse mongod.log | SQLite | log summary"]
+  end
+
+  subgraph ev [Evidence bundle — on DATA_ROOT]
+    Bundle["Tiered JSON — tier-1 findings, authoritative | tier-2 metric slices | log summary"]
+  end
+
+  subgraph reason [Reasoning — LLM never re-derives findings]
+    Agent["3-phase RCA agent — A investigate | B clarify | C final report"]
+    MCP["MCP evidence tools — metrics | logs | hatchet | web_fetch"]
+    LLM["LLM providers — Cursor Cloud | Gemini ADK | Mock"]
+  end
+
+  subgraph out [Outputs]
+    Report["RCA report — JSON + HTML | citations | post-report chatbot"]
+    Grafana["Grafana charts — Grafana :3030 | FTDC API :5408 | new tab"]
+  end
+
+  User --> Upload --> API
+  API --> Worker
+  Worker --> MFTDC --> Bundle
+  Worker --> Hatchet --> Bundle
+  API --> Agent
+  Agent <--> MCP
+  Agent <--> LLM
+  MCP -.->|reads| Bundle
+  Agent --> Report --> User
+  API --> Grafana --> User
+  Grafana -.->|loads diagnostic.data| Bundle
+```
+
+Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** `:3030` and **FTDC API** `:5408` (shared Docker stack, opened in a new tab). LLM providers are external (Cursor Cloud, Gemini).
+
 | Layer | Role |
 |-------|------|
 | **mongo-ftdc** (Docker) | Decode FTDC, score, diagnose, export tiered bundle |
