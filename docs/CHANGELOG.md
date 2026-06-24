@@ -9,6 +9,18 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-25 — README: single runtime flow diagram
+
+**What:** README **Architecture (30 seconds)** now shows one runtime flow diagram only; removed the earlier simplified diagram and mentor/manager wording.
+
+**How:** Kept the concrete runtime Mermaid view (Docker Grafana stack, agent → MCP, UI output routing). Renamed Excalidraw export to `mongo-debugger-runtime-flow.excalidraw.json` and updated its title.
+
+**Why:** GitHub README should present one clear architecture picture without duplicate diagrams or mentor/manager labels.
+
+**Docs:** [README.md](../README.md) § Architecture (30 seconds), [mongo-debugger-runtime-flow.excalidraw.json](mongo-debugger-runtime-flow.excalidraw.json).
+
+---
+
 ## 2026-06-25 — README mentor flow diagram v2 + cleaner Excalidraw export
 
 **What:** Appended a concrete runtime mentor/manager flow to the README and replaced the cluttered Excalidraw export with a cleaner lane-based diagram.

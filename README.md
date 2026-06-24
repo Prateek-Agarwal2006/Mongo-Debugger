@@ -100,60 +100,7 @@ uv run pytest backend/tests -q
 
 ## Architecture (30 seconds)
 
-The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics.
-
-```mermaid
-%%{init: {'flowchart': {'nodeSpacing': 80, 'rankSpacing': 110}, 'themeVariables': {'fontSize': '18px'}}}%%
-flowchart LR
-  User(["User / operator"])
-
-  subgraph input [Input]
-    Upload["Upload UI — diagnostic.data zip | mongod.log"]
-  end
-
-  subgraph backend [Backend — FastAPI :8000]
-    API["FastAPI :8000 — upload jobs | REST + MCP access | serves web UI"]
-    Worker["Pipeline worker — file queue on DATA_ROOT | runs Docker jobs off the API process"]
-  end
-
-  subgraph det [Deterministic analysis — Docker]
-    MFTDC["mongo-ftdc — decode FTDC | score | diagnose | tiered export"]
-    Hatchet["Hatchet — parse mongod.log | SQLite | log summary"]
-  end
-
-  subgraph ev [Evidence bundle — on DATA_ROOT]
-    Bundle["Tiered JSON — tier-1 findings, authoritative | tier-2 metric slices | log summary"]
-  end
-
-  subgraph reason [Reasoning — LLM never re-derives findings]
-    Agent["3-phase RCA agent — A investigate | B clarify | C final report"]
-    MCP["MCP evidence tools — metrics | logs | hatchet | web_fetch"]
-    LLM["LLM providers — Cursor Cloud | Gemini ADK | Mock"]
-  end
-
-  subgraph out [Outputs]
-    Report["RCA report — JSON + HTML | citations | post-report chatbot"]
-    Grafana["Grafana charts — Grafana :3030 | FTDC API :5408 | new tab"]
-  end
-
-  User --> Upload --> API
-  API --> Worker
-  Worker --> MFTDC --> Bundle
-  Worker --> Hatchet --> Bundle
-  API --> Agent
-  Agent <--> MCP
-  Agent <--> LLM
-  MCP -.->|reads| Bundle
-  Agent --> Report --> Upload
-  API --> Grafana --> Upload
-  Grafana -.->|loads uploaded diagnostic.data| Upload
-```
-
-Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** `:3030` and **FTDC API** `:5408` (shared Docker stack, opened in a new tab). LLM providers are external (Cursor Cloud, Gemini).
-
-### Mentor/Manager Flow (Concrete Runtime)
-
-This second view keeps the same story but makes three runtime details explicit: **Grafana is also Docker**, the **RCA agent calls MCP tools** while the LLM provider only returns model output, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
+The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics. Grafana runs in Docker (`:3030` + FTDC API `:5408`), the RCA agent calls MCP tools while the LLM provider only returns model output, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
 
 ```mermaid
 %%{init: {'flowchart': {'nodeSpacing': 85, 'rankSpacing': 120}, 'themeVariables': {'fontSize': '18px'}}}%%
@@ -213,9 +160,11 @@ flowchart LR
   FTDCAPI --> Grafana --> Web
 ```
 
+Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** `:3030` and **FTDC API** `:5408` (shared Docker stack, opened in a new tab). LLM providers are external (Cursor Cloud, Gemini).
+
 Key read: **the LLM provider does not call MCP directly**. The RCA agent controls the loop, asks MCP servers for evidence, sends the selected evidence to the provider, and writes the report. Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.
 
-**Excalidraw (clean lane view):** [docs/mongo-debugger-mentor-flow.excalidraw.json](docs/mongo-debugger-mentor-flow.excalidraw.json) — open in Excalidraw or reload via Excalidraw MCP session `mongo-debugger-mentor-clean`.
+**Excalidraw:** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — open in Excalidraw or reload via Excalidraw MCP session `mongo-debugger-runtime-flow`.
 
 | Layer | Role |
 |-------|------|
@@ -228,7 +177,7 @@ Key read: **the LLM provider does not call MCP directly**. The RCA agent control
 | **Grafana stack** | Shared `mongo-debugger/ftdc:local` + Grafana; per-run load via `/grafana/dir` |
 | **Phase 2** | 3-step RCA: investigate → ask operator once → final report → chatbot |
 
-Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale & mentor Q&A: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 code walkthrough, §14 tradeoffs)
+Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale & tradeoffs: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 code walkthrough, §14 tradeoffs)
 
 ---
 
