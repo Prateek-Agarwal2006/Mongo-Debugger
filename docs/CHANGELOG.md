@@ -9,15 +9,27 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-25 — README mentor flow diagram v2 + cleaner Excalidraw export
+
+**What:** Appended a concrete runtime mentor/manager flow to the README and replaced the cluttered Excalidraw export with a cleaner lane-based diagram.
+
+**How:** README now has two views: the original role-lane Mermaid diagram plus **Mentor/Manager Flow (Concrete Runtime)** showing Grafana as Docker (`:3030` + FTDC API `:5408`), RCA agent → MCP tool calls (not LLM → MCP), and Grafana loading uploaded `diagnostic.data` via `/grafana/dir`. Excalidraw MCP rebuilt the visual as five color-coded lanes with short labels (36 elements vs 71).
+
+**Why:** Mentor/manager walkthrough needed accurate runtime semantics without diagram clutter.
+
+**Docs:** [README.md](../README.md) § Architecture (30 seconds), [mongo-debugger-mentor-flow.excalidraw.json](mongo-debugger-mentor-flow.excalidraw.json).
+
+---
+
 ## 2026-06-25 — README conceptual flow diagram + CONTEXT.md glossary
 
-**What:** Added a single role-lane Mermaid flow diagram to the README **Architecture (30 seconds)** section (mentor/manager audience) and a new root `CONTEXT.md` ubiquitous-language glossary.
+**What:** Added role-lane Mermaid flow diagrams to the README **Architecture (30 seconds)** section (mentor/manager audience), exported an editable Excalidraw version of the concrete runtime flow, and added a new root `CONTEXT.md` ubiquitous-language glossary.
 
-**How:** The diagram groups boxes by role left-to-right — Input → Backend (FastAPI) → Deterministic analysis (mongo-ftdc + Hatchet) → Evidence bundle → Reasoning (RCA agent + MCP + LLM providers) → Outputs (report/chatbot + Grafana) — with the deterministic-vs-reasoning split made explicit and pipe-separated capability labels. `CONTEXT.md` defines the project's terms (Run, evidence bundle, tier-1 findings, RCA agent, LLM slot, etc.) per the domain-modeling format.
+**How:** The first diagram groups boxes by role left-to-right — Input → Backend (FastAPI) → Deterministic analysis (mongo-ftdc + Hatchet) → Evidence bundle → Reasoning (RCA agent + MCP + LLM providers) → Outputs (report/chatbot + Grafana) — with the deterministic-vs-reasoning split made explicit and pipe-separated capability labels. A second concrete runtime diagram clarifies that Grafana is a Docker stack (`:3030` + FTDC API `:5408`), the RCA agent calls MCP while the LLM provider only returns model output, and Grafana loads the run's uploaded `diagnostic.data` path through `/grafana/dir` rather than reading the evidence bundle. `CONTEXT.md` defines the project's terms (Run, evidence bundle, tier-1 findings, RCA agent, LLM slot, etc.) per the domain-modeling format.
 
-**Why:** A `/grill-with-docs` session asked for a clear, non-low-level flow picture for explaining the system to a mentor/manager, plus a glossary so the diagram's terms are unambiguous.
+**Why:** A `/grill-with-docs` session asked for a clear, non-low-level flow picture for explaining the system to a mentor/manager, plus a glossary so the diagram's terms are unambiguous and a more precise view for answering implementation-flow questions.
 
-**Docs:** [README.md](../README.md) § Architecture (30 seconds), [CONTEXT.md](../CONTEXT.md).
+**Docs:** [README.md](../README.md) § Architecture (30 seconds), [mongo-debugger-mentor-flow.excalidraw.json](mongo-debugger-mentor-flow.excalidraw.json), [CONTEXT.md](../CONTEXT.md).
 
 ---
 

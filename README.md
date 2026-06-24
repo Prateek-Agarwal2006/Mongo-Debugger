@@ -145,21 +145,86 @@ flowchart LR
   MCP -.->|reads| Bundle
   Agent --> Report --> User
   API --> Grafana --> User
-  Grafana -.->|loads diagnostic.data| Bundle
+  Grafana -.->|loads uploaded diagnostic.data| Upload
 ```
 
 Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** `:3030` and **FTDC API** `:5408` (shared Docker stack, opened in a new tab). LLM providers are external (Cursor Cloud, Gemini).
 
+### Mentor/Manager Flow (Concrete Runtime)
+
+This second view keeps the same story but makes three runtime details explicit: **Grafana is also Docker**, the **RCA agent calls MCP tools** while the LLM provider only returns model output, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
+
+```mermaid
+flowchart LR
+  Operator(["User / operator"])
+
+  subgraph ui [Browser / Web UI]
+    Web["FastAPI Web UI :8000 | upload page | run page | RCA + Grafana controls"]
+  end
+
+  subgraph api [Backend Process]
+    FastAPI["FastAPI :8000 | upload APIs | run state | path resolver"]
+    Worker["Pipeline worker | DATA_ROOT file queue | Docker job runner"]
+  end
+
+  subgraph data [Run Workspace on DATA_ROOT]
+    Inputs["Run inputs | diagnostic.data | mongod.log"]
+    Evidence["Evidence bundle | mongo-ftdc tiered JSON | Hatchet summary"]
+    Reports["Report artifacts | latest_report.json | HTML view | chatbot transcript"]
+  end
+
+  subgraph dockerAnalysis [Deterministic Docker Analysis]
+    MongoFTDC["mongo-ftdc Docker | decode FTDC | score | diagnose"]
+    Hatchet["Hatchet Docker | parse mongod.log | SQLite | summary.json"]
+  end
+
+  subgraph rca [RCA Reasoning]
+    Agent["RCA agent | Phase A investigate | Phase B clarify | Phase C final"]
+    MCP["MCP evidence servers | metrics tools | log tools | Hatchet tools"]
+    LLM["LLM provider | Cursor Cloud | Gemini ADK | Mock"]
+  end
+
+  subgraph charts [Grafana Docker Stack]
+    GrafanaSvc["Grafana FastAPI routes :8000 | stack status | load request"]
+    FTDCAPI["FTDC API Docker :5408 | /grafana/dir | loads diagnostic.data"]
+    Grafana["Grafana Docker :3030 | dashboards | new browser tab"]
+  end
+
+  Operator --> Web --> FastAPI
+  FastAPI --> Inputs
+  FastAPI --> Worker
+  Worker --> MongoFTDC
+  Worker --> Hatchet
+  Inputs --> MongoFTDC --> Evidence
+  Inputs --> Hatchet --> Evidence
+
+  FastAPI --> Agent
+  Agent -->|"tool calls"| MCP
+  MCP -->|"reads"| Evidence
+  Agent -->|"prompt + retrieved evidence"| LLM
+  LLM -->|"reasoned response"| Agent
+  Agent --> Reports --> Web --> Operator
+
+  Web --> GrafanaSvc
+  GrafanaSvc -->|"passes run diagnostic.data path"| FTDCAPI
+  Inputs -.->|"source for /grafana/dir"| FTDCAPI
+  FTDCAPI --> Grafana --> Operator
+```
+
+Key read: **the LLM provider does not call MCP directly**. The RCA agent controls the loop, asks MCP servers for evidence, sends the selected evidence to the provider, and writes the report. Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.
+
+**Excalidraw (clean lane view):** [docs/mongo-debugger-mentor-flow.excalidraw.json](docs/mongo-debugger-mentor-flow.excalidraw.json) — open in Excalidraw or reload via Excalidraw MCP session `mongo-debugger-mentor-clean`.
+
 | Layer | Role |
 |-------|------|
 | **mongo-ftdc** (Docker) | Decode FTDC, score, diagnose, export tiered bundle |
-| **Hatchet** (Docker, optional) | Parse `mongod.log` → SQLite → compact tier-1 summary for Phase 2 |
+| **Hatchet** (Docker) | Parse `mongod.log` → SQLite → compact tier-1 summary for Phase 2 |
 | **Pipeline worker** | File queue on `DATA_ROOT`; runs mongo-ftdc + Hatchet jobs outside the API process |
 | **FastAPI backend** | Upload jobs, REST/MCP evidence access, web UI |
 | **Cursor SDK** | Agent runtime — tool loop (ReAct); we implement MCP **servers** only |
-| **Gemini ADK** | Optional second LLM slot with shared evidence tools + `web_fetch` policy |
+| **Gemini ADK** | Second LLM slot with shared evidence tools + `web_fetch` policy |
 | **Grafana stack** | Shared `mongo-debugger/ftdc:local` + Grafana; per-run load via `/grafana/dir` |
-| **Phase 2** | 3-step RCA: investigate → ask operator once → final report → optional chatbot |
+| **Phase 2** | 3-step RCA: investigate → ask operator once → final report → chatbot |
 
 Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale & mentor Q&A: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 code walkthrough, §14 tradeoffs)
 

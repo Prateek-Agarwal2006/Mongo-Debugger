@@ -1,0 +1,693 @@
+{
+  "elements": [
+    {
+      "id": "ca7cd00d-d32e-4ac3-a1ab-b100895123de",
+      "type": "text",
+      "x": 40,
+      "y": 20,
+      "strokeColor": "#1e1e1e",
+      "text": "Mongo Debugger — mentor/manager flow",
+      "fontSize": 28
+    },
+    {
+      "id": "lane1",
+      "type": "frame",
+      "x": 40,
+      "y": 80,
+      "width": 260,
+      "height": 420,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#e7f5ff",
+      "name": "Input & API"
+    },
+    {
+      "id": "lane2",
+      "type": "frame",
+      "x": 320,
+      "y": 80,
+      "width": 280,
+      "height": 420,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "#ebfbee",
+      "name": "Docker analysis"
+    },
+    {
+      "id": "lane3",
+      "type": "frame",
+      "x": 620,
+      "y": 80,
+      "width": 220,
+      "height": 420,
+      "strokeColor": "#e67700",
+      "backgroundColor": "#fff4e6",
+      "name": "DATA_ROOT"
+    },
+    {
+      "id": "lane4",
+      "type": "frame",
+      "x": 860,
+      "y": 80,
+      "width": 320,
+      "height": 420,
+      "strokeColor": "#9c36b5",
+      "backgroundColor": "#f8f0fc",
+      "name": "RCA reasoning"
+    },
+    {
+      "id": "lane5",
+      "type": "frame",
+      "x": 1200,
+      "y": 80,
+      "width": 260,
+      "height": 420,
+      "strokeColor": "#1864ab",
+      "backgroundColor": "#e7f5ff",
+      "name": "Charts (Docker)"
+    },
+    {
+      "id": "user",
+      "type": "ellipse",
+      "x": 100,
+      "y": 140,
+      "width": 140,
+      "height": 70,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Operator",
+        "fontSize": 16,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "web",
+      "type": "rectangle",
+      "x": 70,
+      "y": 250,
+      "width": 200,
+      "height": 90,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Web UI\n:8000",
+        "fontSize": 15,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "api",
+      "type": "rectangle",
+      "x": 70,
+      "y": 370,
+      "width": 200,
+      "height": 100,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "FastAPI :8000\n+ pipeline worker",
+        "fontSize": 14,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "mftdc",
+      "type": "rectangle",
+      "x": 350,
+      "y": 140,
+      "width": 220,
+      "height": 80,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "mongo-ftdc\n(Docker)",
+        "fontSize": 14,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "hatchet",
+      "type": "rectangle",
+      "x": 350,
+      "y": 250,
+      "width": 220,
+      "height": 80,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Hatchet\n(Docker)",
+        "fontSize": 14,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "inputs",
+      "type": "rectangle",
+      "x": 640,
+      "y": 140,
+      "width": 180,
+      "height": 90,
+      "strokeColor": "#e67700",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Run inputs\ndiagnostic.data\nmongod.log",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "evidence",
+      "type": "rectangle",
+      "x": 640,
+      "y": 260,
+      "width": 180,
+      "height": 90,
+      "strokeColor": "#e67700",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Evidence bundle\ntier-1 + tier-2\n+ log summary",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "reports",
+      "type": "rectangle",
+      "x": 640,
+      "y": 380,
+      "width": 180,
+      "height": 80,
+      "strokeColor": "#e67700",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Reports +\nchatbot",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "agent",
+      "type": "rectangle",
+      "x": 900,
+      "y": 160,
+      "width": 240,
+      "height": 90,
+      "strokeColor": "#9c36b5",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "RCA agent\nA investigate | B clarify | C report",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "mcp",
+      "type": "rectangle",
+      "x": 900,
+      "y": 290,
+      "width": 240,
+      "height": 80,
+      "strokeColor": "#9c36b5",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "MCP evidence servers\n(metrics | logs | hatchet)",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "llm",
+      "type": "rectangle",
+      "x": 900,
+      "y": 400,
+      "width": 240,
+      "height": 70,
+      "strokeColor": "#868e96",
+      "backgroundColor": "#f8f9fa",
+      "roughness": 0,
+      "label": {
+        "text": "LLM provider\nCursor | Gemini | Mock",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "grafana",
+      "type": "rectangle",
+      "x": 1230,
+      "y": 180,
+      "width": 200,
+      "height": 120,
+      "strokeColor": "#1864ab",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Grafana Docker\nGrafana :3030\nFTDC API :5408",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "grafanaLoad",
+      "type": "rectangle",
+      "x": 1230,
+      "y": 340,
+      "width": 200,
+      "height": 80,
+      "strokeColor": "#1864ab",
+      "backgroundColor": "#ffffff",
+      "roughness": 0,
+      "label": {
+        "text": "Loads uploaded\ndiagnostic.data",
+        "fontSize": 13,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      }
+    },
+    {
+      "id": "a1",
+      "type": "arrow",
+      "x": 170,
+      "y": 210,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "user"
+      },
+      "end": {
+        "id": "web"
+      }
+    },
+    {
+      "id": "a2",
+      "type": "arrow",
+      "x": 170,
+      "y": 340,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "web"
+      },
+      "end": {
+        "id": "api"
+      }
+    },
+    {
+      "id": "a3",
+      "type": "arrow",
+      "x": 270,
+      "y": 420,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "label": {
+        "text": "worker",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "api"
+      },
+      "end": {
+        "id": "mftdc"
+      }
+    },
+    {
+      "id": "a4",
+      "type": "arrow",
+      "x": 270,
+      "y": 420,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "api"
+      },
+      "end": {
+        "id": "hatchet"
+      }
+    },
+    {
+      "id": "a5",
+      "type": "arrow",
+      "x": 570,
+      "y": 180,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "mftdc"
+      },
+      "end": {
+        "id": "evidence"
+      }
+    },
+    {
+      "id": "a6",
+      "type": "arrow",
+      "x": 570,
+      "y": 290,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "hatchet"
+      },
+      "end": {
+        "id": "evidence"
+      }
+    },
+    {
+      "id": "a7",
+      "type": "arrow",
+      "x": 270,
+      "y": 200,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "api"
+      },
+      "end": {
+        "id": "inputs"
+      }
+    },
+    {
+      "id": "a8",
+      "type": "arrow",
+      "x": 820,
+      "y": 305,
+      "strokeColor": "#9c36b5",
+      "roughness": 0,
+      "label": {
+        "text": "reads",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "evidence"
+      },
+      "end": {
+        "id": "mcp"
+      }
+    },
+    {
+      "id": "a9",
+      "type": "arrow",
+      "x": 1020,
+      "y": 250,
+      "strokeColor": "#9c36b5",
+      "roughness": 0,
+      "label": {
+        "text": "tool calls",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "agent"
+      },
+      "end": {
+        "id": "mcp"
+      }
+    },
+    {
+      "id": "a10",
+      "type": "arrow",
+      "x": 1020,
+      "y": 370,
+      "strokeColor": "#868e96",
+      "roughness": 0,
+      "label": {
+        "text": "prompt",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "agent"
+      },
+      "end": {
+        "id": "llm"
+      }
+    },
+    {
+      "id": "a11",
+      "type": "arrow",
+      "x": 1020,
+      "y": 430,
+      "strokeColor": "#868e96",
+      "roughness": 0,
+      "label": {
+        "text": "response",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "llm"
+      },
+      "end": {
+        "id": "agent"
+      }
+    },
+    {
+      "id": "a12",
+      "type": "arrow",
+      "x": 1020,
+      "y": 250,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "agent"
+      },
+      "end": {
+        "id": "reports"
+      }
+    },
+    {
+      "id": "a13",
+      "type": "arrow",
+      "x": 820,
+      "y": 185,
+      "strokeColor": "#1864ab",
+      "strokeStyle": "dashed",
+      "roughness": 0,
+      "label": {
+        "text": "/grafana/dir",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "inputs"
+      },
+      "end": {
+        "id": "grafanaLoad"
+      }
+    },
+    {
+      "id": "a14",
+      "type": "arrow",
+      "x": 1330,
+      "y": 300,
+      "strokeColor": "#1864ab",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "grafanaLoad"
+      },
+      "end": {
+        "id": "grafana"
+      }
+    },
+    {
+      "id": "a15",
+      "type": "arrow",
+      "x": 270,
+      "y": 300,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "api"
+      },
+      "end": {
+        "id": "agent"
+      }
+    },
+    {
+      "id": "a16",
+      "type": "arrow",
+      "x": 270,
+      "y": 320,
+      "strokeColor": "#1864ab",
+      "roughness": 0,
+      "label": {
+        "text": "load charts",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "web"
+      },
+      "end": {
+        "id": "grafana"
+      }
+    },
+    {
+      "id": "6b28594b-669a-4a5a-b1b4-597ff665f5c4",
+      "type": "text",
+      "x": 40,
+      "y": 530,
+      "strokeColor": "#495057",
+      "text": "Key: LLM does not call MCP. Agent orchestrates tool calls, then sends selected evidence to the LLM.",
+      "fontSize": 14
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "currentItemStrokeColor": "#1e1e1e",
+    "currentItemBackgroundColor": "transparent",
+    "currentItemFillStyle": "solid",
+    "currentItemStrokeWidth": 2,
+    "currentItemRoughness": 1,
+    "zoom": {
+      "value": 1
+    },
+    "showWelcomeScreen": true,
+    "theme": "light",
+    "currentChartType": "bar",
+    "currentItemEndArrowhead": "arrow",
+    "currentItemFontFamily": 5,
+    "currentItemFontSize": 20,
+    "currentItemOpacity": 100,
+    "currentItemStartArrowhead": null,
+    "currentItemRoundness": "round",
+    "currentItemArrowType": "round",
+    "currentItemStrokeStyle": "solid",
+    "currentItemTextAlign": "left",
+    "currentHoveredFontFamily": null,
+    "cursorButton": "up",
+    "activeEmbeddable": null,
+    "newElement": null,
+    "editingTextElement": null,
+    "editingGroupId": null,
+    "editingLinearElement": null,
+    "activeTool": {
+      "type": "selection",
+      "customType": null,
+      "locked": false,
+      "lastActiveTool": null
+    },
+    "penMode": false,
+    "penDetected": false,
+    "errorMessage": null,
+    "exportBackground": true,
+    "exportScale": 2,
+    "exportEmbedScene": false,
+    "exportWithDarkMode": false,
+    "fileHandle": null,
+    "gridSize": 20,
+    "gridStep": 5,
+    "gridModeEnabled": false,
+    "isBindingEnabled": true,
+    "defaultSidebarDockedPreference": false,
+    "isLoading": false,
+    "isResizing": false,
+    "isRotating": false,
+    "lastPointerDownWith": "mouse",
+    "multiElement": null,
+    "name": "Untitled-2026-06-25-0137",
+    "contextMenu": null,
+    "openMenu": null,
+    "openPopup": null,
+    "openSidebar": null,
+    "openDialog": null,
+    "pasteDialog": {
+      "shown": false,
+      "data": null
+    },
+    "previousSelectedElementIds": {},
+    "resizingElement": null,
+    "scrolledOutside": false,
+    "scrollX": 0,
+    "scrollY": 0,
+    "selectedElementIds": {},
+    "hoveredElementIds": {},
+    "selectedGroupIds": {},
+    "selectedElementsAreBeingDragged": false,
+    "selectionElement": null,
+    "shouldCacheIgnoreZoom": false,
+    "stats": {
+      "open": false,
+      "panels": 3
+    },
+    "startBoundElement": null,
+    "suggestedBindings": [],
+    "frameRendering": {
+      "enabled": true,
+      "clip": true,
+      "name": true,
+      "outline": true
+    },
+    "frameToHighlight": null,
+    "editingFrame": null,
+    "elementsToHighlight": null,
+    "toast": null,
+    "zenModeEnabled": false,
+    "viewModeEnabled": false,
+    "pendingImageElementId": null,
+    "showHyperlinkPopup": false,
+    "selectedLinearElement": null,
+    "snapLines": [],
+    "originSnapOffset": {
+      "x": 0,
+      "y": 0
+    },
+    "objectsSnapModeEnabled": false,
+    "userToFollow": null,
+    "followedBy": {},
+    "isCropping": false,
+    "croppingElementId": null,
+    "searchMatches": [],
+    "offsetLeft": 0,
+    "offsetTop": 32,
+    "width": 1440,
+    "height": 780
+  },
+  "version": 4
+}
