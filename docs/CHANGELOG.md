@@ -9,6 +9,18 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-25 — Fix Excalidraw export for excalidraw.com import
+
+**What:** `mongo-debugger-runtime-flow.excalidraw.json` now opens on excalidraw.com instead of showing “invalid file”.
+
+**How:** Regenerated the file in the official Excalidraw schema (`type`, `source`, `files`, full element properties). The prior MCP export omitted required root fields and used a non-portable element shape.
+
+**Why:** Users opening the diagram on excalidraw.com need a valid `.excalidraw` JSON document, not the MCP server’s internal export format.
+
+**Docs:** [mongo-debugger-runtime-flow.excalidraw.json](mongo-debugger-runtime-flow.excalidraw.json), [README.md](../README.md).
+
+---
+
 ## 2026-06-25 — README: single runtime flow diagram
 
 **What:** README **Architecture (30 seconds)** now shows one runtime flow diagram only; removed the earlier simplified diagram and mentor/manager wording.

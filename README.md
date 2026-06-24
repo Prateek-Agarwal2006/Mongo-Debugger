@@ -164,7 +164,7 @@ Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** 
 
 Key read: **the LLM provider does not call MCP directly**. The RCA agent controls the loop, asks MCP servers for evidence, sends the selected evidence to the provider, and writes the report. Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.
 
-**Excalidraw:** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — open in Excalidraw or reload via Excalidraw MCP session `mongo-debugger-runtime-flow`.
+**Excalidraw:** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — on [excalidraw.com](https://excalidraw.com), use **☰ → Open** and select this file (must include `"type": "excalidraw"` in the JSON). Or reload via Excalidraw MCP session `mongo-debugger-runtime-flow`.
 
 | Layer | Role |
 |-------|------|
