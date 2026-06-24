@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.app.core.run_workspace import RunWorkspace
+from backend.app.jobs.job_types import DEFAULT_JOB_TYPE, normalize_job_type
 from backend.app.jobs.store import JobStatus
 
 
@@ -13,6 +14,7 @@ class QueuedPipelineJob:
     job_id: str
     run_id: str
     input_path: str
+    job_type: str = DEFAULT_JOB_TYPE
 
 
 class FileJobQueue:
@@ -28,6 +30,7 @@ class FileJobQueue:
             "job_id": job.job_id,
             "run_id": job.run_id,
             "input_path": str(input_dir.relative_to(self.workspace.root)),
+            "job_type": normalize_job_type(job.job_type),
         }
         self.workspace.job_queue_pending_path(job.run_id, job.job_id).write_text(
             json.dumps(payload, indent=2),
@@ -66,6 +69,7 @@ class FileJobQueue:
                 job_id=payload["job_id"],
                 run_id=payload["run_id"],
                 input_path=payload["input_path"],
+                job_type=normalize_job_type(payload.get("job_type")),
             )
         return None
 

@@ -4,6 +4,8 @@ Version: `1.0.0`
 
 This contract defines the tiered evidence bundle produced by `cmd/llm-export` and consumed by the Mongo Debugger RCA backend.
 
+**On disk:** `simagix-workspace/uploads/<run_id>/phase1/mongo-ftdc/` (legacy: `phase1/evidence/`, `exports/mongo-ftdc/<run_id>/`). Run-level undecoded FTDC uploads live under `uploads/<run_id>/inputs/diagnostic.data/` — not to be confused with bundle-internal tier-3 `raw/` (decoder forensic).
+
 ## Design Principle
 
 ```text

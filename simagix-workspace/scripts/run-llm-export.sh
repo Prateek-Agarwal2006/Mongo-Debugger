@@ -10,7 +10,7 @@ LATEST="${MONGO_FTDC_LATEST:-0}"
 RAW_EXPORT="${MONGO_FTDC_RAW_EXPORT:-false}"
 EXPORT_TIER="${MONGO_FTDC_EXPORT_TIER:-normalized}"
 RUN_ID="${MONGO_FTDC_RUN_ID:-${MONGO_FTDC_EXPORT_ID:-$(date -u +%Y%m%dT%H%M%SZ)}}"
-EXPORT_DIR="${SIMAGIX_DIR}/uploads/${RUN_ID}/phase1/evidence"
+EXPORT_DIR="${SIMAGIX_DIR}/uploads/${RUN_ID}/phase1/mongo-ftdc"
 
 mkdir -p "${EXPORT_DIR}"
 
@@ -27,7 +27,7 @@ docker run --rm \
   golang:1.25 \
   go run ./cmd/llm-export \
     -input "/workspace/${INPUT_PATH}" \
-    -output "/workspace/simagix-workspace/uploads/${RUN_ID}/phase1/evidence" \
+    -output "/workspace/simagix-workspace/uploads/${RUN_ID}/phase1/mongo-ftdc" \
     -latest "${LATEST}" \
     -tier "${EXPORT_TIER}" \
     -raw="${RAW_EXPORT}"

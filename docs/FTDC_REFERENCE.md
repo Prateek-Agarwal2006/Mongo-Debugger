@@ -18,7 +18,7 @@ Simagix workspace layout: [SIMAGIX_WORKSPACE.md](SIMAGIX_WORKSPACE.md). Full doc
 |-----------|--------|----------|
 | Docker FTDC pipeline | Complete | `simagix-workspace/scripts/` |
 | Unified `run_id` (report + export) | Complete | `simagix-workspace/uploads/<run_id>/` (Option A) |
-| Tiered evidence export (`v1.0.0`) | Complete | `uploads/<run_id>/phase1/evidence/` |
+| Tiered evidence export (`v1.0.0`) | Complete | `uploads/<run_id>/phase1/mongo-ftdc/` |
 | RCA backend (orchestration only) | Complete | `backend/app/simagix/` |
 | Phase 2 LLM scaffolding | Scaffolded | prompt, grounding, budget, output schema |
 | Hatchet / Keyhole / Maobi | Scripted | Blocked on input artifacts |

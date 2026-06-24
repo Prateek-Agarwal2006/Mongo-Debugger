@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
+from backend.app.simagix.hatchet_tools import HATCHET_MCP_TOOL_NAMES
+
 ToolTraceCategory = Literal["mcp", "web", "local", "shell", "other"]
 ToolTracePhase = Literal["investigation", "clarify", "final_rca", "chatbot"]
 
@@ -18,6 +20,7 @@ EVIDENCE_MCP_TOOL_NAMES = frozenset(
         "get_budget_status",
         "get_profiler_samples",
         "query_logs_around_window",
+        *HATCHET_MCP_TOOL_NAMES,
     }
 )
 
@@ -69,6 +72,11 @@ def resolve_tool_identity(tool_name: str, args: Any) -> tuple[str, str | None]:
         inner = name[lower.index(marker) + len(marker) :]
         return f"simagix-evidence/{inner}", "simagix-evidence"
 
+    hatchet_marker = "hatchet-evidence_"
+    if hatchet_marker in lower:
+        inner = name[lower.index(hatchet_marker) + len(hatchet_marker) :]
+        return f"hatchet-evidence/{inner}", "hatchet-evidence"
+
     if "graylog" in lower and "_query_" in lower:
         inner = name.split("_")[-1] if "_" in name else name
         return f"graylog/{inner}", "graylog"
@@ -94,6 +102,7 @@ def classify_tool_category(tool_name: str, args: Any = None) -> ToolTraceCategor
     if (
         "mcp" in name
         or name.startswith("simagix-evidence/")
+        or name.startswith("hatchet-evidence/")
         or name.startswith("graylog/")
         or "simagix-evidence" in args_text
         or "graylog" in args_text
@@ -250,6 +259,8 @@ def adk_tool_trace_identity(tool_name: str) -> tuple[str, ToolTraceCategory, str
     lower = name.lower()
     if lower in {"google_search", "google_search_agent"} or "google_search" in lower:
         return "google_search", "web", None
+    if name in HATCHET_MCP_TOOL_NAMES:
+        return f"hatchet-evidence/{name}", "mcp", "hatchet-evidence"
     if name in EVIDENCE_MCP_TOOL_NAMES:
         return f"simagix-evidence/{name}", "mcp", "simagix-evidence"
     category = classify_tool_category(name)

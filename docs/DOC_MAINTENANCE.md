@@ -2,7 +2,7 @@
 
 How agents and humans keep project docs accurate. **This is the source of truth for which file to update when.**
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-06-24
 
 ---
 

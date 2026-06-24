@@ -80,7 +80,7 @@
 </div>
 {% elif pipeline_status == 'failed' or pipeline_status == 'stale' %}
 <div class="alert alert-warning mb-0">
-  Upload files remain under <code>simagix-workspace/uploads/{{ run_id }}/raw/diagnostic.data/</code>.
+  Upload files remain under <code>simagix-workspace/uploads/{{ run_id }}/inputs/diagnostic.data/</code>.
   Fix the error (often <code>colima start</code> for Docker), then retry Phase 1 decode.
   <button type="button" class="btn btn-sm btn-warning ms-2" id="retry-pipeline-btn" data-run-id="{{ run_id }}">
     <i class="bi bi-arrow-repeat me-1"></i>Retry Phase 1

@@ -12,7 +12,7 @@ export MONGO_FTDC_EXPORT_TIER="${MONGO_FTDC_EXPORT_TIER:-normalized}"
 export MONGO_FTDC_RUN_ID="${MONGO_FTDC_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 REPORT_DIR="${SIMAGIX_DIR}/reports/mongo-ftdc/${MONGO_FTDC_RUN_ID}"
-EXPORT_DIR="${SIMAGIX_DIR}/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence"
+EXPORT_DIR="${SIMAGIX_DIR}/uploads/${MONGO_FTDC_RUN_ID}/phase1/mongo-ftdc"
 RUN_MANIFEST="${SIMAGIX_DIR}/uploads/${MONGO_FTDC_RUN_ID}/phase1/run_manifest.json"
 
 mkdir -p "$(dirname "${RUN_MANIFEST}")" "${EXPORT_DIR}"
@@ -37,9 +37,9 @@ cat > "${RUN_MANIFEST}" <<EOF
   "export_tier": "${MONGO_FTDC_EXPORT_TIER}",
   "raw_export": ${MONGO_FTDC_RAW_EXPORT},
   "report_dir": "simagix-workspace/reports/mongo-ftdc/${MONGO_FTDC_RUN_ID}",
-  "export_dir": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence",
-  "executive_context": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence/llm/executive_context.json",
-  "manifest": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/evidence/manifest.json"
+  "export_dir": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/mongo-ftdc",
+  "executive_context": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/mongo-ftdc/llm/executive_context.json",
+  "manifest": "simagix-workspace/uploads/${MONGO_FTDC_RUN_ID}/phase1/mongo-ftdc/manifest.json"
 }
 EOF
 

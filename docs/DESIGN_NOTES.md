@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-17 (Option A upload tree + pipeline worker; §14.4 talking points).
+**Last aligned with codebase:** 2026-06-23 (Hatchet v1 log upload + worker dispatch + Phase 2 gate; §14 tradeoffs).
 
 ---
 
@@ -124,8 +124,12 @@ FTDC is **server metrics**, not application logs or query text.
 
 ## 8. Grafana: open in new tab + pipeline warmup
 
-- **No iframe embed** — charts open at `localhost:3030` via **Open Anomaly View** / **Open All Metrics**.
-- **After upload pipeline** — job warms Grafana (`POST /grafana/dir`) so you usually skip a second wait on the run page.
+- **No iframe embed** — charts open at `localhost:3030` via **Anomaly View** / **All Metrics** (one debounced `window.open` per button click).
+- **First visit per browser session** — run page silently `POST`s `/grafana/load` once so the FTDC API holds this run's `diagnostic.data`; reload skips re-decode unless the operator clicks **Load FTDC** again.
+- **Reload during decode** — dashboard links stay visible: backend health cache (180s, module-level) treats recent probe success as still-up while the single-threaded FTDC API is busy; frontend shows links from `/grafana/urls` even when status text mentions decode in progress.
+- **After upload pipeline** — job warms Grafana (`POST /grafana/dir`) so you may skip the wait on the run page.
+- **FTDC server bootstrap** — patched `mftdc -server` starts without a directory; compose no longer requires `tmp/diagnostic.data` at boot (load is always per-run via `/grafana/dir`).
+- **Stack recovery** — `ensure_stack_ready_for_load()` waits for a busy decoder before restarting FTDC; `docker compose up -d` without `--build` avoids killing Grafana on recovery.
 - **Future work** — deduplicate upload pipeline: today `run-mongo-ftdc.sh` + `run-llm-export.sh` each decode/diagnose the same FTDC; target one pass for `exports/` (RCA) and shared decode for Grafana (see `docs/PROJECT_STATUS.md` § Other future work).
 
 ## 9. What we deliberately removed (shows maturity)
@@ -234,8 +238,8 @@ POST /simagix/runs/{run_id}/phase2/run     → rca.js — Phase A+B
 POST /simagix/runs/{run_id}/phase2/clarify → rca.js — Phase C
 GET  /simagix/runs/{run_id}/phase2/tool-trace → rca.js — tool activity table
 GET  /simagix/runs/grafana/status          → grafana.js
-GET  /simagix/runs/{run_id}/grafana/urls    → grafana.js
-POST /simagix/runs/{run_id}/grafana/load   → grafana.js → opens localhost:3030 in new tab
+GET  /simagix/runs/{run_id}/grafana/urls    → grafana.js (shows links; stack health uses cached probes)
+POST /simagix/runs/{run_id}/grafana/load   → grafana.js (first visit auto-load; manual reload button)
 GET  /simagix/runs/{run_id}/reports/latest/view → link in template (HTML report)
 ```
 
@@ -606,12 +610,22 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 | **LLM slots** | **`mock` / `cursor` / `gemini`** with separate `phase2/llm/<slot>/` trees | Compare providers on same run without overwriting investigation/report/trace | **Single shared phase2 folder** — switching LLM corrupted state (fixed 2026-06) | `llm_paths.py`, `test_llm_isolation.py` |
 | **UI layer** | Top-level **`frontend/`** (templates + static); backend wires routes only | Reskin or replace UI without touching Phase 2 logic | **Templates under `backend/app/`** — coupled deploy story | `frontend/`, `web/routes.py` |
 | **Phase A→B→C rail (UI)** | Client state machine in `phase-rail.js`, hydrated from `GET /phase2/status`; sticky shell **hides on scroll** while reading report/chat | Progress feedback during RCA; rail gets out of the way when reading long content | **Always-visible sticky bar** — blocks report/chat (user feedback); **server-driven SSE rail** — unnecessary for three discrete phases | `phase-rail.js`, `rca.js` `setFromApiStatus` |
-| **Charting** | **Grafana** (external tab) for human exploration; MCP slices for agent evidence | Real FTDC dashboards from `simagix/grafana-ftdc`; no duplicate chart stack in app | **Embedded Chart.js / graphs API** — removed as duplicate path | §8, `grafana/service.py` |
+| **Charting** | **Grafana** (external tab) for human exploration; MCP slices for agent evidence | Real FTDC dashboards from `simagix/grafana-ftdc`; patched `mongo-debugger/ftdc:local` defers FTDC load to `/grafana/dir` (no `tmp/` bootstrap) | **Embedded Chart.js / graphs API** — removed as duplicate path | §8, `grafana/service.py`, `patches/mftdc-server-deferred-load.patch` |
+| **Grafana health during FTDC decode** | **Module-level probe cache** (180s TTL) on `:5408` / `:3030`; run-page **sessionStorage** guards auto-load | FTDC API is single-threaded — probes time out mid-decode; per-request manager had empty cache so reload hid links and stacked loads | **Per-instance cache** (never shared across requests); **hide links when probe fails**; **auto-load on every page open** | `stack.py` `_HEALTH_CACHE`, `grafana.js` `_wasLoadedThisSession` / `_loadInProgress` |
 | **Citation trust (future)** | Documented preference: **deterministic verifier** on `tool_trace.json` before any **LLM auditor agent** | Highest ROI for “prove the agent looked” without second agent cost | **Verifier-only LLM** as first step — slower, still probabilistic | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Trust & cost |
 | **Run-scoped paths (K8s prep)** | **`RunWorkspace`** — one module: configurable root + named path methods (`uploads_dir`, `exports_dir`, `phase2_dir`, …) | Fixes K8s `DATA_ROOT` *and* removes duplicated layout strings; routes express intent; tests inject a temp-dir workspace | **Minimal `get_data_root()` only** — fixes mount root but leaves `"simagix-workspace/exports/mongo-ftdc"` copy-pasted in 5+ files | `backend/app/core/run_workspace.py`, `get_run_workspace()`; `DATA_ROOT` in `config.py`; all backend callers migrated (2026-06-18) |
-| **Upload folder layout (Option A)** | **One tree per upload:** `uploads/{run_id}/raw`, `phase1/` (jobs, queue, evidence), `phase2/` (LLM) | Single PVC subtree per incident; per-run queue avoids global `job_queue/` races; `resolve_*` reads legacy paths | **Scattered layout** (`data/uploads`, `data/jobs`, global queue, `exports/mongo-ftdc`, `runs/phase2`) — hard to mount, orphan job JSON showed false “Queued” | `run_workspace.py`; `jobs/queue.py`, `store.py`; pipeline scripts; catalog `stale` status |
+| **Upload folder layout (Option A)** | **One tree per upload:** `uploads/{run_id}/inputs`, `phase1/mongo-ftdc`, `phase2/` (LLM) | Single PVC subtree; tool-named Phase 1 outputs; `inputs/` avoids clash with bundle tier-3 `raw/` | **Scattered layout** (`data/uploads`, global queue, `exports/mongo-ftdc`) or **generic `evidence/` + run `raw/`** — ambiguous before Hatchet | `run_workspace.py`; pipeline scripts; `SIMAGIX_WORKSPACE.md` |
 | **Pipeline jobs (K8s prep)** | **Standalone worker** + **file queue** on `DATA_ROOT`; atomic rename claim; crash recovery requeues `processing/` → `pending/` | Upload survives API restart; worker survives pod restart; same PVC as RunWorkspace; no Redis in v1 | **Daemon thread in API** — lost on pod death; in-memory `JobStore` only; **embedded worker in FastAPI** — duplicate entrypoints | `jobs/worker.py`, `jobs/queue.py`, `jobs/pipeline.py`; `PIPELINE_WORKER_POLL_SECONDS`; **1 worker replica** in v1 |
 | **Queue placement (v1)** | **Per-upload queue dirs** under `uploads/{run_id}/phase1/queue/`; worker scans all uploads and claims oldest by mtime | Option A cohesion (queue lives with jobs/evidence); `has_active_job_for_run()` is O(1) per run; worker behavior is already one global FIFO | **Single central dir** (`data/job_queue/` or `uploads/_queue/`) — simpler scan, but splits scheduling from incident tree; revisit when scaling **>1 worker** or adding Redis/SQS | `queue.py` `iter_phase1_queue_pending_paths()`; `claim_next()` mtime sort; legacy global queue read-only |
+| **Hatchet MCP tier-2 tools (v2)** | Separate `hatchet-evidence` MCP server + ADK tools when summary+db exist; shared retrieval budget | Agent pulls deeper log slices on demand without bloating tier-1 prompt | **Embed in simagix-evidence server** — mixed concerns; **no budget** — unbounded SQLite reads | `hatchet_tools.py`, `hatchet_mcp_server.py`, `cursor_provider._mcp_config` |
+| **Hatchet log evidence (v1)** | Optional second upload to `inputs/mongodb-logs/`; enqueue `job_type: "hatchet"` on the existing queue; mongo-ftdc uses `job_type: "mongo_ftdc"`; one Hatchet job parses + exports summary-only tier 1; Phase 2 waits for Hatchet when logs exist | Uses Hatchet's SQLite source of truth directly like mongo-ftdc; keeps logs optional; one FIFO worker model; compact tier 1 includes slow-op rankings, COLLSCAN, audit rollups, drivers, log snippets, connection timeline | **Hatchet web service / HTML** — unused wrappers; **Hatchet MCP in v1** — defer to v2; **separate queue** — duplicate semantics; **`pipeline` job type** — misleading | `backend/app/jobs/hatchet.py`, `hatchet_export.py`, `POST …/logs`, `run-hatchet-job.sh`; patch: `hatchet-merge-drop-gate.patch` |
+
+**Talking points (Hatchet retry):** Upload/retry calls `clear_hatchet_artifacts()` — deletes `hatchet.db*` before enqueue so each parse starts fresh. Reusing a half-written DB from killed Docker runs caused multi-GB WAL and `SQLITE_BUSY`. Only one worker + one Hatchet container per run until single-flight guard lands.
+
+**Talking points (Hatchet export schema):** Hatchet 7.x `merge_clients` has `ip`/`accepted`/`ended` but no `date`; export uses `PRAGMA table_info` and falls back to per-IP rollups instead of minute buckets.
+
+**Talking points (Grafana reload / health cache):** Each API request constructs a fresh `GrafanaStackManager`. A per-instance health cache never survives to the next request, so decode-time probe timeouts looked like “stack down” and the run page hid dashboard links. Fix: module-level `_HEALTH_CACHE` shared across managers (180s). Frontend: first visit auto-loads FTDC once per session; reload uses `sessionStorage` to skip duplicate `/grafana/load`. Open buttons use debounced `window.open`, not `<a target=_blank>`.
+| **Hatchet `-merge` drop gate (local patch)** | **`shouldDropHatchetBeforeBegin()`** — skip `Drop()` when `-merge` && `mergeMarker > 1`; build **`mongo-debugger/hatchet:local`** | Restores documented `-merge` behavior with per-file markers; file 1 still replaces stale merged hatchet | **Always drop in Begin** (upstream fd28370) — last file wins; **concat single file** — no markers; **fork on GitHub** — repos gitignored, patch tracked in-tree | `simagix-workspace/patches/hatchet-merge-drop-gate.patch`; `build-hatchet-local.sh`; `SIMAGIX_TOOLCHAIN.md` |
 
 ### 14.4 Pipeline worker — file queue, not upload thread
 
@@ -739,8 +753,8 @@ A minimal fix — replace `_workspace_root()` with `get_data_root()` from config
 
 ```
   api/upload.py          RunWorkspace              disk / PVC
-  "save this upload" --> upload_diagnostic_dir(run_id) --> .../uploads/{id}/raw/diagnostic.data/
-  api/phase2.py        exports_dir(run_id)         --> .../uploads/{id}/phase1/evidence/
+  "save this upload" --> upload_diagnostic_dir(run_id) --> .../uploads/{id}/inputs/diagnostic.data/
+  api/phase2.py        mongo_ftdc_dir(run_id)      --> .../uploads/{id}/phase1/mongo-ftdc/
   jobs/worker.py       iter_phase1_queue_pending_paths() --> .../uploads/*/phase1/queue/pending/
 ```
 

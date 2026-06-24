@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.core.run_workspace import RunWorkspace
+from backend.app.jobs.job_types import DEFAULT_JOB_TYPE, normalize_job_type
 
 
 class JobState(str, Enum):
@@ -29,6 +30,7 @@ class JobStatus:
     message: str = ""
     error: str | None = None
     input_path: str | None = None
+    job_type: str = DEFAULT_JOB_TYPE
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -40,6 +42,7 @@ class JobStatus:
             "message": self.message,
             "error": self.error,
             "input_path": self.input_path,
+            "job_type": self.job_type,
         }
 
     @classmethod
@@ -53,6 +56,7 @@ class JobStatus:
             message=str(data.get("message", "")),
             error=data.get("error"),
             input_path=data.get("input_path"),
+            job_type=normalize_job_type(data.get("job_type")),
         )
 
 
@@ -81,13 +85,21 @@ class JobStore:
         self._jobs: dict[str, JobStatus] = {}
         self._lock = threading.Lock()
 
-    def create(self, run_id: str, *, input_path: str | None = None, workspace_root: Path) -> JobStatus:
+    def create(
+        self,
+        run_id: str,
+        *,
+        input_path: str | None = None,
+        job_type: str = DEFAULT_JOB_TYPE,
+        workspace_root: Path,
+    ) -> JobStatus:
         job_id = str(uuid.uuid4())
         job = JobStatus(
             job_id=job_id,
             run_id=run_id,
             state=JobState.PENDING,
             input_path=input_path,
+            job_type=normalize_job_type(job_type),
             message="Queued",
         )
         with self._lock:

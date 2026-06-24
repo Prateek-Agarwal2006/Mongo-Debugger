@@ -2,7 +2,7 @@
 
 Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc evidence pipeline.
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-23
 
 **Status:** Complete (Cursor SDK **or** Gemini ADK + MCP/evidence tools + 3-phase RCA flow + live Graylog client).
 
@@ -41,7 +41,8 @@ Install Gemini deps: `uv sync --extra dev --extra llm`.
 
 | Layer | Scoped by | Notes |
 |-------|-----------|-------|
-| FTDC export bundle | `run_id` only | `uploads/{run_id}/phase1/evidence/` — same tier-1 data for all LLMs |
+| FTDC export bundle | `run_id` only | `uploads/{run_id}/phase1/mongo-ftdc/` — same tier-1 data for all LLMs |
+| Hatchet log summary | `run_id` only | `uploads/{run_id}/phase1/hatchet/summary.json` — optional tier-1 log evidence when logs were uploaded |
 | `SimagixEvidenceService` | `(run_id, llm)` | New instance per `Phase2Session`; own `RetrievalBudget` |
 | Phase 2 artifacts | `llm` | investigation, iterative_state, tool_trace, report, budget, metadata |
 
@@ -78,12 +79,38 @@ GET /phase2/status?llm=mock
   - **MCP budget** counts simagix-evidence calls; local/shell/web appear separately in the trace UI.
 9. **Post-report chatbot (Phase 3).** After `latest_report.json` exists, `GET|POST /phase2/chatbot` drives an agentic thread per `(run_id, llm)`. Full history in `chatbot_chat.json`; prompt uses report + investigation + `summary_of_older` + last N messages. Summarize runs via text-only LLM call when thread exceeds `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES`. **Attachments:** `POST .../chatbot/attachments` stores files under `chatbot_scratch/attachments/` (text-friendly types, size cap).
 10. **Trusted web fetch.** `web_fetch.py` validates HTTPS URLs (SSRF blocks; optional `PHASE2_WEB_ALLOWLIST_SUFFIXES`). Used by Cursor and Gemini — not mongodb-only.
+11. **Hatchet waits when logs exist.** If `inputs/mongodb-logs/` contains files, Phase 2 blocks (HTTP 409) until `phase1/hatchet/summary.json` exists. A failed Hatchet job is retried via `POST …/logs/retry`; v1 does not provide a default "run without logs" path after logs were uploaded.
+12. **Hatchet prompt section.** Log evidence is appended after mongo-ftdc tier 1:
+
+```text
+--- Tier-1 analyzed mongo-ftdc evidence ---
+...
+
+--- Tier-1 analyzed Hatchet log evidence ---
+...
+```
+
+Do not rewrite mongo-ftdc `executive_context.json`; omit the Hatchet section when no logs were uploaded.
 
 **Deferred (not in this iteration):** curated runbook MCP / MCP resources from project PDFs — see [PROJECT_STATUS.md](PROJECT_STATUS.md) future enhancements.
 
 ## MCP tools
 
 **simagix-evidence:** `get_metric_window`, `get_normalized_series`, `get_raw_path`, `list_fallback_metrics`, `get_budget_status`, `get_profiler_samples`
+
+**Hatchet MCP tools (v2):** `get_hatchet_slow_ops`, `get_hatchet_log_examples`, `get_hatchet_audit`, `get_hatchet_connection_timeline` — registered when `phase1/hatchet/summary.json` and `hatchet.db` exist. Server id: `hatchet-evidence` (Cursor MCP) / ADK function tools (Gemini). Shares retrieval budget with simagix-evidence. v1 `summary.json` remains tier 1; these tools are tier 2.
+
+## Hatchet Citation Types
+
+When Hatchet evidence is present, final RCA citations should distinguish log evidence from FTDC metrics:
+
+| Source type | Use |
+|-------------|-----|
+| `hatchet_summary` | General claim sourced from `summary.json` |
+| `hatchet_slow_op` | Slow-op pattern from `top_slow_ops_by_avg_ms` or `top_slow_ops_by_total_ms` |
+| `hatchet_log_example` | One of the capped slowest log examples |
+| `hatchet_audit` | Exceptions, failed message families, namespace/app/IP/driver rollups |
+| `hatchet_connection_timeline` | Capped connection timeline rollup |
 
 **graylog** (optional): `query_logs_around_window` — uses Graylog Universal Search absolute API when `GRAYLOG_API_URL` + `GRAYLOG_API_TOKEN` are set.
 
@@ -162,7 +189,7 @@ simagix-workspace/runs/<run_id>/phase2/
       ...
 ```
 
-FTDC bundle (`uploads/<run_id>/phase1/evidence/`) is **not** duplicated per LLM.
+FTDC bundle (`uploads/<run_id>/phase1/mongo-ftdc/`) is **not** duplicated per LLM.
 
 ## Tool trace (one schema, provider adapters)
 

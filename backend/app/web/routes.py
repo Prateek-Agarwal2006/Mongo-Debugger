@@ -10,8 +10,11 @@ from fastapi.templating import Jinja2Templates
 from backend.app.core.config import get_settings
 from backend.app.core.run_workspace import get_run_workspace, repo_root
 from backend.app.jobs.catalog import (
+    hatchet_display_status,
+    list_hatchet_attempts,
     list_phase1_attempts,
     list_run_catalog,
+    latest_hatchet_job_for_run,
     latest_job_for_run,
     pipeline_display_status,
     upload_time_utc_from_run_id,
@@ -142,6 +145,16 @@ def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLRes
             )
 
     manifest = json.loads((exports / "manifest.json").read_text(encoding="utf-8"))
+    has_logs = workspace.has_mongodb_log_inputs(run_id)
+    has_hatchet_summary = workspace.hatchet_summary_ready(run_id)
+    hatchet_job = latest_hatchet_job_for_run(workspace.root, run_id)
+    hatchet_status = hatchet_display_status(
+        workspace,
+        hatchet_job,
+        has_summary=has_hatchet_summary,
+        has_logs=has_logs,
+    )
+    log_files = [path.name for path in workspace.list_mongodb_log_files(run_id)]
     return templates.TemplateResponse(
         request,
         "run_detail.html",
@@ -154,6 +167,13 @@ def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLRes
             "selected_llm": selected_llm,
             "llm_sessions": llm_sessions,
             "llm_providers": llm_provider_options(settings),
+            "hatchet_status": hatchet_status,
+            "has_hatchet_summary": has_hatchet_summary,
+            "has_mongodb_logs": has_logs,
+            "mongodb_log_files": log_files,
+            "hatchet_job": hatchet_job.to_dict() if hatchet_job else None,
+            "hatchet_attempts": [attempt.to_dict() for attempt in list_hatchet_attempts(workspace.root, run_id)],
+            "phase2_hatchet_blocked": has_logs and not has_hatchet_summary,
         },
     )
 

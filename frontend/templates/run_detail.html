@@ -10,7 +10,7 @@
 <script src="/static/js/clarify-wizard.js" defer></script>
 <script src="/static/js/report-viewer.js" defer></script>
 <script src="/static/js/agent-chat.js?v=2" defer></script>
-<script src="/static/js/grafana.js" defer></script>
+<script src="/static/js/grafana.js?v=4" defer></script>
 <script src="/static/js/rca.js" defer></script>
 {% endblock %}
 {% block content %}
@@ -70,6 +70,70 @@
   </div>
 </div>
 
+<div class="glass-card mb-4" id="hatchet-section">
+  <div class="card-header bg-transparent border-secondary-subtle">
+    <h2 class="h5 mb-0"><i class="bi bi-journal-text me-2 text-info"></i>MongoDB logs (Hatchet)</h2>
+  </div>
+  <div class="card-body">
+    <p class="text-secondary small mb-3">
+      Optional second step: upload individual log files or a <code>.zip</code> / <code>.tar.gz</code>
+      containing <code>mongod.log</code>, rotated <code>mongod.log.*</code>, or <code>mongod.log.gz</code>.
+      Phase 2 waits for Hatchet when logs are present.
+    </p>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      {% if hatchet_status == 'finished' %}
+      <span class="badge text-bg-success">Hatchet complete</span>
+      {% elif hatchet_status == 'processing' %}
+      <span class="badge text-bg-warning text-dark">Hatchet running…</span>
+      {% elif hatchet_status == 'failed' %}
+      <span class="badge text-bg-danger">Hatchet failed</span>
+      {% elif hatchet_status == 'queued' %}
+      <span class="badge text-bg-secondary">Hatchet queued</span>
+      {% elif hatchet_status == 'stale' %}
+      <span class="badge text-bg-dark">Hatchet not enqueued</span>
+      {% else %}
+      <span class="badge text-bg-secondary">No logs uploaded</span>
+      {% endif %}
+      {% if has_hatchet_summary %}
+      <span class="small text-success">summary.json ready</span>
+      {% endif %}
+    </div>
+    {% if mongodb_log_files %}
+    <p class="small mb-2"><strong>Uploaded logs:</strong> {{ mongodb_log_files | join(', ') }}</p>
+    {% endif %}
+    {% if hatchet_job and hatchet_job.error and hatchet_status == 'failed' %}
+    <div class="alert alert-danger py-2 small">{{ hatchet_job.error }}</div>
+    {% elif hatchet_status == 'processing' %}
+    <div class="alert alert-info py-2 small mb-0">
+      Hatchet is parsing your log files (large logs can take 10–30+ minutes). Keep the worker running.
+    </div>
+    {% endif %}
+    {% if phase2_hatchet_blocked %}
+    <div class="alert alert-warning py-2 small mb-3">
+      Phase 2 is blocked until Hatchet finishes and writes <code>phase1/hatchet/summary.json</code>.
+    </div>
+    {% endif %}
+    <form id="hatchet-log-upload-form" class="row g-2 align-items-end">
+      <div class="col-md-8">
+        <input type="file" class="form-control form-control-sm" id="hatchet-log-files" name="files" multiple accept=".log,.txt,.gz,.zip,.tar,.tgz,application/gzip,application/zip,application/x-gzip,text/plain"/>
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-info" id="hatchet-upload-btn">
+          <i class="bi bi-cloud-upload me-1"></i>Upload logs
+        </button>
+        {% if has_mongodb_logs and hatchet_status in ['failed', 'stale'] %}
+        <button type="button" class="btn btn-sm btn-warning" id="hatchet-retry-btn">
+          <i class="bi bi-arrow-repeat me-1"></i>Retry Hatchet
+        </button>
+        {% endif %}
+      </div>
+    </form>
+    <p id="hatchet-upload-status" class="small text-secondary mt-2 mb-0" role="status" aria-live="polite">
+      Worker: <code>uv run python -m backend.app.jobs.worker</code>
+    </p>
+  </div>
+</div>
+
 <div class="glass-card mb-4" id="grafana-section">
   <div class="card-header bg-transparent border-secondary-subtle">
     <h2 class="h5 mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Metrics (Grafana)</h2>
@@ -84,12 +148,12 @@
       <button type="button" class="btn btn-outline-primary" id="grafana-load-btn">
         <i class="bi bi-arrow-clockwise me-1"></i>Load FTDC for this run
       </button>
-      <a class="btn btn-primary" id="grafana-open-anomaly" href="#" target="_blank" rel="noopener" hidden>
+      <button type="button" class="btn btn-primary" id="grafana-open-anomaly" hidden disabled>
         <i class="bi bi-exclamation-triangle me-1"></i>Anomaly View
-      </a>
-      <a class="btn btn-primary" id="grafana-open-all" href="#" target="_blank" rel="noopener" hidden>
+      </button>
+      <button type="button" class="btn btn-primary" id="grafana-open-all" hidden disabled>
         <i class="bi bi-grid me-1"></i>All Metrics
-      </a>
+      </button>
     </div>
     <div id="grafana-meta" class="small text-secondary mt-3" hidden></div>
   </div>
@@ -221,9 +285,63 @@
   const RUN_ID = '{{ run_id }}';
   const INITIAL_LLM = '{{ selected_llm }}';
   const HAS_REPORT = {{ 'true' if has_report else 'false' }};
+  const PHASE2_HATCHET_BLOCKED = {{ 'true' if phase2_hatchet_blocked else 'false' }};
   document.addEventListener('DOMContentLoaded', () => {
+    const uploadForm = document.getElementById("hatchet-log-upload-form");
+    if (uploadForm) {
+      uploadForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = document.getElementById("hatchet-log-files");
+        const btn = document.getElementById("hatchet-upload-btn");
+        const statusEl = document.getElementById("hatchet-upload-status");
+        if (!input?.files?.length) {
+          alert("Choose at least one log file.");
+          return;
+        }
+        btn.disabled = true;
+        if (statusEl) statusEl.textContent = "Uploading log files…";
+        try {
+          const body = new FormData();
+          for (const file of input.files) body.append("files", file, file.name);
+          const resp = await fetch(`/simagix/uploads/runs/${RUN_ID}/logs`, { method: "POST", body });
+          if (!resp.ok) {
+            const payload = await resp.json().catch(() => ({}));
+            const detail = payload.detail;
+            const message = Array.isArray(detail)
+              ? detail.map((item) => item.msg || JSON.stringify(item)).join("; ")
+              : detail || "Log upload failed";
+            throw new Error(message);
+          }
+          if (statusEl) statusEl.textContent = "Upload complete — starting Hatchet job…";
+          window.location.reload();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Log upload failed";
+          alert(message);
+          if (statusEl) {
+            statusEl.textContent = `Upload failed: ${message}. Worker: uv run python -m backend.app.jobs.worker`;
+          }
+          btn.disabled = false;
+        }
+      });
+    }
+
     if (window.FtdcGrafana) window.FtdcGrafana.init(RUN_ID);
     if (window.FtdcRca) window.FtdcRca.init(INITIAL_LLM);
+
+    const retryBtn = document.getElementById("hatchet-retry-btn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", async () => {
+        retryBtn.disabled = true;
+        const resp = await fetch(`/simagix/uploads/runs/${RUN_ID}/logs/retry`, { method: "POST" });
+        if (!resp.ok) {
+          const payload = await resp.json().catch(() => ({}));
+          alert(payload.detail || "Hatchet retry failed");
+          retryBtn.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    }
   });
 </script>
 {% endblock %}

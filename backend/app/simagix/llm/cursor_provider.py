@@ -5,6 +5,7 @@ import time
 from typing import Any, Literal
 
 from backend.app.core.config import Settings, get_settings
+from backend.app.simagix.hatchet_tools import hatchet_evidence_available
 from backend.app.simagix.llm.web_fetch import build_cursor_sdk_web_tools
 from backend.app.simagix.llm.parse_output import (
     parse_clarifying_questions,
@@ -80,6 +81,13 @@ class CursorLLMProvider(LLMProvider):
                 command=sys.executable,
                 args=["-m", "backend.app.simagix.llm.graylog_mcp_server"],
                 env=graylog_env,
+                cwd=workspace_cwd,
+            )
+        if hatchet_evidence_available(session.workspace_root, session.run_id):
+            servers["hatchet-evidence"] = StdioMcpServerConfig(
+                command=sys.executable,
+                args=["-m", "backend.app.simagix.llm.hatchet_mcp_server"],
+                env=env,
                 cwd=workspace_cwd,
             )
         return servers

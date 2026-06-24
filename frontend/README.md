@@ -22,7 +22,7 @@ Bootstrap 5 + motion layer for Mongo Debugger. **All product logic lives in the 
 | `static/js/agent-chat.js` | Post-report chatbot — markdown, mermaid, copy, file attachments |
 | `static/css/clarify-chat.css` | Wizard dots + chat bubbles |
 | `static/js/rca.js` | Phase 2 RCA panel (calls `/simagix/...` APIs) |
-| `static/js/grafana.js` | Grafana load/links (calls `/simagix/runs/.../grafana/*`) |
+| `static/js/grafana.js` | Grafana load/links — first-visit auto-load, sessionStorage reload guard, debounced dashboard open |
 
 **Motion stack:** Native scroll + `scroll-3d.js` (sticky panels, `rotateX`/`translateZ` deck transitions). No Lenis/smooth-scroll hijacking. Report JSON from `/phase2/reports/latest`.
 

@@ -30,6 +30,7 @@ from backend.app.simagix.profiler import load_profiler_data, save_profiler_data
 from backend.app.simagix.report_html import render_report_html
 from backend.app.simagix.tool_usage import resolve_tool_usage
 from backend.app.simagix.anomaly_correlation import build_correlation_package
+from backend.app.simagix.hatchet_readiness import HatchetNotReadyError
 
 ReportFormat = Literal["json", "pretty"]
 
@@ -106,6 +107,8 @@ def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except HatchetNotReadyError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:

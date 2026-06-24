@@ -215,6 +215,10 @@ function initRcaPanel(initialLlm) {
   });
 
   runBtn?.addEventListener("click", async () => {
+    if (typeof PHASE2_HATCHET_BLOCKED !== "undefined" && PHASE2_HATCHET_BLOCKED) {
+      alert("Upload logs are present but Hatchet summary.json is not ready yet. Wait for Hatchet or retry log analysis.");
+      return;
+    }
     runBtn.disabled = true;
     hideClarifyUi();
     window.FtdcPhaseRail?.reset?.();

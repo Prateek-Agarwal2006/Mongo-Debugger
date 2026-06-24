@@ -12,11 +12,12 @@ uv run python -m backend.app.grafana.anomaly_dashboard
 
 echo "Starting Grafana + FTDC API stack..."
 echo "(On Mac, run 'colima start --cpu 4 --memory 8' first if Docker is not running.)"
-docker compose -f simagix-workspace/docker/grafana-compose.yaml up -d
+bash "${SCRIPT_DIR}/build-ftdc-local.sh"
+docker compose -f simagix-workspace/docker/grafana-compose.yaml up -d --build
 
 echo "Grafana UI:  http://localhost:${GRAFANA_PORT:-3030}"
 echo "FTDC API:    http://localhost:${FTDC_PORT:-5408}"
 echo ""
-echo "Load a run's data:"
+echo "Load a run's data via the run page (Load FTDC) or:"
 echo '  curl -XPOST http://localhost:5408/grafana/dir -H "Content-Type: application/json" \'
-echo '    -d '"'"'{"dir": "/workspace/tmp/diagnostic.data"}'"'"
+echo '    -d '"'"'{"dir": "/workspace/simagix-workspace/uploads/<run_id>/raw/diagnostic.data"}'"'"

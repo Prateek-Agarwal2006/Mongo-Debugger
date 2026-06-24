@@ -32,14 +32,54 @@ class RunWorkspace:
         """Alias for upload_dir (backward-compatible name)."""
         return self.upload_dir(run_id)
 
+    def inputs_dir(self, run_id: str) -> Path:
+        """Undecoded user uploads (FTDC, logs, profiler)."""
+        return self.upload_dir(run_id) / "inputs"
+
     def upload_diagnostic_dir(self, run_id: str) -> Path:
-        return self.upload_dir(run_id) / "raw" / "diagnostic.data"
+        return self.inputs_dir(run_id) / "diagnostic.data"
 
     def profiler_dir(self, run_id: str) -> Path:
-        return self.upload_dir(run_id) / "raw" / "profiler"
+        return self.inputs_dir(run_id) / "profiler"
+
+    def mongodb_logs_dir(self, run_id: str) -> Path:
+        return self.inputs_dir(run_id) / "mongodb-logs"
+
+    def hatchet_dir(self, run_id: str) -> Path:
+        return self.phase1_dir(run_id) / "hatchet"
+
+    def hatchet_db_path(self, run_id: str) -> Path:
+        return self.hatchet_dir(run_id) / "hatchet.db"
+
+    def hatchet_summary_path(self, run_id: str) -> Path:
+        return self.hatchet_dir(run_id) / "summary.json"
+
+    def hatchet_status_path(self, run_id: str) -> Path:
+        return self.hatchet_dir(run_id) / "status.json"
+
+    def clear_hatchet_artifacts(self, run_id: str) -> None:
+        """Remove SQLite DB and derived JSON before a fresh Hatchet parse."""
+        hatchet_dir = self.hatchet_dir(run_id)
+        if not hatchet_dir.is_dir():
+            return
+        for path in hatchet_dir.glob("hatchet.db*"):
+            if path.is_file():
+                path.unlink()
+        for name in ("summary.json", "status.json"):
+            path = hatchet_dir / name
+            if path.is_file():
+                path.unlink()
 
     def phase1_dir(self, run_id: str) -> Path:
         return self.upload_dir(run_id) / "phase1"
+
+    def mongo_ftdc_dir(self, run_id: str) -> Path:
+        """Phase 1 mongo-ftdc export bundle (tiered llm / normalized / raw inside)."""
+        return self.phase1_dir(run_id) / "mongo-ftdc"
+
+    def exports_dir(self, run_id: str) -> Path:
+        """Alias for mongo_ftdc_dir (mongo-ftdc export bundle)."""
+        return self.mongo_ftdc_dir(run_id)
 
     def phase1_jobs_dir(self, run_id: str) -> Path:
         return self.phase1_dir(run_id) / "jobs"
@@ -62,12 +102,8 @@ class RunWorkspace:
     def job_queue_processing_path(self, run_id: str, job_id: str) -> Path:
         return self.job_queue_processing_dir(run_id) / f"{job_id}.json"
 
-    def exports_dir(self, run_id: str) -> Path:
-        """Phase 1 evidence bundle (mongo-ftdc export)."""
-        return self.phase1_dir(run_id) / "evidence"
-
     def exports_root(self) -> Path:
-        """Legacy name — prefer uploads_root + exports_dir(run_id)."""
+        """Legacy name — prefer uploads_root + mongo_ftdc_dir(run_id)."""
         return self.simagix_root / "exports/mongo-ftdc"
 
     def run_manifest_path(self, run_id: str) -> Path:
@@ -97,11 +133,22 @@ class RunWorkspace:
 
     # --- Legacy paths (pre–Option A layout) ---
 
+    def legacy_upload_inputs_dir(self, run_id: str) -> Path:
+        """Pre-rename upload folder (`raw/` under uploads/{run_id}/)."""
+        return self.upload_dir(run_id) / "raw"
+
     def legacy_upload_diagnostic_dir(self, run_id: str) -> Path:
-        return self.simagix_root / "data/uploads" / run_id / "diagnostic.data"
+        return self.legacy_upload_inputs_dir(run_id) / "diagnostic.data"
+
+    def legacy_mongo_ftdc_dir(self, run_id: str) -> Path:
+        """Pre-rename bundle folder (`phase1/evidence/`)."""
+        return self.phase1_dir(run_id) / "evidence"
 
     def legacy_exports_dir(self, run_id: str) -> Path:
         return self.exports_root() / run_id
+
+    def legacy_upload_diagnostic_dir_data_uploads(self, run_id: str) -> Path:
+        return self.simagix_root / "data/uploads" / run_id / "diagnostic.data"
 
     def legacy_jobs_root(self) -> Path:
         return self.simagix_root / "data/jobs"
@@ -133,20 +180,58 @@ class RunWorkspace:
     # --- Resolve: prefer canonical, fall back to legacy on disk ---
 
     def resolve_upload_diagnostic_dir(self, run_id: str) -> Path:
-        if self.upload_diagnostic_dir(run_id).is_dir():
-            return self.upload_diagnostic_dir(run_id)
-        legacy = self.legacy_upload_diagnostic_dir(run_id)
-        if legacy.is_dir():
-            return legacy
-        return self.upload_diagnostic_dir(run_id)
+        canonical = self.upload_diagnostic_dir(run_id)
+        if canonical.is_dir():
+            return canonical
+        legacy_raw = self.legacy_upload_diagnostic_dir(run_id)
+        if legacy_raw.is_dir():
+            return legacy_raw
+        legacy_data = self.legacy_upload_diagnostic_dir_data_uploads(run_id)
+        if legacy_data.is_dir():
+            return legacy_data
+        return canonical
+
+    def resolve_mongo_ftdc_dir(self, run_id: str) -> Path:
+        canonical = self.mongo_ftdc_dir(run_id)
+        if (canonical / "manifest.json").exists():
+            return canonical
+        legacy_evidence = self.legacy_mongo_ftdc_dir(run_id)
+        if (legacy_evidence / "manifest.json").exists():
+            return legacy_evidence
+        legacy_exports = self.legacy_exports_dir(run_id)
+        if (legacy_exports / "manifest.json").exists():
+            return legacy_exports
+        return canonical
 
     def resolve_exports_dir(self, run_id: str) -> Path:
-        if (self.exports_dir(run_id) / "manifest.json").exists():
-            return self.exports_dir(run_id)
-        legacy = self.legacy_exports_dir(run_id)
-        if (legacy / "manifest.json").exists():
-            return legacy
-        return self.exports_dir(run_id)
+        """Alias for resolve_mongo_ftdc_dir."""
+        return self.resolve_mongo_ftdc_dir(run_id)
+
+    def resolve_hatchet_summary_path(self, run_id: str) -> Path:
+        canonical = self.hatchet_summary_path(run_id)
+        if canonical.is_file():
+            return canonical
+        return canonical
+
+    def list_mongodb_log_files(self, run_id: str) -> list[Path]:
+        log_dir = self.mongodb_logs_dir(run_id)
+        if not log_dir.is_dir():
+            return []
+        files = [
+            path
+            for path in log_dir.iterdir()
+            if path.is_file() and not path.name.startswith(".")
+        ]
+        return sorted(files, key=lambda item: item.name)
+
+    def has_mongodb_log_inputs(self, run_id: str) -> bool:
+        return bool(self.list_mongodb_log_files(run_id))
+
+    def hatchet_summary_ready(self, run_id: str) -> bool:
+        return self.resolve_hatchet_summary_path(run_id).is_file()
+
+    def hatchet_script(self) -> Path:
+        return self.simagix_root / "scripts/run-hatchet-job.sh"
 
     def resolve_phase2_dir(self, run_id: str) -> Path:
         if self.phase2_dir(run_id).exists():
@@ -220,10 +305,16 @@ class RunWorkspace:
     def grafana_anomaly_dashboard_path(self) -> Path:
         return self.simagix_root / "grafana/dashboards/anomaly-focus.json"
 
+    def _run_has_export_bundle(self, run_dir: Path) -> bool:
+        run_id = run_dir.name
+        return (self.mongo_ftdc_dir(run_id) / "manifest.json").is_file() or (
+            self.legacy_mongo_ftdc_dir(run_id) / "manifest.json"
+        ).is_file()
+
     def list_run_ids(self) -> list[str]:
         run_ids: set[str] = set()
         for item in self.iter_upload_run_dirs():
-            if (item / "phase1" / "evidence" / "manifest.json").is_file():
+            if self._run_has_export_bundle(item):
                 run_ids.add(item.name)
         legacy_exports = self.exports_root()
         if legacy_exports.is_dir():

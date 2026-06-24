@@ -6,6 +6,7 @@ from typing import Any
 from backend.app.simagix.llm.detail_requirements import DETAIL_REQUIREMENTS
 from backend.app.simagix.output_schema import InvestigationSummary
 from backend.app.simagix.prompt import build_phase2_prompt, build_tier1_evidence_block
+from backend.app.simagix.hatchet_summary import build_hatchet_evidence_block
 
 WEB_SEARCH_INVESTIGATION = (
     "When findings reference MongoDB subsystems (replication, WiredTiger, indexes, memory, CPU), "
@@ -33,6 +34,24 @@ SCRATCH_RULES = (
 )
 
 
+def _hatchet_mcp_guidance(package: dict[str, Any]) -> str:
+    tools = package.get("available_tools", [])
+    if not any(tool in tools for tool in ("get_hatchet_slow_ops", "get_hatchet_log_examples")):
+        return ""
+    return (
+        "When Hatchet log evidence is present, use hatchet-evidence MCP tools for tier-2 log proof "
+        "(get_hatchet_slow_ops, get_hatchet_log_examples, get_hatchet_audit, get_hatchet_connection_timeline). "
+        "Cite hatchet_slow_op, hatchet_log_example, hatchet_audit, or hatchet_connection_timeline in evidence.\n"
+    )
+
+
+def _hatchet_evidence_suffix(package: dict[str, Any]) -> str:
+    block = package.get("hatchet_evidence_block")
+    if not block:
+        return ""
+    return f"\n\n--- Hatchet log evidence (tier 1) ---\n{block}"
+
+
 def build_investigate_user_message(package: dict[str, Any]) -> str:
     context = package.get("context", {})
     available_tools = package.get("available_tools", [])
@@ -47,12 +66,13 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
         "Tier-1 context in this prompt is sufficient for findings; call MCP for tier-2 proof.\n"
         "You MUST call get_profiler_samples to check for uploaded db.system.profile data.\n"
         "If Graylog MCP is available, query logs around the primary anomaly window.\n"
+        f"{_hatchet_mcp_guidance(package)}"
         f"{WEB_SEARCH_INVESTIGATION}"
         f"{DETAIL_REQUIREMENTS}"
         "Do NOT produce a final RCAReportDraft — only an InvestigationSummary.\n"
         "Cite specific metrics, windows, tool results, and web sources in the appropriate fields.\n"
         "finding_analyses and incident_timeline are REQUIRED when tier-1 findings exist.\n\n"
-        f"Available MCP tools: {tools_text}, get_budget_status, get_profiler_samples\n"
+        f"Available MCP tools: {tools_text}\n"
         "Optional: graylog query_logs_around_window when Graylog is configured.\n\n"
         "Output requirements:\n"
         "- Respond with a single JSON object matching InvestigationSummary.\n"
@@ -63,6 +83,7 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
         "Output InvestigationSummary only.\n\n"
         "--- Tier-1 analyzed evidence ---\n"
         f"{build_tier1_evidence_block(context)}"
+        f"{_hatchet_evidence_suffix(package)}"
     )
 
 
@@ -114,6 +135,7 @@ def build_clarify_user_message(
         f"{investigation_block}"
         "--- Tier-1 analyzed evidence ---\n"
         f"{build_tier1_evidence_block(context)}"
+        f"{_hatchet_evidence_suffix(package)}"
     )
 
 
@@ -169,12 +191,13 @@ def build_phase2_user_message(
         "You are a MongoDB RCA analyst operating in READ-ONLY analysis mode.\n"
         f"{SCRATCH_RULES}"
         "Use simagix-evidence MCP tools for supplemental metric/profiler retrieval.\n"
+        f"{_hatchet_mcp_guidance(package)}"
         "Cite profiler samples, log insights, operator answers, and web sources when relevant.\n"
         "Every causal claim MUST cite evidence (finding, anomaly window, metric slice, profiler, log, operator, or web).\n"
         f"{DETAIL_REQUIREMENTS}"
         f"{fallback_guidance}\n"
         f"{WEB_SEARCH_FINAL_RCA}\n"
-        f"Available MCP tools: {tools_text}, get_budget_status, get_profiler_samples\n\n"
+        f"Available MCP tools: {tools_text}\n\n"
         "Grounding rules:\n"
         f"{rules_text}\n\n"
         "Output requirements:\n"
@@ -188,6 +211,7 @@ def build_phase2_user_message(
         f"{user_context_block}"
         "--- Tier-1 analyzed evidence ---\n"
         f"{build_phase2_prompt(context)}"
+        f"{_hatchet_evidence_suffix(package)}"
     )
 
 

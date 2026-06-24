@@ -1,0 +1,47 @@
+diff --git a/main/mftdc.go b/main/mftdc.go
+index 1111111..2222222 100644
+--- a/main/mftdc.go
++++ b/main/mftdc.go
+@@ -45,18 +45,22 @@ func main() {
+ 		os.Exit(0)
+ 	}
+ 
+ 	metrics := ftdc.NewMetrics()
+ 	metrics.SetLatest(*latest)
+ 	metrics.SetVerbose(*verbose)
+-	if err := metrics.ProcessFiles(flag.Args()); err != nil {
+-		log.Fatal(err)
+-	}
++	args := flag.Args()
++	deferredLoad := *server && len(args) == 0
+ 
+-	// Run diagnosis (always)
+-	runDiagnosis(metrics, flag.Args())
++	if !deferredLoad {
++		if err := metrics.ProcessFiles(args); err != nil {
++			log.Fatal(err)
++		}
+ 
+-	// Default: diagnosis only, exit
+-	if !*server {
+-		os.Exit(0)
++		// Run diagnosis (always when input paths are provided)
++		runDiagnosis(metrics, args)
++
++		// Default: diagnosis only, exit
++		if !*server {
++			os.Exit(0)
++		}
+ 	}
+ 
+ 	// Server mode (with -server flag)
+@@ -76,6 +80,9 @@ func main() {
+ 	}
+ 	log.Printf("FTDC API server starting on port %d\n", *port)
+ 	log.Println("=== FTDC Ready ===")
++	if deferredLoad {
++		log.Println("No FTDC directory at startup; POST /grafana/dir to load diagnostic.data")
++	}
+ 	for _, endpoint := range metrics.GetEndPoints() {
+ 		log.Printf("Grafana: http://localhost:%d%s\n", grafanaPort, endpoint)
+ 	}

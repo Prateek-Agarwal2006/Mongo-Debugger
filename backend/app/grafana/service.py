@@ -19,7 +19,7 @@ def load_run_for_grafana(workspace_root: Path, run_id: str) -> dict[str, object]
         raise FileNotFoundError(f"Run not found: {run_id}")
 
     stack = GrafanaStackManager(workspace_root)
-    status = stack.ensure_running()
+    status = stack.ensure_stack_ready_for_load()
 
     links = build_grafana_links(workspace_root, run_id, bundle)
     host_path = Path(links.input_path)

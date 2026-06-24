@@ -11,6 +11,8 @@ from backend.app.simagix.bundle import SimagixBundleLoader
 from backend.app.simagix.fallback_tools import SimagixFallbackTools
 from backend.app.simagix.grounding import GroundingRules
 from backend.app.simagix.output_schema import RCAReportDraft
+from backend.app.simagix.hatchet_tools import HATCHET_MCP_TOOL_NAMES
+from backend.app.simagix.hatchet_summary import build_hatchet_evidence_block, load_hatchet_summary
 from backend.app.simagix.prompt import build_phase2_prompt
 from backend.app.simagix.schemas import Tier1Context
 
@@ -78,21 +80,29 @@ class SimagixEvidenceService:
 
     def build_phase2_llm_package(self) -> dict[str, Any]:
         context = self.get_prompt_context()
-        return {
+        hatchet_summary = load_hatchet_summary(self.workspace_root, self.run_id)
+        available_tools = [
+            "get_metric_window",
+            "get_normalized_series",
+            "get_raw_path",
+            "list_fallback_metrics",
+            "get_budget_status",
+            "get_profiler_samples",
+        ]
+        if hatchet_summary is not None:
+            available_tools.extend(sorted(HATCHET_MCP_TOOL_NAMES))
+        package: dict[str, Any] = {
             "prompt": build_phase2_prompt(context),
             "context": context,
             "grounding_rules": GroundingRules().as_dict(),
             "retrieval_budget": self.budget.status(),
             "output_schema": RCAReportDraft.model_json_schema(),
-            "available_tools": [
-                "get_metric_window",
-                "get_normalized_series",
-                "get_raw_path",
-                "list_fallback_metrics",
-                "get_budget_status",
-                "get_profiler_samples",
-            ],
+            "available_tools": available_tools,
         }
+        if hatchet_summary is not None:
+            package["hatchet_summary"] = hatchet_summary
+            package["hatchet_evidence_block"] = build_hatchet_evidence_block(hatchet_summary)
+        return package
 
     def create_report_draft_shell(self) -> RCAReportDraft:
         tier1 = self.load_tier1()

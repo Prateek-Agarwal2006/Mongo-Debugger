@@ -107,8 +107,8 @@ Mongo Debugger/
   scripts/demo.sh               One-command demo
   simagix-workspace/
     uploads/<run_id>/           One tree per upload (Option A)
-      raw/diagnostic.data/      Web upload FTDC
-      phase1/evidence/          Tiered evidence bundle
+      inputs/diagnostic.data/      Web upload FTDC
+      phase1/mongo-ftdc/          Tiered mongo-ftdc export bundle
       phase1/jobs|queue/        Pipeline worker state
       phase2/llm/               RCA session artifacts
     reports/mongo-ftdc/         Human HTML + console reports
@@ -121,7 +121,7 @@ See [SIMAGIX_WORKSPACE.md](SIMAGIX_WORKSPACE.md) for full layout.
 
 ## Evidence bundle (quick reference)
 
-Each export under `simagix-workspace/uploads/<run_id>/phase1/evidence/`:
+Each export under `simagix-workspace/uploads/<run_id>/phase1/mongo-ftdc/`:
 
 ```text
 tier_1_analyzed   → primary LLM input (findings, anomalies, assessment)

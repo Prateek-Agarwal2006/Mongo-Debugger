@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from backend.app.simagix.evidence_service import SimagixEvidenceService
+from backend.app.simagix.hatchet_tools import HatchetEvidenceTools, hatchet_evidence_available
 from backend.app.simagix.profiler import load_profiler_data
 from backend.app.simagix.llm.web_fetch import execute_web_fetch
 
@@ -86,7 +87,7 @@ class AdkEvidenceTools:
 def build_adk_evidence_tools(evidence: SimagixEvidenceService) -> list:
     """Return callables wired for ADK Agent(tools=...)."""
     toolkit = AdkEvidenceTools(evidence)
-    return [
+    tools: list = [
         toolkit.get_metric_window,
         toolkit.get_normalized_series,
         toolkit.get_raw_path,
@@ -95,6 +96,21 @@ def build_adk_evidence_tools(evidence: SimagixEvidenceService) -> list:
         toolkit.get_profiler_samples,
         toolkit.web_fetch,
     ]
+    if hatchet_evidence_available(evidence.workspace_root, evidence.run_id):
+        hatchet = HatchetEvidenceTools(
+            evidence.workspace_root,
+            evidence.run_id,
+            budget=evidence.budget,
+        )
+        tools.extend(
+            [
+                hatchet.get_hatchet_slow_ops,
+                hatchet.get_hatchet_log_examples,
+                hatchet.get_hatchet_audit,
+                hatchet.get_hatchet_connection_timeline,
+            ]
+        )
+    return tools
 
 
 def build_adk_agent_tools(evidence: SimagixEvidenceService) -> list:

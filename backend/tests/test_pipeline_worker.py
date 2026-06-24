@@ -62,7 +62,7 @@ def test_file_job_queue_requeue_stale_processing(tmp_path: Path) -> None:
             {
                 "job_id": "stale-job",
                 "run_id": RUN_ID,
-                "input_path": f"simagix-workspace/uploads/{RUN_ID}/raw/diagnostic.data",
+                "input_path": f"simagix-workspace/uploads/{RUN_ID}/inputs/diagnostic.data",
             }
         ),
         encoding="utf-8",
@@ -79,7 +79,7 @@ def test_job_store_persists_and_loads_by_job_id(tmp_path: Path) -> None:
     store = JobStore()
     job = store.create(
         RUN_ID,
-        input_path=f"simagix-workspace/uploads/{RUN_ID}/raw/diagnostic.data",
+        input_path=f"simagix-workspace/uploads/{RUN_ID}/inputs/diagnostic.data",
         workspace_root=tmp_path,
     )
 
@@ -106,7 +106,7 @@ def test_job_store_get_prefers_newer_disk_status(tmp_path: Path) -> None:
     api_store = JobStore()
     job = api_store.create(
         RUN_ID,
-        input_path=f"simagix-workspace/uploads/{RUN_ID}/raw/diagnostic.data",
+        input_path=f"simagix-workspace/uploads/{RUN_ID}/inputs/diagnostic.data",
         workspace_root=tmp_path,
     )
     assert api_store.get(job.job_id, workspace_root=tmp_path) is not None

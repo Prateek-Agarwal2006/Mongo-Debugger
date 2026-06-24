@@ -6,7 +6,7 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-24
 
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
@@ -34,7 +34,7 @@ Content-Type: multipart/form-data
 
 Form field: `file` — `.zip` or `.tar.gz` archive containing `metrics.*` files, or a single `metrics.*` FTDC file. Nested archive folders (e.g. `diagnostic.data/metrics.*`) are flattened when all metrics share one parent directory.
 
-Uploads are stored at `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/` (legacy reads: `data/uploads/...`). The API **enqueues** a per-upload file-queue job; the **standalone worker** (`python -m backend.app.jobs.worker`) runs the Docker pipeline. Processing requires Docker (same pipeline as CLI).
+Uploads are stored at `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/` (legacy reads: `data/uploads/...`). The API **enqueues** a per-upload file-queue job with `job_type: "mongo_ftdc"`; the **standalone worker** (`python -m backend.app.jobs.worker`) runs the Docker pipeline. Processing requires Docker (same pipeline as CLI).
 
 Response:
 
@@ -42,7 +42,7 @@ Response:
 {
   "job_id": "uuid",
   "run_id": "upload20260610T120000Z",
-  "input_path": "simagix-workspace/uploads/<run_id>/raw/diagnostic.data",
+  "input_path": "simagix-workspace/uploads/<run_id>/inputs/diagnostic.data",
   "status": "pending"
 }
 ```
@@ -67,11 +67,48 @@ Re-enqueues Phase 1 for an **existing upload** (same `run_id`, new `job_id`). Do
 | **404** | Upload folder missing |
 | **409** | Export bundle already exists (`manifest.json`), **or** pipeline already queued/running for this run |
 
-Response shape matches upload: `{ job_id, run_id, input_path, status }`.
+Response shape matches upload: `{ job_id, run_id, input_path, status, job_type }`.
 
-UI: Retry buttons on Home, `/runs`, and `/runs/{run_id}/pipeline` when status is **failed** or **stale** (Not enqueued).
+### Upload MongoDB logs (Hatchet, optional second step)
 
-Business logic lives in `backend/app/jobs/retry.py` (see [Jobs module layout](#jobs-module-layout) below).
+```http
+POST /simagix/uploads/runs/{run_id}/logs
+Content-Type: multipart/form-data
+```
+
+Form field: `files` — one or more MongoDB JSON log files (`.log`, rotated `.log.*`, `.log.gz`, `.txt`) **or** a `.zip`/`.tar.gz` archive containing those files. Requires an existing FTDC upload (`run_id`). Saves under `inputs/mongodb-logs/` and enqueues `job_type: "hatchet"`. Large files are streamed to disk in 1 MiB chunks.
+
+Response:
+
+```json
+{
+  "job_id": "uuid",
+  "run_id": "upload20260610T120000Z",
+  "saved_files": ["mongod.log"],
+  "status": "pending",
+  "job_type": "hatchet"
+}
+```
+
+### Retry Hatchet log analysis
+
+```http
+POST /simagix/uploads/runs/{run_id}/logs/retry
+```
+
+Re-enqueues Hatchet for an upload that already has log files (same `run_id`, new `job_id`). Clears stale `summary.json` before enqueue.
+
+| Response | Meaning |
+|----------|---------|
+| **200** | New hatchet job created and enqueued |
+| **404** | Run or log directory missing |
+| **409** | Hatchet already queued/running for this run |
+
+UI: log upload + retry on `/runs/{run_id}` when FTDC export is ready.
+
+Business logic: `backend/app/jobs/hatchet_retry.py`, worker entry `backend/app/jobs/hatchet.py`. FTDC retry: `backend/app/jobs/retry.py` (see [Jobs module layout](#jobs-module-layout) below).
+
+UI (FTDC retry): buttons on Home, `/runs`, and `/runs/{run_id}/pipeline` when status is **failed** or **stale** (Not enqueued).
 
 ---
 
@@ -95,10 +132,15 @@ uv run python -m backend.app.jobs.worker
 ```python
 # backend/app/jobs/worker.py — process_one()
 try:
-    run_pipeline_job(...)
+    if claimed.job_type == "hatchet":
+        run_hatchet_job(...)
+    else:
+        run_pipeline_job(...)
 finally:
     self._queue.complete(claimed.run_id, claimed.job_id)  # deletes processing/{job_id}.json
 ```
+
+Queue ticket JSON includes `job_type` (`mongo_ftdc` default for legacy tickets). One FIFO worker handles both tool jobs.
 
 **`finally` always runs** after `run_pipeline_job` returns — whether the pipeline succeeded, failed, timed out, or raised an exception. It deletes the queue file so the run is no longer “in flight.”
 
@@ -295,10 +337,17 @@ One shared local stack: Grafana `:3030`, FTDC API `:5408` (Docker / Colima requi
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /simagix/runs/{run_id}/grafana/load` | Decode run's FTDC into FTDC API (~2 min for large sets) |
-| `GET /simagix/runs/{run_id}/grafana/urls` | Dashboard URLs for Anomaly Focus + All Metrics |
-| `GET /simagix/runs/grafana/status` | Stack health |
+| `GET /simagix/runs/{run_id}/grafana/urls` | Dashboard URLs + stack health (uses cached probes during decode) |
+| `GET /simagix/runs/grafana/status` | Stack health for status banner |
 
-Run page: **Load FTDC for this run** → **Open Anomaly View** / **Open All Metrics** (new tab, no iframe).
+**Run page flow (`grafana.js`):**
+
+1. `GET /grafana/status` — banner text (running / decode in progress / Docker down).
+2. `GET /grafana/urls` — if stack healthy, show **Anomaly View** / **All Metrics** buttons with pre-built URLs.
+3. **First visit this session** — silent `POST /grafana/load` unless already loaded or decode in progress (`sessionStorage`).
+4. User clicks a dashboard button — one debounced `window.open` to `localhost:3030`.
+
+**Backend (`GrafanaStackManager`):** `_HEALTH_CACHE` is module-level (not per request) so a probe timeout during FTDC decode does not make `/urls` report the stack down. See [OPERATIONS.md](OPERATIONS.md) § Grafana troubleshooting.
 
 ---
 
@@ -410,6 +459,7 @@ FastAPI app under `backend/app/`.
 |--------|------|---------|
 | Simagix RCA | `app/simagix/` | Bundle loader, fallback tools, evidence service |
 | Phase 2 LLM | `app/simagix/llm/` | Cursor or Gemini ADK agent, MCP/evidence tools, 3-phase RCA flow |
+| Hatchet tier-2 | `app/simagix/hatchet_tools.py`, `llm/hatchet_mcp_server.py` | MCP/ADK tools over `hatchet.db` when logs were analyzed |
 | Web UI | `app/web/` | Jinja2 templates, pages |
 | Upload jobs | `app/jobs/` | File queue, worker, job store, catalog, retry (see below) |
 | API | `app/api/` | REST routes (runs, phase2, upload, grafana) |
@@ -423,6 +473,8 @@ FastAPI app under `backend/app/`.
 | `store.py` | `JobStore` — create/update/persist `phase1/jobs/{job_id}.json` + `job_status.json` |
 | `worker.py` | `PipelineWorker` — poll queue, `try`/`finally` + `complete()` |
 | `pipeline.py` | `run_pipeline_job()` — subprocess to Docker pipeline script |
+| `hatchet.py` | `run_hatchet_job()` — Docker Hatchet + Python `summary.json` export |
+| `hatchet_retry.py` | `retry_hatchet_for_run()` — re-enqueue Hatchet when logs exist |
 | `catalog.py` | Run list display status (queued / processing / finished / failed / stale) |
 | `retry.py` | `retry_pipeline_for_run()` — re-enqueue rules for failed/stale runs |
 
@@ -431,7 +483,7 @@ FastAPI app under `backend/app/`.
 | Concern | `upload.py` (API route) | `retry.py` (service) |
 |---------|-------------------------|----------------------|
 | Input | Multipart file stream | Existing `run_id` on disk |
-| Creates | New upload folder + `run_id` | New `job_id` only; reuses `raw/diagnostic.data/` |
+| Creates | New upload folder + `run_id` | New `job_id` only; reuses `inputs/diagnostic.data/` |
 | Validation | Archive format, `metrics.*` present | No export yet; no active queue; upload path exists |
 | Errors | `HTTPException` from FastAPI | `PipelineRetryError` → mapped to HTTP in route |
 
@@ -462,7 +514,7 @@ simagix-workspace/uploads/<run_id>/phase2/llm/{mock|cursor|gemini}/
   chatbot_chat.json, chatbot_scratch/
 ```
 
-Evidence bundle: `uploads/<run_id>/phase1/evidence/` (legacy `exports/mongo-ftdc/` still readable).
+Evidence bundle: `uploads/<run_id>/phase1/mongo-ftdc/` (legacy `exports/mongo-ftdc/` still readable).
 
 ### Environment
 

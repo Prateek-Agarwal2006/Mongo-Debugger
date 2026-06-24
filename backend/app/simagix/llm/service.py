@@ -24,6 +24,7 @@ from backend.app.simagix.llm.prompts import (
     build_phase2_user_message,
 )
 from backend.app.simagix.llm.provider import LLMProvider, Phase2RunResult
+from backend.app.simagix.hatchet_readiness import assert_hatchet_ready_for_phase2
 from backend.app.simagix.llm.session import Phase2Session, phase2_session_store
 from backend.app.simagix.output_schema import (
     ClarifyingAnswers,
@@ -145,6 +146,7 @@ def prepare_phase2_run(
     )
     if not session.evidence.loader.exists():
         raise FileNotFoundError(f"Simagix run bundle not found: {run_id}")
+    assert_hatchet_ready_for_phase2(workspace_root, run_id)
     inv = investigation or session.load_investigation()
     package = session.evidence.build_phase2_llm_package()
     user_message = build_phase2_user_message(
@@ -171,6 +173,7 @@ def prepare_investigation_run(
     )
     if not session.evidence.loader.exists():
         raise FileNotFoundError(f"Simagix run bundle not found: {run_id}")
+    assert_hatchet_ready_for_phase2(workspace_root, run_id)
     session.configure_budget(
         max_tool_calls or settings.phase2_investigation_max_tool_calls,
         reset=True,

@@ -3,9 +3,161 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-24
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-24 — Grafana run page: dashboard links survive reload; one tab per click
+
+**What:** Reloading the run page during an FTDC decode no longer hides the **Anomaly View** / **All Metrics** links or reverts to "FTDC decode in progress". Each dashboard button opens exactly one Grafana tab, and the run's data is loaded once per browser session.
+
+**How:** The health cache in `stack.py` moved from a per-instance attribute to a module-level `_HEALTH_CACHE`, so it survives the per-request `GrafanaStackManager` and masks a transient probe timeout while the single-threaded FTDC API is busy decoding. In `grafana.js`, the open buttons are real `<button>`s with one debounced `window.open` (no native `<a target=_blank>` double-fire), and the silent first-visit auto-load is guarded by `_wasLoadedThisSession` / `_loadInProgress` so reloads mid-decode don't stack duplicate `/grafana/load` calls.
+
+**Why:** The cache was effectively dead (a fresh manager per request started empty), so every decode-time timeout reported the stack as down and the frontend hid the links; meanwhile reloads re-triggered the auto-load, piling decodes onto the busy FTDC API.
+
+**Docs:** [OPERATIONS.md](OPERATIONS.md) § Grafana troubleshooting, [DESIGN_NOTES.md](DESIGN_NOTES.md) §8 + §14, [ARCHITECTURE.md](ARCHITECTURE.md) Zoom D, [RCA_BACKEND.md](RCA_BACKEND.md) § Grafana charts.
+
+---
+
+## 2026-06-24 — Grafana stack: stop killing Grafana on reload / FTDC recovery
+
+**What:** Refreshing the run page or recovering a down FTDC API no longer tears down Grafana (`:3030`).
+
+**How:** `ensure_running()` uses `docker compose up -d` without `--build`; if Grafana is healthy but FTDC is not, only the `ftdc` service is restarted. `ensure_stack_ready_for_load()` waits up to ~60s when FTDC is busy decoding before replacing the container. Compose adds `restart: unless-stopped`. (Run-page reload UX and health cache finalized in the entry above.)
+
+**Why:** `compose up --build` on every load/recovery recreated both containers; page reload re-triggered a long `/grafana/dir` while FTDC looked unhealthy and got restarted mid-decode.
+
+---
+
+## 2026-06-24 — FTDC server: start without bootstrap diagnostic.data
+
+**What:** Grafana stack FTDC API starts on `:5408` without `tmp/diagnostic.data`; upload-only workflows no longer crash the `ftdc` container at boot.
+
+**How:** Patched `mftdc -server` (`patches/mftdc-server-deferred-load.patch`) skips `ProcessFiles` when no directory args are given; first load is `POST /grafana/dir` as before. Compose uses `mongo-debugger/ftdc:local` with `command: /mftdc -server -latest 0` (no path). `build-ftdc-local.sh` + `GrafanaStackManager` build the image when missing.
+
+**Why:** Hardcoded `tmp/diagnostic.data` bootstrap failed for web-upload users; `/grafana/dir` already reloads per-run FTDC from `uploads/{run_id}/`.
+
+---
+
+## 2026-06-24 — Hatchet export: real merge_clients schema (no date column)
+
+**What:** Hatchet jobs no longer fail at export with `no such column: date` after a successful ~30 min parse.
+
+**How:** `query_connection_timeline()` in `hatchet_export.py` checks `PRAGMA table_info`: minute buckets when `date` exists, per-IP rollups when only `ip`/`accepted`/`ended` exist (Hatchet 7.x). Shared by tier-1 export and tier-2 MCP tools.
+
+**Why:** Test fixtures assumed a `date` column on `merge_clients`; production Hatchet stores connection events without timestamps on that table.
+
+---
+
+## 2026-06-24 — Hatchet retry wipes partial hatchet.db
+
+**What:** Log re-upload and **Retry Hatchet** start from a clean SQLite DB instead of reusing a half-written `hatchet.db` from killed Docker runs.
+
+**How:** `RunWorkspace.clear_hatchet_artifacts()` removes `hatchet.db*` plus `summary.json` / `status.json` before enqueue on upload and retry.
+
+**Why:** Interrupted merges left multi-GB WAL/DB files; re-parsing into that state caused long runs and `SQLITE_BUSY` near completion.
+
+---
+
+## 2026-06-23 — Hatchet UI: hide stale error while job running
+
+**What:** Run page no longer shows old “Permission denied” error while a newer Hatchet job is processing.
+
+**How:** Only render `hatchet_job.error` when `hatchet_status == 'failed'`; show an info banner during `processing`.
+
+**Why:** Failed attempt JSON lingered in the UI after retry succeeded or a new run started.
+
+---
+
+## 2026-06-23 — Fix Hatchet worker script invocation (Permission denied)
+
+**What:** Hatchet jobs failed instantly with `[Errno 13] Permission denied` on `run-hatchet-job.sh`.
+
+**How:** Worker now runs `bash run-hatchet-job.sh …` (script was mode 644); replaced Bash 4 `mapfile` with a macOS-compatible read loop.
+
+**Why:** Upload succeeded but Docker never ran — subprocess tried to execute a non-executable shell script.
+
+---
+
+## 2026-06-23 — Fix log upload isinstance (Starlette vs FastAPI UploadFile)
+
+**What:** Log upload returned 400 “No log files received” for every client (browser, curl, tests).
+
+**How:** `_collect_log_uploads` now checks `isinstance(item, starlette.datastructures.UploadFile)` — `request.form()` returns Starlette instances, not FastAPI wrapper types.
+
+**Why:** Manual multipart parsing skipped every file part due to a false-negative isinstance check.
+
+---
+
+## 2026-06-23 — Fix Hatchet log upload (multipart + zip + large files)
+
+**What:** Log upload on the run detail page accepts browser multipart reliably, supports `.zip`/`.tar.gz` of log files, and streams large logs to disk.
+
+**How:** `POST …/logs` reads `request.form().getlist("files")` instead of `list[UploadFile]` binding; extracts nested log files from archives; chunked writes for multi-GB uploads; UI accepts zip/tar and passes explicit filenames in `FormData`.
+
+**Why:** Server logs showed repeated **400** with nothing saved — typical causes were empty multipart binding from the browser and uploading a zip of case-7 logs (FTDC-style) instead of raw `.log` files.
+
+---
+
+## 2026-06-23 — Fix Hatchet log upload (rotated filenames + UI)
+
+**What:** Log upload on the run detail page works for rotated MongoDB log names (e.g. `mongod.log.2026-06-16T03-22-01`) and surfaces upload errors instead of leaving the button disabled.
+
+**How:** Expanded `_is_log_filename()` in `upload.py`; FastAPI multi-file binding uses `Annotated[list[UploadFile], File()]`; run page upload JS registers before RCA init, wraps `fetch` in try/catch, and shows inline status; file picker `accept` includes gzip/plain text.
+
+**Why:** Case-7 prod logs use rotated names that failed server validation (400) and were often hidden from the picker; network/422 errors left “Upload logs” disabled with no feedback.
+
+---
+
+## 2026-06-23 — Hatchet v2: MCP tier-2 log tools
+
+**What:** Added Hatchet MCP tools for deeper log evidence retrieval during Phase 2 investigation and final RCA when `summary.json` + `hatchet.db` exist.
+
+**How:** New `HatchetEvidenceTools` (`hatchet_tools.py`) queries SQLite via `store_paths` from `summary.json`. Exposed as MCP server `hatchet-evidence` (Cursor) and ADK function tools (Gemini); shares the session retrieval budget with simagix-evidence. Tools: `get_hatchet_slow_ops`, `get_hatchet_log_examples`, `get_hatchet_audit`, `get_hatchet_connection_timeline`.
+
+**Why:** v1 summary-only tier 1 keeps prompts small; v2 lets the agent pull additional log slices on demand without Hatchet HTML or a separate web service.
+
+---
+
+## 2026-06-23 — Hatchet v1: log upload, queue dispatch, Phase 2 gate
+
+**What:** Implemented optional Hatchet log evidence beside mongo-ftdc: second upload on the run page, `job_type`-aware worker dispatch, SQLite → `summary.json` export, and Phase 2 readiness gate when logs exist.
+
+**How:** Added `POST /simagix/uploads/runs/{run_id}/logs` and `POST …/logs/retry`; queue tickets carry `job_type` (`mongo_ftdc` | `hatchet`); worker runs `run-hatchet-job.sh` (`mongo-debugger/hatchet:local`, `-merge`, no `-report`) then `hatchet_export.write_hatchet_artifacts()`; Phase 2 prompts include `build_hatchet_evidence_block()` and block with HTTP 409 until `summary.json` exists when logs were uploaded.
+
+**Why:** Delivers the locked v1 design without Hatchet HTML/MCP — compact tier-1 log evidence in the same RCA flow as FTDC metrics.
+
+---
+
+## 2026-06-23 — Hatchet `-merge` local patch (drop gate)
+
+**What:** Patched upstream Hatchet so `-merge` keeps all log files (not only the last). Documented and tracked the patch outside the gitignored clone.
+
+**How:** Added `shouldDropHatchetBeforeBegin()` — skip `Drop()` on `-merge` when `mergeMarker > 1`. Patch file: `simagix-workspace/patches/hatchet-merge-drop-gate.patch`. Build with `simagix-workspace/scripts/build-hatchet-local.sh` → image `mongo-debugger/hatchet:local`. `scripts/setup-simagix-repos.sh` applies the patch after clone.
+
+**Why:** Upstream commit `fd28370` (Dec 2025) drops tables on every `Begin()` for re-process overwrite; that wipes prior files in a multi-file `-merge` run. Smoke test on Hatchet's `replica.tar.gz` confirmed the regression; concat workaround loses per-file markers.
+
+---
+
+## 2026-06-23 — Design: Hatchet log evidence integration
+
+**What:** Locked the pre-implementation design for adding Hatchet as an optional log evidence source beside mongo-ftdc.
+
+**How:** Use a second run-page log upload (`inputs/mongodb-logs/`), enqueue tool-specific Phase 1 tickets (`job_type: "mongo_ftdc"` or `"hatchet"`) on the existing queue, run one Hatchet job with parse + SQLite-to-`summary.json` export, keep Hatchet's default table names, and include compact connection timeline rollups in tier 1.
+
+**Why:** This uses Hatchet's SQLite-backed analysis directly like mongo-ftdc, avoids depending on its web service, keeps logs optional, and preserves a small LLM prompt while leaving deeper slices for future MCP tools.
+
+---
+
+## 2026-06-17 — Run layout: `inputs/` + `phase1/mongo-ftdc/` (Option A naming)
+
+**What:** Renamed upload inputs from `raw/` to `inputs/` and the FTDC export bundle from `phase1/evidence/` to `phase1/mongo-ftdc/` so tool outputs are symmetric and “raw” is not overloaded.
+
+**How:** `RunWorkspace.inputs_dir`, `mongo_ftdc_dir`, `resolve_mongo_ftdc_dir`; read fallbacks for legacy `raw/` and `phase1/evidence/`; pipeline scripts and committed fixture moved; docs updated.
+
+**Why:** Run-level `raw/` conflicted with bundle tier-3 `raw/`; generic `evidence/` hid that the folder is mongo-ftdc-only before Hatchet adds `phase1/hatchet/`.
 
 ---
 

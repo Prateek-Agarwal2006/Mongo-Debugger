@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.jobs.catalog import latest_job_for_run
+from backend.app.jobs.job_types import JOB_TYPE_MONGO_FTDC
 from backend.app.jobs.queue import FileJobQueue
 from backend.app.jobs.store import JobStatus, job_store
 
@@ -45,6 +46,11 @@ def retry_pipeline_for_run(workspace_root: Path, run_id: str) -> JobStatus:
                 status_code=404,
             )
 
-    job = job_store.create(run_id, input_path=input_path, workspace_root=workspace_root)
+    job = job_store.create(
+        run_id,
+        input_path=input_path,
+        job_type=JOB_TYPE_MONGO_FTDC,
+        workspace_root=workspace_root,
+    )
     queue.enqueue(job, input_dir)
     return job

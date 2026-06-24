@@ -6,6 +6,8 @@ from pathlib import Path
 
 from backend.app.core.config import get_settings
 from backend.app.core.run_workspace import RunWorkspace, get_run_workspace
+from backend.app.jobs.hatchet import run_hatchet_job
+from backend.app.jobs.job_types import JOB_TYPE_HATCHET
 from backend.app.jobs.pipeline import run_pipeline_job
 from backend.app.jobs.queue import FileJobQueue
 
@@ -13,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineWorker:
-    """Standalone process: poll file queue, claim jobs, run mongo-ftdc pipeline."""
+    """Standalone process: poll file queue, claim jobs, run Phase 1 tool jobs."""
 
     def __init__(self, workspace_root: Path, *, poll_seconds: float = 2.0) -> None:
         self.workspace = RunWorkspace(workspace_root)
@@ -32,7 +34,10 @@ class PipelineWorker:
             return False
         input_path = self.workspace.root / claimed.input_path
         try:
-            run_pipeline_job(self.workspace.root, claimed.job_id, claimed.run_id, input_path)  # want both job_id and run_id(this is id given when we uploadeded the data) as same run_id may run multiple times so job_id should be unique for each run....
+            if claimed.job_type == JOB_TYPE_HATCHET:
+                run_hatchet_job(self.workspace.root, claimed.job_id, claimed.run_id, input_path)
+            else:
+                run_pipeline_job(self.workspace.root, claimed.job_id, claimed.run_id, input_path)
         finally:
             self._queue.complete(claimed.run_id, claimed.job_id)
         return True

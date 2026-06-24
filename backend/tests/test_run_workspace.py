@@ -7,13 +7,14 @@ import pytest
 from backend.app.core.run_workspace import RunWorkspace, get_run_workspace
 
 
-def test_exports_dir_points_at_phase1_evidence(tmp_path: Path) -> None:
+def test_mongo_ftdc_dir_points_at_phase1_bundle(tmp_path: Path) -> None:
     run_id = "abc123"
     workspace = RunWorkspace(tmp_path)
 
-    assert workspace.exports_dir(run_id) == (
-        tmp_path / "simagix-workspace/uploads/abc123/phase1/evidence"
+    assert workspace.mongo_ftdc_dir(run_id) == (
+        tmp_path / "simagix-workspace/uploads/abc123/phase1/mongo-ftdc"
     )
+    assert workspace.exports_dir(run_id) == workspace.mongo_ftdc_dir(run_id)
 
 
 def test_uploads_dir_points_at_upload_tree_root(tmp_path: Path) -> None:
@@ -29,7 +30,7 @@ def test_upload_diagnostic_dir(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     run_id = "r1"
     assert workspace.upload_diagnostic_dir(run_id) == (
-        tmp_path / "simagix-workspace/uploads/r1/raw/diagnostic.data"
+        tmp_path / "simagix-workspace/uploads/r1/inputs/diagnostic.data"
     )
 
 
@@ -66,6 +67,13 @@ def test_run_manifest_and_job_status_paths(tmp_path: Path) -> None:
 def test_tooling_paths(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     assert workspace.pipeline_script() == tmp_path / "simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh"
+    assert workspace.hatchet_script() == tmp_path / "simagix-workspace/scripts/run-hatchet-job.sh"
+    assert workspace.hatchet_dir("r1") == (
+        tmp_path / "simagix-workspace/uploads/r1/phase1/hatchet"
+    )
+    assert workspace.mongodb_logs_dir("r1") == (
+        tmp_path / "simagix-workspace/uploads/r1/inputs/mongodb-logs"
+    )
     assert workspace.grafana_compose_file() == tmp_path / "simagix-workspace/docker/grafana-compose.yaml"
 
 
@@ -73,10 +81,10 @@ def test_list_run_ids_requires_manifest(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     assert workspace.list_run_ids() == []
 
-    bundle = workspace.exports_dir("good")
+    bundle = workspace.mongo_ftdc_dir("good")
     bundle.mkdir(parents=True)
     (bundle / "manifest.json").write_text("{}", encoding="utf-8")
-    workspace.exports_dir("empty").mkdir(parents=True)
+    workspace.mongo_ftdc_dir("empty").mkdir(parents=True)
 
     assert workspace.list_run_ids() == ["good"]
 
@@ -90,7 +98,21 @@ def test_resolve_legacy_exports_and_uploads(tmp_path: Path) -> None:
     legacy_upload = workspace.legacy_upload_diagnostic_dir(run_id)
     legacy_upload.mkdir(parents=True)
 
+    assert workspace.resolve_mongo_ftdc_dir(run_id) == legacy_bundle
     assert workspace.resolve_exports_dir(run_id) == legacy_bundle
+    assert workspace.resolve_upload_diagnostic_dir(run_id) == legacy_upload
+
+
+def test_resolve_legacy_option_a_paths(tmp_path: Path) -> None:
+    workspace = RunWorkspace(tmp_path)
+    run_id = "legacy-option-a"
+    legacy_bundle = workspace.legacy_mongo_ftdc_dir(run_id)
+    legacy_bundle.mkdir(parents=True)
+    (legacy_bundle / "manifest.json").write_text("{}", encoding="utf-8")
+    legacy_upload = workspace.legacy_upload_diagnostic_dir(run_id)
+    legacy_upload.mkdir(parents=True)
+
+    assert workspace.resolve_mongo_ftdc_dir(run_id) == legacy_bundle
     assert workspace.resolve_upload_diagnostic_dir(run_id) == legacy_upload
 
 
@@ -102,6 +124,8 @@ def test_get_run_workspace_uses_data_root_when_set(tmp_path: Path, monkeypatch: 
     try:
         workspace = get_run_workspace()
         assert workspace.root == tmp_path.resolve()
-        assert workspace.exports_dir("x") == tmp_path / "simagix-workspace/uploads/x/phase1/evidence"
+        assert workspace.mongo_ftdc_dir("x") == (
+            tmp_path / "simagix-workspace/uploads/x/phase1/mongo-ftdc"
+        )
     finally:
         get_settings.cache_clear()

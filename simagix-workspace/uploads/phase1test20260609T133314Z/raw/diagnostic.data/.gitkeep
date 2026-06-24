@@ -1,2 +1,0 @@
-# Placeholder so Grafana link tests resolve uploads/{run_id}/raw/diagnostic.data on CI.
-# Full FTDC metrics live in gitignored tmp/diagnostic.data for local pipeline runs.

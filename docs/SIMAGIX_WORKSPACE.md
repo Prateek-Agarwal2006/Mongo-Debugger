@@ -6,7 +6,7 @@ Local workspace for running the Simagix diagnostic toolchain and producing tiere
 **Tool roles and Docker scripts:** [Simagix Toolchain](SIMAGIX_TOOLCHAIN.md)  
 **Bundle schema:** [Export Contract](export_contract.md)
 
-**Last updated:** 2026-06-17
+**Last updated:** 2026-06-23
 
 ## Current status
 
@@ -59,9 +59,9 @@ The rest of the app speaks in **domain terms** (upload, evidence bundle, Phase 2
 
 ```text
   api/upload.py          RunWorkspace              disk / PVC
-  "save this upload" --> upload_diagnostic_dir(run_id) --> .../uploads/{id}/raw/diagnostic.data/
+  "save this upload" --> upload_diagnostic_dir(run_id) --> .../uploads/{id}/inputs/diagnostic.data/
   jobs/worker.py       iter_phase1_queue_pending_paths() --> .../uploads/*/phase1/queue/pending/
-  api/phase2.py        exports_dir(run_id)            --> .../uploads/{id}/phase1/evidence/
+  api/phase2.py        mongo_ftdc_dir(run_id)           --> .../uploads/{id}/phase1/mongo-ftdc/
 ```
 
 Constructor (stores an absolute, normalized root):
@@ -141,9 +141,11 @@ Queue dirs are **per upload** on disk; the worker scans **all** uploads and clai
 
 Not the same as worker job status.
 
-### Layer 3 — Evidence bundle (`phase1/evidence/`, mongo-ftdc Go export)
+### Layer 3 — mongo-ftdc bundle (`phase1/mongo-ftdc/`, Go export)
 
-Written once at end of Phase 1. **`evidence/manifest.json`** is the gate: `has_export = manifest exists`.
+Written once at end of Phase 1. **`mongo-ftdc/manifest.json`** is the gate: `has_export = manifest exists`.
+
+**Naming note:** Bundle-internal **`mongo-ftdc/raw/`** is tier-3 *decoder forensic* output — not the same as run-level **`inputs/`** (undecoded uploads).
 
 **Bundle metadata**
 
@@ -206,15 +208,15 @@ Updated incrementally by the Python RCA backend.
 
 | File | Role |
 |------|------|
-| `raw/profiler/system.profile.json` | Optional profiler upload for Phase 2 |
+| `inputs/profiler/system.profile.json` | Optional profiler upload for Phase 2 |
 
 ### Source-of-truth cheat sheet
 
 | Question | Answer |
 |----------|--------|
-| Is Phase 1 done? | Latest job `state == succeeded` **and** `evidence/manifest.json` exists |
+| Is Phase 1 done? | Latest job `state == succeeded` **and** `mongo-ftdc/manifest.json` exists |
 | Is worker actually queued? | Queue file in `pending/` or `processing/` for that job |
-| Can Phase 2 start? | `evidence/manifest.json` exists |
+| Can Phase 2 start? | `mongo-ftdc/manifest.json` exists |
 | Is RCA done? | `phase2/llm/{provider}/latest_report.json` or `iterative_state.json` status |
 | What does the LLM read first? | `executive_context.json`; tools use `fallback_retrieval_index.json` |
 
@@ -226,13 +228,15 @@ Updated incrementally by the Python RCA backend.
 simagix-workspace/
   repos/                    mongo-ftdc, keyhole, hatchet (source clones)
   uploads/<run_id>/         One tree per web upload / pipeline run
-    raw/
+    inputs/
       diagnostic.data/      FTDC metrics (web upload target)
       profiler/             Optional profiler JSON (Phase 2)
+      mongodb-logs/         Optional log files (Hatchet)
     phase1/
       jobs/{job_id}.json    Phase 1 job records
       queue/pending|processing/   Per-upload worker queue
-      evidence/             Tiered mongo-ftdc export bundle
+      mongo-ftdc/           Tiered mongo-ftdc export bundle
+      hatchet/              Hatchet log evidence (`hatchet.db`, `summary.json`, `status.json`)
       job_status.json       Latest Phase 1 job snapshot
       run_manifest.json     Pipeline manifest
     phase2/
@@ -245,6 +249,32 @@ simagix-workspace/
 Local dev inputs (gitignored, repo root `tmp/`): `tmp/diagnostic.data`, `tmp/mongodb-logs/`, `tmp/keyhole-output/`.
 
 Committed test fixture: `uploads/phase1test20260609T133314Z/`. All other `uploads/*` dirs are local runtime only.
+
+### Hatchet layout (v1)
+
+Hatchet is optional and run-scoped. FTDC upload creates the run first; logs can be added later under:
+
+```text
+uploads/<run_id>/
+  inputs/mongodb-logs/       # uploaded mongod/mongos logs
+  phase1/hatchet/
+    hatchet.db               # SQLite store produced by Hatchet
+    summary.json             # compact tier-1 log evidence for Phase 2
+    status.json              # source-file map, Hatchet name, counts, errors
+```
+
+For multiple log files, the worker should call Hatchet with `-merge` and an explicit sorted file list. The SQLite registry table `hatchet` should contain one analysis row; `summary.json` records that `hatchet_name` and the `marker` to source-file mapping so Phase 2 never guesses table names.
+
+Do not generate Hatchet HTML in v1. The app does not use it, and skipping `-report` avoids copying runtime `html/` artifacts. The durable contract is `hatchet.db` plus `summary.json`.
+
+Queue tickets should use tool-specific `job_type` values:
+
+| `job_type` | Meaning |
+|------------|---------|
+| `mongo_ftdc` | Run the mongo-ftdc Phase 1 export under `phase1/mongo-ftdc/` |
+| `hatchet` | Run Hatchet log parsing and export under `phase1/hatchet/` |
+
+Avoid using `pipeline` as the canonical job type once Hatchet exists; it makes the mongo-ftdc task sound like the whole Phase 1 pipeline.
 
 ## Why Docker is preferred
 
@@ -264,15 +294,15 @@ Default sample path for manual CLI runs (not used by web upload):
 tmp/diagnostic.data/
 ```
 
-Web uploads land under `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/`.
+Web uploads land under `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/`.
 
-### Logs for Hatchet (blocked until provided)
+### Logs for Hatchet
 
 ```text
-tmp/mongodb-logs/
+uploads/<run_id>/inputs/mongodb-logs/
 ```
 
-Accepted: `mongod.log`, `mongod.log.gz`, `mongos.log`, `mongos.log.gz`. For self-managed MongoDB, discover path via `db.adminCommand({ getCmdLineOpts: 1 })` → `parsed.systemLog.path`. For Atlas, download logs from the Atlas UI.
+Accepted: `mongod.log`, `mongod.log.gz`, `mongos.log`, `mongos.log.gz`. Upload via `POST /simagix/uploads/runs/{run_id}/logs` on the run page after FTDC export is ready.
 
 ### Cluster metadata for Keyhole (blocked until configured)
 
@@ -289,7 +319,8 @@ Output: `tmp/keyhole-output/` (input for Maobi).
 | `run-mongo-ftdc.sh` | Human HTML + console report |
 | `run-llm-export.sh` | Tiered evidence bundle |
 | `run-mongo-ftdc-pipeline.sh` | Both with shared `run_id` |
-| `run-grafana-stack.sh` | Grafana `:3030` + FTDC API `:5408` |
+| `run-hatchet-job.sh` | Worker Hatchet parse → `phase1/hatchet/hatchet.db` (no HTML) |
+| `run-grafana-stack.sh` | Build `mongo-debugger/ftdc:local` + Grafana `:3030` + FTDC API `:5408` |
 
 All require Docker. On Mac: `colima start --cpu 4 --memory 8` before running. See [Operations](OPERATIONS.md) for full command examples.
 

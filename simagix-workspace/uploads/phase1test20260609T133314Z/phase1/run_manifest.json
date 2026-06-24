@@ -1,12 +1,11 @@
 {
   "run_id": "phase1test20260609T133314Z",
-  "generated_at": "2026-06-09T13:36:40Z",
-  "input": "simagix-workspace/uploads/phase1test20260609T133314Z/raw/diagnostic.data",
-  "latest": 0,
-  "export_tier": "normalized",
-  "raw_export": false,
+  "created_at": "2026-06-09T13:33:14Z",
+  "input": "simagix-workspace/uploads/phase1test20260609T133314Z/inputs/diagnostic.data",
   "report_dir": "simagix-workspace/reports/mongo-ftdc/phase1test20260609T133314Z",
-  "export_dir": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/evidence",
-  "executive_context": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/evidence/llm/executive_context.json",
-  "manifest": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/evidence/manifest.json"
+  "report_html": "simagix-workspace/reports/mongo-ftdc/phase1test20260609T133314Z/index.html",
+  "report_console": "simagix-workspace/reports/mongo-ftdc/phase1test20260609T133314Z/console.txt",
+  "export_dir": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/mongo-ftdc",
+  "executive_context": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/mongo-ftdc/llm/executive_context.json",
+  "manifest": "simagix-workspace/uploads/phase1test20260609T133314Z/phase1/mongo-ftdc/manifest.json"
 }

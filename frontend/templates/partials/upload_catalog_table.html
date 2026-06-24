@@ -20,15 +20,26 @@
         {% if not compact %}<td class="small text-secondary text-nowrap">{{ entry.upload_time_utc or '—' }}</td>{% endif %}
         <td>
           {% if entry.phase1_status == 'finished' %}
-          <span class="badge text-bg-success">Complete</span>
+          <span class="badge text-bg-success">FTDC</span>
           {% elif entry.phase1_status == 'processing' %}
-          <span class="badge text-bg-warning text-dark">Decoding…</span>
+          <span class="badge text-bg-warning text-dark">FTDC…</span>
               {% elif entry.phase1_status == 'failed' %}
-              <span class="badge text-bg-danger">Failed</span>
+              <span class="badge text-bg-danger">FTDC failed</span>
               {% elif entry.phase1_status == 'stale' %}
-              <span class="badge text-bg-dark">Not enqueued</span>
+              <span class="badge text-bg-dark">FTDC stale</span>
               {% else %}
-          <span class="badge text-bg-secondary">Queued</span>
+          <span class="badge text-bg-secondary">FTDC queued</span>
+          {% endif %}
+          {% if entry.hatchet_status == 'finished' %}
+          <span class="badge text-bg-success ms-1">Hatchet</span>
+          {% elif entry.hatchet_status == 'processing' %}
+          <span class="badge text-bg-warning text-dark ms-1">Hatchet…</span>
+          {% elif entry.hatchet_status == 'failed' %}
+          <span class="badge text-bg-danger ms-1">Hatchet failed</span>
+          {% elif entry.hatchet_status == 'queued' %}
+          <span class="badge text-bg-secondary ms-1">Hatchet queued</span>
+          {% elif entry.hatchet_status == 'stale' %}
+          <span class="badge text-bg-dark ms-1">Hatchet stale</span>
           {% endif %}
           {% if entry.phase1_attempt_count > 1 %}
           <span class="small text-secondary ms-1">({{ entry.phase1_attempt_count }} tries)</span>

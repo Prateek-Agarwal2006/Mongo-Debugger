@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-24
 
 ## Purpose
 
@@ -28,7 +28,7 @@ flowchart TB
   end
 
   subgraph step3 [Step 3 Evidence bundle]
-    Exports["uploads/run_id/phase1/evidence/"]
+    Exports["uploads/run_id/phase1/mongo-ftdc/"]
     RunManifest["uploads/run_id/phase1/run_manifest.json"]
   end
 
@@ -89,7 +89,7 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | 2 | Background job | **Python** `threading` + `subprocess` | `jobs/pipeline.py` |
 | 2 | FTDC analysis | **mongo-ftdc** (Go, Docker) | `simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh` |
 | 2 | Container runtime | **Docker Compose** | `simagix-workspace/docker/grafana-compose.yaml` |
-| 3 | Evidence JSON | **mongo-ftdc** export | `uploads/<run_id>/phase1/evidence/` |
+| 3 | Evidence JSON | **mongo-ftdc** export | `uploads/<run_id>/phase1/mongo-ftdc/` |
 | 3 | Bundle loading | **SimagixBundleLoader** | `backend/app/simagix/bundle.py` |
 | 5 | REST Phase 2 | **FastAPI** routers | `api/phase2.py` |
 | 5 | Evidence service | **SimagixEvidenceService** | `backend/app/simagix/evidence_service.py` |
@@ -117,8 +117,8 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 Why full `RunWorkspace` instead of only `get_data_root()`: configurable root fixes the mount point; named methods fix duplicated layout strings across 5+ files. Pattern: **Adapter** (domain → paths); later **Strategy** for filesystem vs object storage.
 
 ```
-  upload API  ──► RunWorkspace.upload_diagnostic_dir(run_id) ──► /data/.../uploads/{id}/raw/diagnostic.data/
-  evidence    ──► RunWorkspace.exports_dir(run_id)           ──► /data/.../uploads/{id}/phase1/evidence/
+  upload API  ──► RunWorkspace.upload_diagnostic_dir(run_id) ──► /data/.../uploads/{id}/inputs/diagnostic.data/
+  mongo-ftdc  ──► RunWorkspace.mongo_ftdc_dir(run_id)        ──► /data/.../uploads/{id}/phase1/mongo-ftdc/
   phase2      ──► RunWorkspace.llm_session_dir(...)          ──► /data/.../uploads/{id}/phase2/llm/{llm}/
 ```
 
@@ -169,11 +169,11 @@ sequenceDiagram
   participant Q as FileJobQueue pending/
   participant W as PipelineWorker
   participant Docker as mongo-ftdc pipeline
-  participant Disk as uploads/run_id/phase1/evidence
+  participant Disk as uploads/run_id/phase1/mongo-ftdc
   participant Warm as warm_grafana_for_run
 
   UI->>API: multipart FTDC archive
-  API->>Disk: save uploads/run_id/raw/diagnostic.data
+  API->>Disk: save uploads/run_id/inputs/diagnostic.data
   API->>Q: enqueue job_id.json
   W->>Q: claim (rename pending → processing)
   W->>Docker: run-mongo-ftdc-pipeline.sh
@@ -249,7 +249,7 @@ flowchart LR
 
 `get_llm_provider`: `force_mock` or `LLM_PROVIDER=mock` → mock; `LLM_PROVIDER=gemini` + `GOOGLE_API_KEY` → Gemini ADK; `LLM_PROVIDER=cursor` + `CURSOR_API_KEY` → Cursor SDK; else mock.
 
-Persistence: `simagix-workspace/uploads/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `uploads/<run_id>/phase1/evidence/` is shared (legacy `exports/mongo-ftdc/` and `runs/` still readable).
+Persistence: `simagix-workspace/uploads/<run_id>/phase2/llm/{llm}/` — per-LLM `investigation.json`, `iterative_state.json`, `latest_report.json`, `tool_trace.json`, `budget_state.json`, `session_metadata.json`. FTDC bundle under `uploads/<run_id>/phase1/mongo-ftdc/` is shared (legacy `phase1/evidence/`, `exports/mongo-ftdc/`, and `runs/` still readable).
 
 ### Zoom C — Step 5 (agent + MCP)
 
@@ -298,16 +298,19 @@ sequenceDiagram
   participant FTDC as FTDC API
   participant GF as Grafana
 
+  JS->>API: GET .../grafana/status
   JS->>API: GET .../grafana/urls
-  JS->>API: POST .../grafana/load
-  API->>Svc: resolve diagnostic.data
-  Svc->>Stack: ensure_running Docker
-  Svc->>FTDC: POST /grafana/dir
-  API-->>JS: anomaly_focus_url + all_metrics_url
-  JS->>GF: user opens new tab
+  Note over JS,API: Links shown when stack healthy (cached probes OK during decode)
+  alt First browser session for run
+    JS->>API: POST .../grafana/load (silent)
+    API->>Svc: resolve diagnostic.data
+    Svc->>Stack: ensure_stack_ready_for_load
+    Svc->>FTDC: POST /grafana/dir
+  end
+  JS->>GF: user clicks Anomaly / All Metrics (one tab each)
 ```
 
-Sources: [`grafana.js`](../frontend/static/js/grafana.js), [`grafana/service.py`](../backend/app/grafana/service.py).
+Sources: [`grafana.js`](../frontend/static/js/grafana.js), [`grafana/service.py`](../backend/app/grafana/service.py), [`grafana/stack.py`](../backend/app/grafana/stack.py).
 
 ---
 
@@ -380,11 +383,11 @@ Every pipeline execution uses a shared `run_id`:
 
 ```text
 simagix-workspace/uploads/<run_id>/
-  raw/diagnostic.data/              # FTDC input
+  inputs/diagnostic.data/              # FTDC input (undecoded)
   phase1/
-    evidence/                       # Tiered evidence bundle
-    run_manifest.json               # Links report + export
-  phase2/llm/{llm}/                 # RCA session artifacts
+    mongo-ftdc/                        # Tiered export bundle
+    run_manifest.json                  # Links report + export
+  phase2/llm/{llm}/                    # RCA session artifacts
 simagix-workspace/reports/mongo-ftdc/<run_id>/   # Human HTML + console report
 ```
 
@@ -418,11 +421,13 @@ The FastAPI backend (`uvicorn`) runs without Docker. Start Colima once per sessi
 
 ## Grafana charts
 
-One **shared** local stack per machine (Grafana `:3030`, FTDC API `:5408`). Each run reloads its own `diagnostic.data` via `POST /simagix/runs/{run_id}/grafana/load`. Dashboards open in a **new browser tab** (no iframe). Upload pipeline may warm Grafana after export.
+One **shared** local stack per machine (Grafana `:3030`, FTDC API `:5408`). Each run loads its own `diagnostic.data` via `POST /simagix/runs/{run_id}/grafana/load` (auto on first browser session visit; manual **Load FTDC** thereafter). Dashboards open in a **new browser tab** (no iframe). Upload pipeline may warm Grafana after export.
+
+**Reload behavior:** Health probes may time out while FTDC decodes (single-threaded API). `GrafanaStackManager` uses a **module-level cache** (180s) so `/grafana/urls` still reports the stack up; the run page keeps dashboard links visible. Session storage prevents duplicate loads on refresh.
 
 ## Web upload
 
-`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/`, then the Docker pipeline produces the export bundle under `uploads/<run_id>/phase1/evidence/`.
+`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/`, then the Docker pipeline produces the export bundle under `uploads/<run_id>/phase1/mongo-ftdc/`.
 
 ## Future enrichers
 

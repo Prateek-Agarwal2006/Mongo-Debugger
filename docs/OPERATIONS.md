@@ -1,6 +1,6 @@
 # Operations Guide
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-24
 
 ## Prerequisites
 
@@ -35,7 +35,10 @@ The upload pipeline runs `mongo-ftdc` from Docker and `llm-export` from a local 
 ```bash
 ./scripts/setup-simagix-repos.sh
 cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker
+simagix-workspace/scripts/build-hatchet-local.sh   # patched Hatchet for multi-file -merge
 ```
+
+Hatchet clone is gitignored; the merge fix lives in `simagix-workspace/patches/hatchet-merge-drop-gate.patch` (applied by setup). Use image **`mongo-debugger/hatchet:local`**, not `simagix/hatchet:latest`, for multi-file merge. Details: [Simagix Toolchain — Hatchet](SIMAGIX_TOOLCHAIN.md#hatchet).
 
 Pins and layout: [Simagix Workspace](SIMAGIX_WORKSPACE.md).
 
@@ -108,13 +111,18 @@ One **shared** Docker stack per machine (not per run): Grafana on `:3030`, FTDC 
 
 ```bash
 colima start --cpu 4 --memory 8
-./simagix-workspace/scripts/run-grafana-stack.sh   # optional — backend can start stack on first load
+./simagix-workspace/scripts/run-grafana-stack.sh   # builds mongo-debugger/ftdc:local + starts stack
 ```
+
+The FTDC container starts **without** a bootstrap `diagnostic.data` directory. Data is loaded per run via `POST /grafana/dir` (UI **Load FTDC** or pipeline warm). No `tmp/diagnostic.data` required for upload-only workflows.
 
 On a run page (**http://localhost:8000/runs/{run_id}**):
 
-1. **Load FTDC for this run** — if the Docker stack is up, this runs automatically when you open the page; you can also click the button to reload. Large datasets may take ~2 minutes.
-2. Click **Open Anomaly View** or **Open All Metrics** (opens `localhost:3030`).
+1. **First visit this browser session** — if the Docker stack is up, the page **silently loads** this run's FTDC into the FTDC API (~2 min for large sets). Dashboard links appear immediately; data fills in when decode finishes.
+2. **Reload** — links stay visible; no second decode unless you click **Load FTDC for this run** (or open a new browser session).
+3. Click **Anomaly View** or **Open All Metrics** — each opens **one** Grafana tab (`localhost:3030`).
+
+**Important:** The FTDC API is single-threaded. While it decodes, HTTP health probes may time out. The backend treats a recent successful probe as still-up for 180s so reload does not hide the dashboard buttons.
 
 ### What “Load FTDC for this run” does
 
@@ -123,7 +131,7 @@ The FTDC API (`:5408`) is a **singleton**: it holds one `diagnostic.data` direct
 When you load (UI button or `POST /simagix/runs/{run_id}/grafana/load`):
 
 1. Ensures the Docker Grafana stack is running (`GrafanaStackManager.ensure_running`).
-2. Resolves the **host path** to this run’s raw FTDC capture via `run_manifest.json` → `input` (e.g. `tmp/diagnostic.data` or an upload path under `uploads/{run_id}/raw/`). Falls back to export `manifest.json` or `tmp/diagnostic.data` if needed.
+2. Resolves the **host path** to this run’s raw FTDC capture via `run_manifest.json` → `input` (e.g. an upload path under `uploads/{run_id}/inputs/` or legacy `raw/`). Falls back to export `manifest.json` or `tmp/diagnostic.data` if needed.
 3. Maps that path to the container path `/workspace/...` and `POST`s it to the FTDC API `POST /grafana/dir`.
 4. Returns dashboard URLs with the correct time windows (anomaly-padded window vs full capture range).
 
@@ -144,7 +152,26 @@ curl "http://localhost:8000/simagix/runs/<run_id>/grafana/urls"
 curl "http://localhost:8000/simagix/runs/grafana/status"
 ```
 
-Requires Docker (`simagix/ftdc` image + locally built `mongo-debugger-grafana-ftdc`).
+Requires Docker (`mongo-debugger/ftdc:local` from patched mongo-ftdc + locally built `mongo-debugger-grafana-ftdc`). Build FTDC once: `simagix-workspace/scripts/build-ftdc-local.sh` (also run automatically on first Grafana load if the image is missing).
+
+### Grafana troubleshooting (run page)
+
+| Symptom | What was going wrong | Fix (in code) |
+|---------|----------------------|---------------|
+| **Reload hides Anomaly / All Metrics links**; status says *"FTDC decode in progress — stack is busy"* even though Docker containers are still up | Health probes to `:5408` / `:3030` time out while FTDC is decoding. A per-request `GrafanaStackManager` had an **empty health cache every time**, so `/grafana/urls` reported the stack down and the UI hid links. | **Module-level health cache** (`_HEALTH_CACHE` in `stack.py`, 180s TTL): after a recent successful probe, a timeout still counts as up. Frontend always shows links when `/urls` succeeds. |
+| **Grafana "restarts" or feels broken after reload** | Page reload re-triggered `POST /grafana/load`, stacking decodes on the busy FTDC API; compose recovery could restart containers when probes failed. | **Session guards** in `grafana.js`: auto-load only on first visit (`sessionStorage` `wasLoaded`); skip if `:started` within 5 min (`_loadInProgress`). `ensure_stack_ready_for_load()` waits before restarting FTDC; compose uses `restart: unless-stopped`, no `--build` on recovery. |
+| **One click opens multiple Grafana tabs** | Native `<a target="_blank">` opens one tab **per click event**; double/triple-click fired multiple navigations. | Open buttons are `<button>` elements with a single debounced `window.open()` (500ms). |
+| **Dashboard opens but panels are empty** | FTDC API never received this run's `diagnostic.data` (auto-load skipped or load still running). | Wait for first-visit silent load to finish, or click **Load FTDC for this run**. Confirm `POST /grafana/load` returns `load.ok: 1`. |
+
+**Operator checks:**
+
+```bash
+curl -s http://localhost:8000/simagix/runs/grafana/status | jq
+curl -s "http://localhost:8000/simagix/runs/<run_id>/grafana/urls" | jq '.stack'
+docker compose -f simagix-workspace/docker/grafana-compose.yaml ps
+```
+
+If status shows both services up but charts are empty, the run was not loaded into the FTDC API yet — use **Load FTDC** or wait for the first-visit auto-load to complete.
 
 ## Web upload (recommended)
 
@@ -155,9 +182,20 @@ Requires **Docker** for the background pipeline (Colima on Mac).
 3. Open **http://localhost:8000/upload**.
 4. Upload a `.zip` or `.tar.gz` containing `metrics.*` files, or a single `metrics.*` file.
    On Mac, if the file picker is awkward, zip first: `cd tmp && zip -r diagnostic.zip diagnostic.data`
-5. The app saves uploads under `simagix-workspace/uploads/<run_id>/raw/diagnostic.data/` and **enqueues** a Phase 1 job under `uploads/<run_id>/phase1/queue/pending/`. A **separate worker process** must be running to execute the pipeline (see **Starting the pipeline worker** below). Poll job status until `succeeded`, then open the run page.
+5. The app saves uploads under `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/` and **enqueues** a Phase 1 job under `uploads/<run_id>/phase1/queue/pending/`. A **separate worker process** must be running to execute the pipeline (see **Starting the pipeline worker** below). Poll job status until `succeeded`, then open the run page.
+
+6. **Optional — MongoDB logs (Hatchet):** on **http://localhost:8000/runs/{run_id}**, use **Upload logs** in the Hatchet card. Select individual `mongod.log` / rotated `mongod.log.*` files **or** zip them first (`zip case-7-logs.zip mongod*.log*`). Files land in `inputs/mongodb-logs/` and enqueue `job_type: hatchet`. **Retry** or a new log upload **deletes** prior `phase1/hatchet/hatchet.db*` so each run starts a fresh SQLite parse (avoids half-finished DBs from interrupted Docker). Large logs (~435 MB+) often take **30–45 minutes** — one worker only; do not run manual `run-hatchet-job.sh` in parallel. Phase 2 stays blocked until `phase1/hatchet/summary.json` exists when logs were uploaded.
 
 **If the pipeline fails** (e.g. Docker not running): the upload files remain; the job record shows `failed` under `uploads/<run_id>/phase1/jobs/{job_id}.json`. The queue entry is removed — nothing blocks other jobs. If a job is `pending` but never enqueued, the catalog shows **Not enqueued** (stale). Open **http://localhost:8000/runs**, find the upload, click **Retry** (or use the Phase 1 page). Fix Docker first (`colima start`), ensure the worker is running, then retry — no need to upload again.
+
+**Restart the worker after backend code changes** (unlike uvicorn `--reload`, the worker does not auto-reload):
+
+```bash
+pkill -f "backend.app.jobs.worker" || true
+uv run python -m backend.app.jobs.worker
+```
+
+Ensure `simagix-workspace/scripts/run-hatchet-job.sh` is executable (`chmod +x`) or rely on the worker invoking it via `bash`.
 
 **Local “fake PVC”:** both API and worker must share the same root:
 
@@ -269,7 +307,7 @@ simagix-workspace/reports/mongo-ftdc/<run_id>/
   ftdc_diagnosis.html
   mftdc-console.txt
 
-simagix-workspace/uploads/<run_id>/phase1/evidence/
+simagix-workspace/uploads/<run_id>/phase1/mongo-ftdc/
   manifest.json
   llm/executive_context.json
   diagnosis/findings.json
@@ -301,14 +339,20 @@ simagix-workspace/uploads/latest          # symlink to latest run dir
 | Report vs export mismatch | Different `run_id` or `-latest` | Use `run-mongo-ftdc-pipeline.sh` |
 | Raw export too large | `-raw=true` default in old scripts | Set `MONGO_FTDC_RAW_EXPORT=false` |
 | `429` on tool calls | Retrieval budget exhausted | New evidence-service instance per session |
+| Grafana links disappear on reload | FTDC busy → health probe timeout; dead per-request cache | Wait for decode; hard-refresh after backend update; see **Grafana troubleshooting** above |
+| Multiple Grafana tabs from one click | Double/triple-click on link | Use single click; fixed in `grafana.js` debounced buttons |
+| Grafana empty panels | Run not loaded into FTDC API | **Load FTDC for this run**; wait ~2 min |
 
 ## Blocked workflows
 
-These require additional input artifacts:
+These require additional input artifacts (manual CLI only — web upload uses the run page for Hatchet logs):
 
 ```bash
-# Needs logs in tmp/mongodb-logs/
+# Manual dev: logs in tmp/mongodb-logs/ (legacy HTML report script)
 ./simagix-workspace/scripts/run-hatchet.sh
+
+# Worker path (v1, no HTML): run-hatchet-job.sh <run_id>
+bash simagix-workspace/scripts/run-hatchet-job.sh upload20260618T120000Z
 
 # Needs MONGO_URI
 ./simagix-workspace/scripts/run-keyhole.sh
