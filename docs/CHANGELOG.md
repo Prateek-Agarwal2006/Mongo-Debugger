@@ -13,7 +13,7 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 **What:** Appended a concrete runtime mentor/manager flow to the README and replaced the cluttered Excalidraw export with a cleaner lane-based diagram.
 
-**How:** README now has two views: the original role-lane Mermaid diagram plus **Mentor/Manager Flow (Concrete Runtime)** showing Grafana as Docker (`:3030` + FTDC API `:5408`), RCA agent → MCP tool calls (not LLM → MCP), and Grafana loading uploaded `diagnostic.data` via `/grafana/dir`. Excalidraw MCP rebuilt the visual as five color-coded lanes with short labels (36 elements vs 71).
+**How:** README now has two views: the original role-lane Mermaid diagram plus **Mentor/Manager Flow (Concrete Runtime)** showing Grafana as Docker (`:3030` + FTDC API `:5408`), RCA agent → MCP tool calls (not LLM → MCP), and Grafana loading uploaded `diagnostic.data` via `/grafana/dir`. Mermaid render spacing/font settings make the GitHub view larger, and output arrows now return to the UI instead of implying the system talks directly to the user after upload. Excalidraw MCP rebuilt the visual as five color-coded lanes with short labels (36 elements vs 71).
 
 **Why:** Mentor/manager walkthrough needed accurate runtime semantics without diagram clutter.
 

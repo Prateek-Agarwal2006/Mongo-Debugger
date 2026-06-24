@@ -103,6 +103,7 @@ uv run pytest backend/tests -q
 The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics.
 
 ```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 80, 'rankSpacing': 110}, 'themeVariables': {'fontSize': '18px'}}}%%
 flowchart LR
   User(["User / operator"])
 
@@ -143,8 +144,8 @@ flowchart LR
   Agent <--> MCP
   Agent <--> LLM
   MCP -.->|reads| Bundle
-  Agent --> Report --> User
-  API --> Grafana --> User
+  Agent --> Report --> Upload
+  API --> Grafana --> Upload
   Grafana -.->|loads uploaded diagnostic.data| Upload
 ```
 
@@ -155,6 +156,7 @@ Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** 
 This second view keeps the same story but makes three runtime details explicit: **Grafana is also Docker**, the **RCA agent calls MCP tools** while the LLM provider only returns model output, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
 
 ```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 85, 'rankSpacing': 120}, 'themeVariables': {'fontSize': '18px'}}}%%
 flowchart LR
   Operator(["User / operator"])
 
@@ -203,12 +205,12 @@ flowchart LR
   MCP -->|"reads"| Evidence
   Agent -->|"prompt + retrieved evidence"| LLM
   LLM -->|"reasoned response"| Agent
-  Agent --> Reports --> Web --> Operator
+  Agent --> Reports --> Web
 
   Web --> GrafanaSvc
   GrafanaSvc -->|"passes run diagnostic.data path"| FTDCAPI
   Inputs -.->|"source for /grafana/dir"| FTDCAPI
-  FTDCAPI --> Grafana --> Operator
+  FTDCAPI --> Grafana --> Web
 ```
 
 Key read: **the LLM provider does not call MCP directly**. The RCA agent controls the loop, asks MCP servers for evidence, sends the selected evidence to the provider, and writes the report. Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.

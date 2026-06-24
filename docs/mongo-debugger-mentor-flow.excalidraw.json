@@ -1,7 +1,7 @@
 {
   "elements": [
     {
-      "id": "ca7cd00d-d32e-4ac3-a1ab-b100895123de",
+      "id": "aed1fdfc-6cf6-49f8-8de2-83b17d881e4c",
       "type": "text",
       "x": 40,
       "y": 20,
@@ -292,6 +292,12 @@
       "y": 210,
       "strokeColor": "#495057",
       "roughness": 0,
+      "label": {
+        "text": "uploads",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
       "endArrowhead": "arrow",
       "start": {
         "id": "user"
@@ -569,12 +575,54 @@
       }
     },
     {
-      "id": "6b28594b-669a-4a5a-b1b4-597ff665f5c4",
+      "id": "a17",
+      "type": "arrow",
+      "x": 640,
+      "y": 420,
+      "strokeColor": "#495057",
+      "roughness": 0,
+      "label": {
+        "text": "display",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "reports"
+      },
+      "end": {
+        "id": "web"
+      }
+    },
+    {
+      "id": "a18",
+      "type": "arrow",
+      "x": 1230,
+      "y": 240,
+      "strokeColor": "#1864ab",
+      "roughness": 0,
+      "label": {
+        "text": "dashboard link",
+        "fontSize": 12,
+        "textAlign": "center",
+        "verticalAlign": "middle"
+      },
+      "endArrowhead": "arrow",
+      "start": {
+        "id": "grafana"
+      },
+      "end": {
+        "id": "web"
+      }
+    },
+    {
+      "id": "a8ea115a-77c6-4603-8b17-6ff6cd35b768",
       "type": "text",
       "x": 40,
       "y": 530,
       "strokeColor": "#495057",
-      "text": "Key: LLM does not call MCP. Agent orchestrates tool calls, then sends selected evidence to the LLM.",
+      "text": "Key: Operator uploads to the UI. Reports and dashboards return to the UI. LLM does not call MCP; the agent orchestrates tools.",
       "fontSize": 14
     }
   ],
@@ -643,9 +691,9 @@
     },
     "previousSelectedElementIds": {},
     "resizingElement": null,
-    "scrolledOutside": false,
-    "scrollX": 0,
-    "scrollY": 0,
+    "scrolledOutside": true,
+    "scrollX": null,
+    "scrollY": null,
     "selectedElementIds": {},
     "hoveredElementIds": {},
     "selectedGroupIds": {},
@@ -689,5 +737,5 @@
     "width": 1440,
     "height": 780
   },
-  "version": 4
+  "version": 177
 }
