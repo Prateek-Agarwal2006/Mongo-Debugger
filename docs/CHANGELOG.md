@@ -9,6 +9,42 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-06-25 — README: literal Cursor SDK → MCP runtime diagram
+
+**What:** Replaced the abstract “RCA agent → MCP → LLM” boxes on the README architecture diagram with the actual Cursor runtime chain.
+
+**How:** Mermaid subgraph now shows `Phase2 service.py` → `CursorLLMProvider` → `Cursor SDK Agent.create` → MCP subprocesses + Cursor Cloud tool loop. Updated intro prose and key-read callout to match (Gemini ADK noted as in-process tools).
+
+**Why:** The prior diagram implied a separate RCA agent process calling MCP; with Cursor, the SDK spawns MCP and the cloud model never touches the bundle directly.
+
+**Docs:** [README.md](../README.md) § Architecture (30 seconds).
+
+---
+
+## 2026-06-25 — PHASE2_LLM: full Cursor SDK mentor Q&A (conversation capture)
+
+**What:** Replaced condensed agent-scope section with **Mentor Q&A — Cursor SDK agent runtime** in `PHASE2_LLM.md` — verbatim user questions + full assistant answers from the design walkthrough.
+
+**How:** Eight Q/A blocks with exact user wording (including typos): `_best_agent_text` / `_collect_assistant_text`, MCP wiring, `AgentOptions` / `LocalAgentOptions`, built-ins, sandbox ON, env/path scopes, why `cwd` follows `include_mcp`, and where-to-write-docs meta Q&A. Includes tables, diagrams, code snippets, and one-line summaries from chat.
+
+**Why:** User requested literal conversation capture (all questions and answers), not a summary-only section.
+
+**Docs:** [PHASE2_LLM.md](PHASE2_LLM.md) § Mentor Q&A — Cursor SDK agent runtime.
+
+---
+
+## 2026-06-25 — PHASE2_LLM: agent cwd, env, sandbox scopes (Cursor SDK)
+
+**What:** Added **Agent workspace: cwd, env, sandbox (Cursor SDK)** to `PHASE2_LLM.md` — full Q&A on where the agent can work (built-ins vs MCP vs prompts).
+
+**How:** New section mirrors the mentor walkthrough: three scopes diagram, path table by phase, `mcp_server_env()` vars, why `cwd` follows `include_mcp` not sandbox, bugfix history (2026-06-14), built-ins vs MCP vs custom. Fixed stale DESIGN_NOTES §13 bullets (`cwd`, sandbox).
+
+**Why:** Important debugging context was only in chat; Phase 2 operators need one canonical doc.
+
+**Docs:** [PHASE2_LLM.md](PHASE2_LLM.md) § Agent workspace, [DESIGN_NOTES.md](DESIGN_NOTES.md) §13 Setup.
+
+---
+
 ## 2026-06-25 — Fix Excalidraw export for excalidraw.com import
 
 **What:** `mongo-debugger-runtime-flow.excalidraw.json` now opens on excalidraw.com instead of showing “invalid file”.
