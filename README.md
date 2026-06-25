@@ -100,7 +100,7 @@ uv run pytest backend/tests -q
 
 ## Architecture (30 seconds)
 
-The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics. Grafana runs in Docker (`:3030` + FTDC API `:5408`), the RCA agent calls MCP tools while the LLM provider only returns model output, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
+The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics. Grafana runs in Docker (`:3030` + FTDC API `:5408`), `CursorLLMProvider` configures MCP on `AgentOptions` and the **Cursor SDK** spawns MCP subprocesses and runs the tool loop against Cursor Cloud, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
 
 ```mermaid
 %%{init: {'flowchart': {'nodeSpacing': 85, 'rankSpacing': 120}, 'themeVariables': {'fontSize': '18px'}}}%%
@@ -127,10 +127,12 @@ flowchart LR
     Hatchet["Hatchet Docker | parse mongod.log | SQLite | summary.json"]
   end
 
-  subgraph rca [RCA Reasoning]
-    Agent["RCA agent | Phase A investigate | Phase B clarify | Phase C final"]
-    MCP["MCP evidence servers | metrics tools | log tools | Hatchet tools"]
-    LLM["LLM provider | Cursor Cloud | Gemini ADK | Mock"]
+  subgraph rca [Phase 2 RCA — Cursor path]
+    Phase2["Phase2 service.py | Phase A investigate | B clarify | C final"]
+    Provider["CursorLLMProvider | builds AgentOptions + mcp_servers config"]
+    SDK["Cursor SDK Agent.create | agent.send tool loop | MCP client"]
+    Cloud["Cursor Cloud | model only — no direct bundle access"]
+    MCP["MCP servers subprocess | mcp_evidence_server | graylog | hatchet"]
   end
 
   subgraph charts [Grafana Docker Stack]
@@ -147,12 +149,13 @@ flowchart LR
   Inputs --> MongoFTDC --> Evidence
   Inputs --> Hatchet --> Evidence
 
-  FastAPI --> Agent
-  Agent -->|"tool calls"| MCP
+  FastAPI --> Phase2
+  Phase2 --> Provider
+  Provider -->|"AgentOptions.mcp_servers"| SDK
+  SDK -->|"spawn subprocess + stdio MCP"| MCP
   MCP -->|"reads"| Evidence
-  Agent -->|"prompt + retrieved evidence"| LLM
-  LLM -->|"reasoned response"| Agent
-  Agent --> Reports --> Web
+  SDK <-->|"tool call requests / results"| Cloud
+  Provider --> Reports --> Web
 
   Web --> GrafanaSvc
   GrafanaSvc -->|"passes run diagnostic.data path"| FTDCAPI
@@ -162,7 +165,7 @@ flowchart LR
 
 Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** `:3030` and **FTDC API** `:5408` (shared Docker stack, opened in a new tab). LLM providers are external (Cursor Cloud, Gemini).
 
-Key read: **the LLM provider does not call MCP directly**. The RCA agent controls the loop, asks MCP servers for evidence, sends the selected evidence to the provider, and writes the report. Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.
+Key read: **Cursor Cloud does not call MCP directly**. `CursorLLMProvider` passes `mcp_servers` into `AgentOptions`; the **Cursor SDK** spawns MCP as subprocesses, routes tool calls over stdio, and loops with the cloud model. Gemini ADK uses in-process function tools instead (same Phase 2 phases, different wiring). Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.
 
 **Excalidraw:** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — on [excalidraw.com](https://excalidraw.com), use **☰ → Open** and select this file (must include `"type": "excalidraw"` in the JSON). Or reload via Excalidraw MCP session `mongo-debugger-runtime-flow`.
 
