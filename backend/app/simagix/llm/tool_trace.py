@@ -254,11 +254,25 @@ def summarize_entries(entries: list[ToolTraceEntry]) -> dict[str, Any]:
 
 
 def adk_tool_trace_identity(tool_name: str) -> tuple[str, ToolTraceCategory, str | None]:
-    """Map ADK tool names to normalized trace rows (evidence MCP vs google_search web)."""
+    """Map ADK tool names to normalized trace rows (MCP client vs web_fetch)."""
     name = (tool_name or "tool").strip()
     lower = name.lower()
     if lower in {"google_search", "google_search_agent"} or "google_search" in lower:
         return "google_search", "web", None
+    if lower == "web_fetch":
+        return "web_fetch", "web", None
+
+    if "/" in name:
+        server, inner = name.split("/", 1)
+        display_server = "graylog" if server in {"graylog-logs"} else server
+        if inner in HATCHET_MCP_TOOL_NAMES or display_server == "hatchet-evidence":
+            return f"hatchet-evidence/{inner}", "mcp", "hatchet-evidence"
+        if inner in EVIDENCE_MCP_TOOL_NAMES or display_server == "simagix-evidence":
+            return f"simagix-evidence/{inner}", "mcp", "simagix-evidence"
+        if display_server in {"graylog", "simagix-evidence", "hatchet-evidence"}:
+            return f"{display_server}/{inner}", "mcp", display_server
+        return name, "mcp", display_server
+
     if name in HATCHET_MCP_TOOL_NAMES:
         return f"hatchet-evidence/{name}", "mcp", "hatchet-evidence"
     if name in EVIDENCE_MCP_TOOL_NAMES:

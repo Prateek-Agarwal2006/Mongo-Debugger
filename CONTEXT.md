@@ -55,6 +55,13 @@ _Avoid_: the model, the bot, Phase 2 (informal only)
 The Model Context Protocol *servers* we implement so the agent retrieves metrics, logs, Hatchet data, and trusted `web_fetch`. We provide servers, not the agent runtime.
 _Avoid_: plugins, functions
 
+**MCP connector**:
+An operator-configured optional MCP (HTTP URL or stdio template) stored in the operator registry and enabled per run via checkboxes — distinct from built-in servers like `simagix-evidence`.
+_Avoid_: plugin, integration
+
+**MCP WorkArea**:
+The `/mcp-workarea` UI for listing, creating, and deleting MCP connectors. Run-page checkboxes only send ids at RCA click time; no saved defaults.
+
 **LLM provider**:
 A swappable reasoning backend filling one **slot** — `cursor` (Cursor Cloud), `gemini` (Gemini ADK), or `mock`. Each slot keeps its own artifacts; no cross-contamination.
 _Avoid_: model, engine

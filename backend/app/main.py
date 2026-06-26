@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.grafana_routes import router as grafana_router
+from backend.app.api.mcp_connectors import router as mcp_connectors_router
 from backend.app.api.phase2 import router as phase2_router
 from backend.app.api.simagix_runs import router as simagix_runs_router
 from backend.app.api.upload import router as upload_router
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(simagix_runs_router)
     app.include_router(phase2_router)
+    app.include_router(mcp_connectors_router)
     app.include_router(upload_router)
     app.include_router(grafana_router)
     app.include_router(web_router)

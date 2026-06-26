@@ -112,7 +112,13 @@ class MockLLMProvider(LLMProvider):
                 insights.append(f"metric:{metric} unavailable in fixture")
         return insights
 
-    def run_investigation(self, session: Phase2Session, user_message: str) -> InvestigationSummary:
+    def run_investigation(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> InvestigationSummary:
         tier1 = session.evidence.load_tier1()
         exec_ctx = tier1.executive_context
         findings = [finding.name for finding in exec_ctx.findings]
@@ -217,7 +223,13 @@ class MockLLMProvider(LLMProvider):
             ),
         )
 
-    def run(self, session: Phase2Session, user_message: str) -> Phase2RunResult:
+    def run(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> Phase2RunResult:
         started = time.monotonic()
         if self.delay_seconds:
             time.sleep(self.delay_seconds)

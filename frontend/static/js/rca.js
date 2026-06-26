@@ -69,6 +69,65 @@ function selectedLlm() {
   return select?.value || "mock";
 }
 
+function selectedMcpIds() {
+  const panel = document.getElementById("mcp-run-checkboxes");
+  if (!panel) return [];
+  return Array.from(panel.querySelectorAll('input[type="checkbox"]:checked:not([disabled])'))
+    .map((input) => input.value)
+    .filter(Boolean);
+}
+
+async function loadRunMcpConnectors() {
+  const container = document.getElementById("mcp-run-checkboxes");
+  const emptyMsg = document.getElementById("mcp-run-empty");
+  const selectAllBtn = document.getElementById("mcp-select-all");
+  if (!container) return;
+
+  container.innerHTML = `
+    <label class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" value="simagix-evidence" checked disabled/>
+      <span class="form-check-label">Simagix evidence <span class="text-secondary">(required)</span></span>
+    </label>`;
+
+  const resp = await fetch("/simagix/mcp-connectors");
+  if (!resp.ok) {
+    if (emptyMsg) {
+      emptyMsg.hidden = false;
+      emptyMsg.textContent = "Could not load MCP connectors.";
+    }
+    if (selectAllBtn) selectAllBtn.hidden = true;
+    return;
+  }
+  const data = await resp.json();
+  const connectors = data.connectors || [];
+  if (!connectors.length) {
+    if (emptyMsg) emptyMsg.hidden = false;
+    if (selectAllBtn) selectAllBtn.hidden = true;
+    return;
+  }
+  if (emptyMsg) emptyMsg.hidden = true;
+  if (selectAllBtn) selectAllBtn.hidden = false;
+
+  for (const connector of connectors) {
+    const label = document.createElement("label");
+    label.className = "form-check mb-0";
+    label.innerHTML = `
+      <input class="form-check-input mcp-run-toggle" type="checkbox" value="${connector.id}"/>
+      <span class="form-check-label">${connector.name} <code class="small">${connector.id}</code></span>`;
+    container.appendChild(label);
+  }
+}
+
+function initRunMcpPanel() {
+  const selectAllBtn = document.getElementById("mcp-select-all");
+  selectAllBtn?.addEventListener("click", () => {
+    document.querySelectorAll(".mcp-run-toggle").forEach((input) => {
+      input.checked = true;
+    });
+  });
+  loadRunMcpConnectors();
+}
+
 function llmQuery() {
   return `?llm=${encodeURIComponent(selectedLlm())}`;
 }
@@ -207,6 +266,7 @@ function initRcaPanel(initialLlm) {
   if (llmSelect && initialLlm) {
     llmSelect.value = initialLlm;
   }
+  initRunMcpPanel();
   loadLlmContext();
   window.FtdcAgentChat?.init?.(RUN_ID, selectedLlm, { hasReport: HAS_REPORT });
 
@@ -229,7 +289,7 @@ function initRcaPanel(initialLlm) {
       const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ llm }),
+        body: JSON.stringify({ llm, enabled_mcp_ids: selectedMcpIds() }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || "Failed to start RCA");
@@ -268,7 +328,7 @@ function initRcaPanel(initialLlm) {
       const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/clarify${llmQuery()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, enabled_mcp_ids: selectedMcpIds() }),
       });
       const data = await resp.json();
       if (!resp.ok) {

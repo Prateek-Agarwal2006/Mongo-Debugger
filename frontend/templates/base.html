@@ -45,6 +45,9 @@
             <a class="nav-link{% if path == '/upload' %} active{% endif %}" href="/upload"><i class="bi bi-cloud-upload me-1"></i>Upload</a>
           </li>
           <li class="nav-item">
+            <a class="nav-link{% if path == '/mcp-workarea' %} active{% endif %}" href="/mcp-workarea"><i class="bi bi-plug me-1"></i>MCP WorkArea</a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link{% if path.startswith('/docs') or path.startswith('/redoc') %} active{% endif %}" href="/docs"><i class="bi bi-braces me-1"></i>API</a>
           </li>
         </ul>

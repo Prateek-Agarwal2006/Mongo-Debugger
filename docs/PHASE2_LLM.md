@@ -2,9 +2,9 @@
 
 Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc evidence pipeline.
 
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-26
 
-**Status:** Complete (Cursor SDK **or** Gemini ADK + MCP/evidence tools + 3-phase RCA flow + live Graylog client).
+**Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry/client + 3-phase RCA flow + live Graylog client).
 
 ## Components
 
@@ -12,14 +12,17 @@ Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc e
 | Component             | Location                                         | Status   |
 | --------------------- | ------------------------------------------------ | -------- |
 | Prompt builders       | `backend/app/simagix/llm/prompts.py`             | Complete |
-| Cursor provider       | `backend/app/simagix/llm/cursor_provider.py`     | Complete |
-| Gemini ADK provider   | `backend/app/simagix/llm/gemini_adk_provider.py` | Complete |
-| ADK evidence tools    | `backend/app/simagix/llm/adk_evidence_tools.py`  | Complete |
-| MCP evidence server   | `backend/app/simagix/llm/mcp_evidence_server.py` | Complete |
-| Graylog client + MCP  | `graylog_client.py`, `graylog_mcp_server.py`     | Complete |
+| Providers             | `backend/app/simagix/llm/providers/`             | Complete |
+| Cursor provider       | `providers/cursor/provider.py`                   | Complete |
+| Gemini ADK provider   | `providers/adk/provider.py` + `runner.py`        | Complete |
+| Mock provider         | `providers/mock.py`                              | Complete |
+| Shared MCP layer      | `backend/app/simagix/llm/mcp/`                   | Complete |
+| MCP servers           | `mcp/servers/{evidence,graylog,hatchet}.py`      | Complete |
+| MCP registry + client | `mcp/registry.py`, `mcp/client.py`             | Complete |
 | Phase 2 orchestration | `backend/app/simagix/llm/service.py`             | Complete |
 | Web fetch (shared)    | `backend/app/simagix/llm/web_fetch.py`           | Complete |
 | Post-report chatbot   | `service.py` + `/phase2/chatbot` API             | Complete |
+| Operator MCP registry | `mcp/connectors.py`, `/mcp-workarea`, run checkboxes | Complete |
 
 ## LLM providers
 
@@ -28,7 +31,7 @@ Set `LLM_PROVIDER` in `.env` (see `.env.example`):
 | Value | Provider | Requirements |
 |-------|----------|--------------|
 | `cursor` (default) | `CursorLLMProvider` | `CURSOR_API_KEY` — SDK runs tool loop + stdio MCP |
-| `gemini` | `GeminiAdkLLMProvider` | `GOOGLE_API_KEY` from [AI Studio](https://aistudio.google.com/apikey) — ADK `InMemoryRunner` runs tool loop with in-process evidence function tools |
+| `gemini` | `GeminiAdkLLMProvider` | `GOOGLE_API_KEY` from [AI Studio](https://aistudio.google.com/apikey) — ADK `InMemoryRunner` + shared MCP client (`mcp/client.py`) |
 | `mock` | `MockLLMProvider` | None — deterministic, reads real bundle |
 
 `get_llm_provider()` also falls back to mock when `LLM_PROVIDER=cursor` and no `CURSOR_API_KEY`. Pass `llm=mock` in API bodies or use `{"llm":"mock"}` on `POST .../phase2/run`.
@@ -93,6 +96,883 @@ GET /phase2/status?llm=mock
 Do not rewrite mongo-ftdc `executive_context.json`; omit the Hatchet section when no logs were uploaded.
 
 **Deferred (not in this iteration):** curated runbook MCP / MCP resources from project PDFs — see [PROJECT_STATUS.md](PROJECT_STATUS.md) future enhancements.
+
+## Operator MCP connectors (MCP WorkArea)
+
+Operators configure optional MCPs at **`GET /mcp-workarea`** (also linked from home and the run page). Connectors persist to:
+
+`{DATA_ROOT}/simagix-workspace/operator/mcp_connectors/registry.json`
+
+| Transport | How configured | Runtime |
+|-----------|----------------|---------|
+| `http` | Operator-entered `https://` URL + optional headers | `HttpMcpServerConfig` in Cursor SDK |
+| `stdio_template` | Template picker only (v1: `github-mcp` Docker) + required env vars | `StdioMcpServerConfig` from `STDIO_TEMPLATES` |
+
+**REST:** `GET/POST/DELETE /simagix/mcp-connectors` — see [RCA_BACKEND.md](RCA_BACKEND.md).
+
+**Per-run selection (stateless):** On `/runs/{run_id}`, checkboxes list user connectors plus locked **simagix-evidence**. Nothing is pre-checked except the built-in. At click time:
+
+- `POST /phase2/run` → `enabled_mcp_ids` for **Phase A** (investigation)
+- `POST /phase2/clarify` → `enabled_mcp_ids` for **Phase C** (final RCA — uses **current** checkbox state)
+
+`build_mcp_server_specs()` always includes built-ins (`simagix-evidence`, optional `graylog`, optional `hatchet-evidence`) and merges selected user ids from the WorkArea registry. **Cursor** passes specs to the SDK via `to_cursor_sdk_servers()`; **Gemini ADK** opens the same specs with `mcp/client.py` (`ClientSessionGroup`). Mock accepts the field but ignores it.
+
+**Not in this slice:** saved default selection, playbooks/skills, free-form stdio commands (templates only).
+
+## Unified MCP layout (implemented 2026-06-26)
+
+```text
+backend/app/simagix/llm/
+├── mcp/
+│   ├── specs.py          # McpServerSpec, bare-tool server names
+│   ├── connectors.py     # WorkArea registry (registry.json)
+│   ├── registry.py       # build_mcp_server_specs() — one builder for all providers
+│   ├── client.py         # ClientSessionGroup → ADK callables + web_fetch
+│   └── servers/          # @mcp.tool() source of truth (evidence, graylog, hatchet)
+├── providers/
+│   ├── cursor/provider.py
+│   ├── adk/{provider,runner}.py
+│   └── mock.py
+└── service.py            # get_llm_provider() → providers/*
+```
+
+Both Cursor and ADK call `build_mcp_server_specs(session, settings, enabled_mcp_ids=...)`. `adk_evidence_tools.py` is removed; legacy paths re-export or raise.
+
+## Mentor Q&A — Cursor vs Gemini ADK layout, MCP client, and WorkArea (v1)
+
+> **Implementation note (2026-06-26):** The unified layout above is now implemented on branch `feat/unified-mcp-providers`. ADK uses `mcp/client.py` instead of in-process `AdkEvidenceTools`; WorkArea `enabled_mcp_ids` applies to both providers. The Q&A below captures the pre-unify design walkthrough; keep it for interview context on *why* the split existed before consolidation.
+
+Captured from design walkthrough (2026-06-26). Code pointers (current): `providers/cursor/provider.py`, `providers/adk/`, `mcp/registry.py`, `mcp/client.py`, `mcp/servers/evidence.py`, `mcp/connectors.py`, `session.py` (`mcp_server_env()`).
+
+---
+
+### Q: Why does Cursor look like one file (`cursor_provider.py`) but ADK has `gemini_adk_provider.py`, `adk_runner.py`, and `adk_evidence_tools.py`?
+
+**A:** The short answer: **Cursor doesn’t really live in one file either** — the split just *looks* different because Cursor outsources tools to **MCP subprocesses**, while ADK keeps the tool loop and tools **in-process**.
+
+#### What each “provider file” actually is
+
+Both providers implement the same seam (`LLMProvider`):
+
+| Role | Cursor | Gemini ADK |
+|------|--------|------------|
+| Provider (A/B/C/chatbot entrypoints) | `cursor_provider.py` (~293 lines) | `gemini_adk_provider.py` (~139 lines) |
+| Run the agent + tool loop | **Inside Cursor SDK** (`Agent.create`, `agent.send`, `run.wait`) | **`adk_runner.py`** (~172 lines) — you wire this yourself |
+| Evidence tools | **Separate MCP servers** | **`adk_evidence_tools.py`** (~118 lines) — Python functions |
+
+So ADK’s “extra files” aren’t duplicate providers — they’re work **Cursor SDK already does for you**.
+
+#### Cursor: one provider file, but tools elsewhere
+
+`cursor_provider.py` mostly:
+
+1. Builds `AgentOptions` (model, cwd, sandbox, MCP list)
+2. Calls `Agent.create` → `send` → collects text
+3. Parses JSON into `InvestigationSummary` / report / questions
+
+It does **not** implement metric retrieval. That lives in subprocess MCP servers the SDK spawns:
+
+- `mcp_evidence_server.py` — same tools as ADK, but over MCP stdio
+- `graylog_mcp_server.py`, `hatchet_mcp_server.py` — optional
+- `web_fetch.py` — shared; Cursor gets it via `build_cursor_sdk_web_tools()`
+
+```text
+cursor_provider.py
+    └── AgentOptions.mcp_servers → spawns:
+            python -m mcp_evidence_server
+            python -m graylog_mcp_server   (optional)
+            python -m hatchet_mcp_server   (optional)
+            + user HTTP/Docker MCPs (WorkArea)
+```
+
+**Cursor SDK** = managed runtime (tool loop + MCP lifecycle). **Your code** = config + parse.
+
+#### ADK: three files because nothing is outsourced
+
+Google ADK has no stdio MCP for your evidence layer. Tools are **in-process Python callables** on `Agent(tools=[...])`. You own:
+
+**`gemini_adk_provider.py`** — Same shape as `cursor_provider.py`: call runner, parse output. Shorter because it delegates to `adk_runner`.
+
+**`adk_runner.py`** — Stuff Cursor hides inside the SDK:
+
+- `asyncio` + `InMemoryRunner.run_debug`
+- `GOOGLE_API_KEY` / Vertex env
+- `after_tool_callback` → write `tool_trace.json`
+- Extract assistant text from ADK **events** (not a simple message stream)
+- Sync wrapper for FastAPI (`asyncio.run(...)`)
+
+Without this file, `gemini_adk_provider.py` would balloon with ADK plumbing.
+
+**`adk_evidence_tools.py`** — Direct mirror of `mcp_evidence_server.py`:
+
+```python
+class AdkEvidenceTools:
+    """Function tools for Google ADK — same surface as mcp_evidence_server."""
+```
+
+Same `get_metric_window`, `get_raw_path`, Hatchet hooks, `web_fetch` — but as methods ADK can call directly, not MCP JSON-RPC over stdin.
+
+#### Side-by-side mental model
+
+```text
+CURSOR PATH                          GEMINI ADK PATH
+─────────────────                    ─────────────────
+cursor_provider.py                   gemini_adk_provider.py
+       │                                      │
+       ▼                                      ▼
+Cursor SDK (tool loop)               adk_runner.py (tool loop)
+       │                                      │
+       ▼                                      ▼
+MCP subprocesses                     adk_evidence_tools.py
+  mcp_evidence_server.py                 (in-process functions)
+  graylog / hatchet MCP
+       │                                      │
+       └──────────► SimagixEvidenceService ◄──┘
+```
+
+Same evidence service underneath. Different wiring: MCP subprocess vs Python functions.
+
+#### Why not collapse ADK into one file?
+
+You could merge `gemini_adk_provider.py` + `adk_runner.py` + `adk_evidence_tools.py` into one ~430-line module. The split is **intentional**:
+
+| File | Rationale |
+|------|-----------|
+| `adk_evidence_tools` ↔ `mcp_evidence_server` | Parallel tool surfaces — easy to diff “do Cursor MCP and ADK expose the same tools?” |
+| `adk_runner` | ADK/async/trace glue, testable without parsing RCA JSON |
+| `gemini_adk_provider` | Stays thin like other `LLMProvider` implementations |
+
+Cursor *looks* like one file because the SDK absorbed runner + MCP protocol. ADK didn’t, so those layers stay visible in the repo.
+
+#### Fair line-count comparison
+
+| Stack | Provider + runtime + tools |
+|-------|---------------------------|
+| Cursor | ~293 + ~421 (MCP servers + web_fetch used by Cursor) ≈ **714** |
+| ADK | ~139 + ~172 + ~118 ≈ **429** (+ shared `web_fetch`, `tool_trace`, etc.) |
+
+ADK isn’t more complex overall — the responsibility is just **named explicitly** instead of living inside `cursor-sdk` or MCP subprocesses.
+
+**Interview one-liner:** “Cursor: we configure MCP servers; the SDK runs ReAct. Gemini ADK: we implement the tool loop runner and in-process evidence tools ourselves — that’s why `adk_runner` and `adk_evidence_tools` exist alongside a thin `gemini_adk_provider`.”
+
+**Tradeoffs (intent):**
+
+| What we chose (v1) | Why | Pros | Why not the alternative |
+|--------------------|-----|------|-------------------------|
+| Cursor → MCP servers + SDK client | SDK owns ReAct + MCP lifecycle; we only ship `@mcp.tool` servers | Less Python agent-loop code; WorkArea plugs into `mcp_servers` | **In-process only for Cursor** — SDK model is subprocess MCP |
+| ADK → in-process `AdkEvidenceTools` | ADK native API is `Agent(tools=[callables])`; no MCP client in repo | Faster calls (no subprocess JSON-RPC); simpler local dev for Gemini slot | **Duplicate tool surface** vs `mcp_evidence_server`; **WorkArea ignored** on Gemini |
+| Split ADK into provider / runner / tools | Match Cursor’s hidden layers with testable seams | Thin provider; runner testable without parse; tools diffable vs MCP | **One fat ADK file** — harder to review and test |
+
+**Future (documented intent, not implemented):** unify on **MCP servers as single tool source** + shared `mcp/client.py` for ADK (and OpenAI); Cursor keeps using SDK as client. See [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18 and §14 row **Unified MCP tool surface (future)**.
+
+---
+
+### Q: Does ADK use WorkArea / `enabled_mcp_ids` like Cursor?
+
+**A:** **It doesn’t — not in v1.** MCP WorkArea is wired for **Cursor only**. With **Gemini ADK** selected, operator connectors from WorkArea have **no effect** on the agent.
+
+#### What actually happens today
+
+**Shared (all LLMs):**
+
+- `/mcp-workarea` — create/list/delete connectors in `registry.json`
+- Run page checkboxes — send `enabled_mcp_ids` on `POST /phase2/run` and `POST /phase2/clarify`
+- `service.py` — passes `enabled_mcp_ids` into every provider’s `run_investigation` / `run`
+
+**Cursor path:**
+
+`enabled_mcp_ids` flows into `CursorLLMProvider._mcp_config()` → `build_user_mcp_servers()` → extra entries on `AgentOptions.mcp_servers` (HTTP or Docker stdio templates).
+
+**Gemini ADK path:**
+
+`gemini_adk_provider.py` **accepts** `enabled_mcp_ids` on the method signature (so the shared `LLMProvider` interface compiles) but **never uses it**:
+
+```python
+def run_investigation(..., enabled_mcp_ids: list[str] | None = None) -> InvestigationSummary:
+    raw_text = run_adk_agent_text(
+        session,
+        user_message,
+        settings=self.settings,
+        include_tools=True,
+        phase="investigation",
+        # enabled_mcp_ids NOT passed
+    )
+```
+
+No `enabled_mcp_ids` is passed to `run_adk_agent_text`. Same for `run()` (Phase C).
+
+`adk_runner.py` always builds a fixed tool list:
+
+```python
+tools = build_adk_agent_tools(session.evidence) if include_tools else []
+```
+
+And `build_adk_agent_tools` is only what’s in `adk_evidence_tools.py`:
+
+- Metric / raw / profiler / budget tools
+- `web_fetch`
+- Hatchet tools if `hatchet.db` exists
+
+No registry lookup, no GitHub MCP, no operator HTTP MCPs.
+
+#### Why ADK doesn’t get WorkArea “for free”
+
+MCP WorkArea produces configs for **Cursor SDK’s MCP model** (`HttpMcpServerConfig` / `StdioMcpServerConfig` → subprocess MCP servers).
+
+ADK doesn’t use that model. It uses **in-process Python functions** on `Agent(tools=[...])`. There is no `mcp_servers=` knob in `adk_runner.py`.
+
+Operator connectors are **Cursor-shaped**; ADK would need a **separate bridge** (MCP client).
+
+#### What ADK “has” instead of WorkArea MCPs
+
+| Capability | Cursor | Gemini ADK |
+|------------|--------|------------|
+| Simagix evidence | MCP `simagix-evidence` | `AdkEvidenceTools` (always on in tool phases) |
+| Hatchet | MCP `hatchet-evidence` (when ready) | Same tools as functions (when ready) |
+| Graylog | MCP `graylog` (if `GRAYLOG_*` in env) | **Not wired** in ADK tools today |
+| Operator GitHub / HTTP MCP | WorkArea + checkboxes | **Ignored** |
+| User MCP registry | `build_user_mcp_servers()` | **Not read** |
+
+Checking boxes on the run page while **LLM = Gemini** still POSTs `enabled_mcp_ids`, but the ADK agent never sees those servers.
+
+#### Practical takeaway
+
+- **Configure connectors in WorkArea** — works for any user (disk registry is provider-agnostic).
+- **Use them in RCA** — only when **LLM = Cursor**.
+- **Gemini ADK** — fixed built-in evidence + `web_fetch` (+ Hatchet when present); WorkArea is a no-op.
+
+**Tradeoffs (WorkArea v1 scope):**
+
+| What we chose | Why | Pros | Why not in v1 |
+|---------------|-----|------|----------------|
+| WorkArea → Cursor only | Ship operator MCPs without building ADK MCP client | Smaller v1 slice; Cursor SDK already is the client | **ADK MCP client** — extra subprocess/HTTP plumbing + tests |
+| API accepts `enabled_mcp_ids` for all providers | One request shape; future Gemini wiring | No API break when ADK catches up | **Hide checkboxes for Gemini** — deferred UX polish |
+| Registry on disk (provider-agnostic) | Configure once; attach per run per provider | Same WorkArea UI for all LLMs | **Gemini-specific connector format** — would fork registry |
+
+---
+
+### Q: Does ADK use `@mcp.tool()` in `mcp_evidence_server.py` like Cursor?
+
+**A:** **No.** ADK never imports or runs `mcp_evidence_server.py`. Only the **Cursor** path does.
+
+| | Cursor | ADK |
+|--|--------|-----|
+| File | `mcp_evidence_server.py` | `adk_evidence_tools.py` |
+| Registration | `@mcp.tool()` + FastMCP | Pass callables to `Agent(tools=...)` |
+| Invoked by | MCP client (Cursor SDK) over stdio | ADK in-process |
+| Evidence service | Built from **env vars** in subprocess | Uses **`session.evidence`** in parent process |
+
+**Same tool names and behavior**, duplicated thin wrappers — not shared `@mcp.tool` definitions.
+
+**Why not reuse `@mcp.tool` for ADK?**
+
+1. `@mcp.tool()` is **server-side** — wires into MCP transport, not ADK’s tool registry.
+2. ADK expects **Python callables** — no MCP subprocess.
+3. Re-spawning `mcp_evidence_server` from ADK would require an **MCP client** anyway (the unified future path).
+
+---
+
+### Q: When would ADK need an MCP client? Can it reuse `mcp_evidence_server`?
+
+**A:** You need an **MCP client** only when the tool provider is a **separate MCP server** you don’t call as in-process Python — e.g. WorkArea GitHub Docker, HTTP connectors, or if you unify ADK on the same MCP servers as Cursor.
+
+**In-process (no client):** `AdkEvidenceTools` → `SimagixEvidenceService` — what ADK uses today for core evidence.
+
+**External MCP (client required):** GitHub MCP, HTTP WorkArea connectors — same servers Cursor spawns; ADK would need `mcp/client.py` to `tools/list` + `tools/call` and wrap results as ADK callables.
+
+If you build that client, you **replace** `adk_evidence_tools` for those tools by connecting to **`mcp_evidence_server`** (same `@mcp.tool` server Cursor uses), not by running `adk_evidence_tools` *through* MCP. One tool definition path; client vs direct-call is the adapter choice.
+
+```text
+registry.json + enabled_mcp_ids
+            │
+            ▼
+     mcp/registry.py  (future: one builder)
+            │
+     ┌──────┴──────┐
+     ▼             ▼
+Cursor SDK    mcp/client.py (future)
+(built-in         │
+ client)          ▼
+     │       ADK Agent(tools=wrapped)
+     └───────┬───────┘
+             ▼
+    MCP servers (stdio / HTTP)
+```
+
+**Interview one-liner:** “MCP client ↔ MCP server when the server is external; direct Python when the logic is already in our app like `AdkEvidenceTools`. WorkArea connectors are external MCP — Cursor SDK is the client; ADK would need ours.”
+
+---
+
+## Mentor Q&A — Cursor SDK agent runtime
+
+Captured from design walkthrough (2026-06-25). Verbatim user questions below; answers are the assistant replies from that session (lightly formatted for docs). Code pointers: `cursor_provider.py`, `session.py` (`mcp_server_env()`), `mcp_evidence_server.py`, `prompts.py` (`SCRATCH_RULES`), `run_workspace.py` (`get_run_workspace()`).
+
+---
+
+### Q: `agwhat is best assitabt text> and collect assistant text`
+
+**A:** In `cursor_provider.py`, these two helpers solve one problem: **how to get the agent’s final text reply** from the Cursor SDK after a run.
+
+When Phase 2 runs, `_run_agent_text` does this:
+
+```python
+assistant_chunks: list[str] = []
+...
+run = agent.send(user_message, SendOptions(mode="agent"))
+for message in run.messages():
+    trace.record_sdk_message(message, phase)
+    self._collect_assistant_text(message, assistant_chunks)
+result = run.wait()
+...
+return self._best_agent_text(result, assistant_chunks)
+```
+
+So there are **two sources** of text:
+
+| Source | When it arrives | Variable |
+|--------|-----------------|----------|
+| **Streamed messages** | During the loop over `run.messages()` | `assistant_chunks` |
+| **Final result** | After `run.wait()` | `result.result` |
+
+#### `_collect_assistant_text` — collect streamed chunks
+
+```python
+def _collect_assistant_text(self, message: Any, chunks: list[str]) -> None:
+    if getattr(message, "type", None) != "assistant":
+        return
+    content = getattr(getattr(message, "message", None), "content", ()) or ()
+    for block in content:
+        if getattr(block, "type", None) == "text":
+            text = getattr(block, "text", "")
+            if text:
+                chunks.append(text)
+```
+
+- Runs on **every** SDK message as the agent works.
+- Keeps only messages with `type == "assistant"`.
+- Pulls out text blocks (`type == "text"`) and appends them to `assistant_chunks`.
+- **Why:** While the agent runs (tool calls, thinking, etc.), it may emit assistant text in the stream. That text can include the full JSON we need for investigation / clarify / final RCA.
+
+#### `_best_agent_text` — pick the better of the two
+
+```python
+@staticmethod
+def _best_agent_text(result: Any, assistant_chunks: list[str]) -> str:
+    streamed = "".join(assistant_chunks).strip()
+    final = (getattr(result, "result", None) or "").strip()
+    if len(streamed) > len(final):
+        return streamed
+    return final or streamed
+```
+
+- Joins all streamed chunks → `streamed`.
+- Reads `result.result` from `run.wait()` → `final`.
+- **Uses whichever string is longer.**
+- If `final` is empty, falls back to `streamed`.
+- **Why:** Sometimes `result.result` is a short summary and the full JSON only appears in the stream (or the other way around). Longer usually means more complete JSON, which matters for `parse_investigation_summary`, `parse_clarifying_questions`, and `parse_rca_report`.
+
+**Where the chosen text goes:**
+
+| Phase | Parsed into |
+|-------|-------------|
+| Investigation | `InvestigationSummary` |
+| Clarify | `ClarifyingQuestionsBlock` |
+| Final RCA | `RCAReportDraft` + stored as `raw_assistant_text` on `Phase2RunResult` |
+| Chatbot | Returned as markdown in `ChatbotResult.content` |
+
+This was added after a bug where truncated `result.result` broke JSON parsing — see CHANGELOG: *“prefer longer streamed assistant text in cursor_provider.py”*.
+
+**Gemini equivalent:** Gemini ADK does something similar in `adk_runner.py` with `_extract_assistant_text(events)` — it walks ADK events and collects non-partial assistant text chunks, then joins them.
+
+**One-line summary:** `_collect_assistant_text` gathers text from the live message stream; `_best_agent_text` compares stream vs final result and keeps the longer/more complete one for parsing.
+
+---
+
+### Q: `how is Agent being passed mcp servers and how is it calli9ng that`
+
+**A:** **Your Python code never calls MCP tools directly.** You pass MCP server configs into `AgentOptions`; the **Cursor SDK** starts those servers as **subprocesses**, and the **cloud agent runtime** decides when to invoke them during `agent.send(...)`.
+
+#### Step A — Build the server list (`_mcp_config`)
+
+```python
+def _mcp_config(self, session: Phase2Session) -> dict[str, StdioMcpServerConfig]:
+    env = session.mcp_server_env()
+    workspace_cwd = str(session.workspace_root)
+    servers: dict[str, StdioMcpServerConfig] = {
+        "simagix-evidence": StdioMcpServerConfig(
+            command=sys.executable,
+            args=["-m", "backend.app.simagix.llm.mcp_evidence_server"],
+            env=env,
+            cwd=workspace_cwd,
+        )
+    }
+    # optional: graylog, hatchet-evidence
+    return servers
+```
+
+Each entry tells the SDK: **spawn this Python module as a child process**, talk MCP over **stdio**.
+
+| Key | Module | When |
+|-----|--------|------|
+| `simagix-evidence` | `mcp_evidence_server` | Always (when MCP enabled) |
+| `graylog` | `graylog_mcp_server` | If `GRAYLOG_*` env set |
+| `hatchet-evidence` | `hatchet_mcp_server` | If Hatchet summary exists for run |
+
+#### Step B — Put them on `AgentOptions` (`_agent_options`)
+
+```python
+return AgentOptions(
+    api_key=self.settings.cursor_api_key,
+    model=self.settings.cursor_model,
+    local=LocalAgentOptions(...),
+    mcp_servers=self._mcp_config(session) if include_mcp else {},
+)
+```
+
+- **`include_mcp=True`** → MCP servers attached (investigation, final RCA, chatbot).
+- **`include_mcp=False`** → `mcp_servers={}` (Phase B clarify, chat summarize — text-only).
+
+#### Step C — Create agent and run
+
+```python
+with Agent.create(self._agent_options(...)) as agent:
+    run = agent.send(user_message, SendOptions(mode="agent"))
+    for message in run.messages():
+        trace.record_sdk_message(message, phase)
+        self._collect_assistant_text(message, assistant_chunks)
+    result = run.wait()
+```
+
+`Agent.create(...)` is where the SDK reads `mcp_servers` and starts the subprocesses.
+
+#### What env the MCP subprocess gets
+
+`Phase2Session.mcp_server_env()`:
+
+```python
+{
+    "SIMAGIX_RUN_ID": self.run_id,
+    "SIMAGIX_WORKSPACE_ROOT": workspace,
+    "SIMAGIX_BUDGET_STATE_PATH": str(self.budget_state_path),
+    "SIMAGIX_MAX_TOOL_CALLS": str(self.evidence.budget.max_tool_calls),
+    "PYTHONPATH": pythonpath,
+}
+```
+
+The MCP server uses those to know **which run**, **where files live**, and **tool-call budget** (`budget_state.json` on disk).
+
+#### What the MCP server actually is
+
+`mcp_evidence_server.py` is a **FastMCP** app:
+
+```python
+mcp = FastMCP("simagix-evidence")
+
+@mcp.tool()
+def get_metric_window(...) -> dict[str, Any]:
+    return _evidence_service().get_metric_window(...)
+
+def main() -> None:
+    mcp.run(transport="stdio")
+```
+
+It listens on **stdin/stdout** using the MCP protocol — not HTTP. The Cursor SDK is the MCP **client**; this module is the MCP **server**.
+
+#### How the agent “calls” MCP (runtime loop)
+
+```text
+FastAPI / service.py
+    → CursorLLMProvider._run_agent_text()
+        → AgentOptions.mcp_servers = { "simagix-evidence": StdioMcpServerConfig(...) }
+        → Agent.create() / agent.send()
+
+Cursor agent runtime (cloud)
+    → model decides: call get_metric_window(metric=...)
+    → SDK sends MCP request over stdio to subprocess
+    → mcp_evidence_server runs tool → returns JSON
+    → SDK feeds result back to model
+    → repeat until model returns final text
+```
+
+You don’t write `get_metric_window(...)` calls in `cursor_provider.py`. The **model** chooses tools; the **SDK** executes them.
+
+`ToolTraceCollector.record_sdk_message` watches SDK messages with `type == "tool_call"`. Cursor often wraps MCP as a generic `"mcp"` tool; `resolve_tool_identity` in `tool_trace.py` unwraps it to e.g. `simagix-evidence/get_metric_window`.
+
+Cursor often wraps MCP as a generic `"mcp"` tool; `resolve_tool_identity` in `tool_trace.py` unwraps it to e.g. `simagix-evidence/get_metric_window`.
+
+Saved to `phase2/llm/<llm>/tool_trace.json` for the UI.
+
+#### MCP vs other tools (don’t mix them up)
+
+| Mechanism | Configured via | Examples |
+|-----------|----------------|----------|
+| **MCP servers** | `AgentOptions.mcp_servers` | `get_metric_window`, Hatchet tools, Graylog |
+| **SDK custom tools** | `LocalAgentOptions.custom_tools` | `web_fetch` (`build_cursor_sdk_web_tools`) |
+| **SDK built-ins** | Cursor SDK local agent | `read`, `grep`, etc. (prompts say prefer MCP for evidence) |
+
+MCP = separate Python subprocess over stdio. `web_fetch` = in-process SDK custom tool, not MCP.
+
+**One-line summary:** `_mcp_config()` builds `StdioMcpServerConfig` entries → `_agent_options()` puts them on `AgentOptions.mcp_servers` → `Agent.create()` starts subprocess MCP servers → during `agent.send()`, the Cursor SDK routes model tool calls to those servers over stdio → your code only streams messages, logs them in `tool_trace`, and parses the final assistant text.
+
+---
+
+### Q: `explain this AgentOptions and LocalAgentOptions`
+
+**A:** They come from the **Cursor SDK** (`cursor-sdk`). They are **configuration objects** — you build them in Python and pass them to `Agent.create(...)`. They do not run anything by themselves.
+
+#### Mental model
+
+```text
+AgentOptions          ← “whole agent session” (cloud model + tools + MCP)
+  ├── api_key, model  ← who to talk to (Cursor Cloud)
+  ├── mcp_servers     ← external tool servers (your evidence MCP)
+  └── local           ← LocalAgentOptions
+        ├── cwd       ← filesystem root for SDK built-in tools
+        ├── sandbox_options
+        ├── custom_tools  ← your web_fetch
+        └── setting_sources
+```
+
+- **`AgentOptions`** = everything needed to **create** an agent.
+- **`LocalAgentOptions`** = settings for what runs **on your machine** alongside the cloud agent (cwd, sandbox, custom tools).
+
+The cloud model reasons; the local side executes file/shell/custom/MCP tools.
+
+#### `AgentOptions` — top-level agent config
+
+| Field | Our usage | Meaning |
+|-------|-----------|---------|
+| `api_key` | `CURSOR_API_KEY` | Auth for Cursor Cloud |
+| `model` | `CURSOR_MODEL` (e.g. `composer-2.5`) | Which model runs the agent |
+| `local` | `LocalAgentOptions(...)` | Local execution settings |
+| `mcp_servers` | `_mcp_config(session)` or `{}` | MCP subprocesses |
+| `cloud`, `agents`, `agent_id`, … | not used | SDK extras / resume |
+
+One fresh `AgentOptions` per phase run (investigation / clarify / final / chatbot).
+
+#### `LocalAgentOptions` — local side of the agent
+
+| Field | Our value | Meaning |
+|-------|-----------|---------|
+| `cwd` | `chatbot_scratch/` (MCP on) or bundle (MCP off) | Working directory for SDK **built-ins** |
+| `setting_sources` | `[]` | Don’t load Cursor IDE settings from disk |
+| `sandbox_options` | `SandboxOptions(enabled=False)` | Sandbox off in current code |
+| `custom_tools` | `web_fetch` via `build_cursor_sdk_web_tools(...)` | In-process SDK tools we define |
+
+**One-line summary:** `AgentOptions` = “Create a Cursor agent with this model, these MCP servers, and these local settings.” `LocalAgentOptions` = “On this machine, use this working directory, sandbox policy, and custom tools when the agent needs local execution.” In Mongo Debugger, MCP carries evidence retrieval; `LocalAgentOptions` mainly sets cwd + `web_fetch`, while the cloud model drives the tool loop.
+
+---
+
+### Q: `what are built ins?`
+
+**A:** **Built-ins** = the **default local tools that come with the Cursor SDK agent** — not tools you wrote, and not your MCP servers.
+
+When you call `Agent.create(AgentOptions(local=LocalAgentOptions(...)))`, the SDK gives the cloud model a standard toolbox for working on files on your machine.
+
+#### Three tool types in this project
+
+| Type | Who provides it | Examples |
+|------|-----------------|----------|
+| **Built-ins** | Cursor SDK (automatic) | `read`, `grep`, `glob`, `list_dir`, `shell` |
+| **Custom tools** | `LocalAgentOptions.custom_tools` | `web_fetch` |
+| **MCP tools** | Subprocess MCP servers | `get_metric_window`, Hatchet tools, Graylog |
+
+Prompts (`SCRATCH_RULES` in `prompts.py`):
+
+```text
+- You MAY use read, grep, and shell for analysis.
+- read/grep: FTDC export bundle, workspace exports, session artifacts, chatbot_scratch/.
+- shell: create and run scripts ONLY under chatbot_scratch/; print results to stdout.
+```
+
+For **evidence**, prompts steer the agent toward **MCP** (`simagix-evidence`), not built-ins.
+
+#### What each built-in roughly does
+
+| Built-in | Purpose |
+|----------|---------|
+| `read` | Read a file from disk |
+| `grep` | Search file contents |
+| `glob` / `list_dir` | Find/list files |
+| `shell` | Run terminal commands |
+
+They run **locally**, scoped by `LocalAgentOptions.cwd` (and optionally `SandboxOptions`). `tool_trace.py` classifies these as category `"local"`.
+
+#### Built-ins vs MCP
+
+**MCP tools** — your code controls them; enforce **retrieval budget** (`budget_state.json`); return structured evidence slices; **preferred for RCA proof**.
+
+**Built-ins** — generic file/system access; **not counted** in MCP retrieval budget; useful for chatbot attachments, scratch notes; prompts limit **writes** to `chatbot_scratch/` only.
+
+You don’t register built-ins in `AgentOptions` — they’re **included by the SDK** when local agent mode is enabled.
+
+From DESIGN_NOTES:
+
+> **Cursor SDK built-ins** (`read`, `grep`, `shell`, `web`) are **not** in `budget_state.json` — they appear in **Agent Tool Activity** (`tool_trace.json`). Prompts discourage local/shell in favor of MCP.
+
+**One-line summary:** Built-ins = Cursor SDK’s built-in local tools (`read`, `grep`, `shell`, etc.) for filesystem/terminal work. Your app adds **MCP** for gated evidence and **`web_fetch`** as a custom tool; prompts tell the agent to use MCP for RCA evidence and use built-ins mainly for scratch files and chatbot attachments.
+
+---
+
+### Q: `okkkkkkk what if sandbox is on ?`
+
+**A:** The Cursor SDK runs **built-in local tools** (`read`, `grep`, `shell`, etc.) inside a **restricted environment** — limited filesystem and network access.
+
+**Right now the code has sandbox off:**
+
+```python
+sandbox = SandboxOptions(enabled=False)
+```
+
+#### What sandbox affects (and what it doesn’t)
+
+| Affected | Not affected |
+|----------|--------------|
+| SDK **built-ins**: `read`, `grep`, `glob`, `shell` | **MCP servers** (separate subprocesses) |
+| Where those tools can read/write on disk | Cloud model / API calls |
+| Often local network from `shell` | **`web_fetch`** custom tool (runs in our Python process) |
+
+Sandbox is mainly a **seatbelt on built-in** tools, not on MCP evidence retrieval.
+
+#### Sandbox ON — behavior
+
+```text
+Model: "read /some/path/file.json"
+  → SDK built-in read
+  → cursorsandbox only allows paths inside allowed roots
+  → paths outside jail → blocked or error
+```
+
+**Pros:** Agent can’t freely wander the whole machine; harder to edit `backend/`, git files, etc.
+
+**Cons in this app:**
+
+- `read`/`grep` on bundle paths may fail if sandbox jail ≠ where evidence files live.
+- `shell` in `chatbot_scratch/` may be blocked or limited.
+- Agent `cwd` is `chatbot_scratch/` for MCP phases — sandbox + narrow cwd can make **absolute-path reads** of `uploads/.../phase1/mongo-ftdc/` unreliable.
+
+#### Sandbox ON vs OFF by phase (docs / history)
+
+| Phase | MCP | Agent `cwd` | Docs / history suggest |
+|-------|-----|-------------|------------------------|
+| Investigation / Final / Chatbot | ON | `chatbot_scratch/` | **Sandbox OFF** (current) |
+| Clarify (Phase B) | OFF | export bundle | **Sandbox ON** was considered for clarify-only |
+
+**Current code:** `SandboxOptions(enabled=False)` for **all** phases.
+
+#### History
+
+```text
+2026-06-11: sandbox ON  → safety for built-ins (no MCP-only switch in SDK)
+2026-06-14: sandbox OFF when MCP ON → MCP + cwd fixes; local reads needed across workspace paths
+Today:     sandbox OFF always in cursor_provider.py
+```
+
+**One-line summary:** Sandbox ON locks down **built-in** tools. Sandbox OFF = more freedom for local reads + MCP together. MCP evidence tools don’t depend on sandbox either way.
+
+---
+
+### Q: `so where is env / path where agent can work in sandbox defined`
+
+**A:** There is **not** one single “sandbox path” knob in this repo. **Three separate scopes** are configured in different places — and `SandboxOptions` only has `enabled`, not a custom path list.
+
+#### 1. Built-in tools (`read`, `grep`, `shell`) — `LocalAgentOptions`
+
+Defined in `_agent_options()`:
+
+```python
+bundle_cwd = str(session.evidence.bundle_dir)
+scratch_cwd = str(session.ensure_chatbot_scratch_dir())
+if include_mcp:
+    agent_cwd = scratch_cwd
+else:
+    agent_cwd = bundle_cwd
+sandbox = SandboxOptions(enabled=False)
+...
+    local=LocalAgentOptions(
+        cwd=agent_cwd,
+        setting_sources=[],
+        sandbox_options=sandbox,
+        custom_tools=custom_tools or None,
+    ),
+```
+
+| Setting | Where | What it does |
+|---------|--------|----------------|
+| **`cwd`** | `LocalAgentOptions.cwd` | Default working directory for SDK **built-ins** |
+| **`sandbox_options`** | `SandboxOptions(enabled=False)` | Only on/off — **no path field** in our code or the SDK type |
+
+**Actual paths on disk**
+
+Root comes from **`DATA_ROOT`** (or repo root):
+
+```python
+# run_workspace.py — get_run_workspace()
+root = settings.data_root if settings.data_root is not None else repo_root()
+return RunWorkspace(root)
+```
+
+| Phase | `include_mcp` | Agent `cwd` (built-ins) |
+|-------|---------------|-------------------------|
+| Investigation / Final / Chatbot | `True` | `{DATA_ROOT}/simagix-workspace/uploads/{run_id}/phase2/llm/{cursor\|gemini\|mock}/chatbot_scratch/` |
+| Clarify (Phase B) | `False` | `{DATA_ROOT}/simagix-workspace/uploads/{run_id}/phase1/mongo-ftdc/` (export bundle) |
+
+**If sandbox were ON:** Cursor SDK would restrict built-ins internally (its `cursorsandbox` helper). This app does **not** pass extra sandbox roots — the SDK typically ties limits to `cwd` plus its own rules. We do not configure “allowed paths” in `cursor_provider.py`.
+
+**Prompt policy** (not SDK config): `prompts.py` `SCRATCH_RULES` — reads allowed broadly; writes only under `chatbot_scratch/`.
+
+#### 2. MCP servers — separate from sandbox
+
+MCP is **not** controlled by `SandboxOptions`. It uses `StdioMcpServerConfig`:
+
+```python
+"simagix-evidence": StdioMcpServerConfig(
+    command=sys.executable,
+    args=["-m", "backend.app.simagix.llm.mcp_evidence_server"],
+    env=env,
+    cwd=workspace_cwd,
+)
+```
+
+| Setting | Value | Purpose |
+|---------|--------|---------|
+| **`cwd`** | `session.workspace_root` | MCP subprocess starts here (repo root or `DATA_ROOT`) |
+| **`env`** | `session.mcp_server_env()` | Run id, workspace, budget file, `PYTHONPATH` |
+
+Env vars:
+
+```python
+{
+    "SIMAGIX_RUN_ID": self.run_id,
+    "SIMAGIX_WORKSPACE_ROOT": workspace,
+    "SIMAGIX_BUDGET_STATE_PATH": str(self.budget_state_path),
+    "SIMAGIX_MAX_TOOL_CALLS": str(self.evidence.budget.max_tool_calls),
+    "PYTHONPATH": pythonpath,
+}
+```
+
+MCP server reads evidence via `RunWorkspace` + `SIMAGIX_RUN_ID`, e.g. bundle under `uploads/{run_id}/phase1/mongo-ftdc/`.
+
+**Budget file path:** `.../uploads/{run_id}/phase2/llm/{cursor|gemini|mock}/budget_state.json` (per LLM slot).
+
+#### 3. Three “worlds” (diagram)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ DATA_ROOT (or repo root)  ← get_run_workspace().root        │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ├── LocalAgentOptions.cwd  (built-ins)
+         │     MCP on  → .../phase2/llm/{llm}/chatbot_scratch/
+         │     MCP off → .../phase1/mongo-ftdc/
+         │     + SandboxOptions(enabled=?)  ← only ON/OFF
+         │
+         ├── StdioMcpServerConfig.cwd = workspace_root
+         │     + env: SIMAGIX_* , PYTHONPATH
+         │     → python -m mcp_evidence_server
+         │
+         └── Prompt rules (SCRATCH_RULES)
+               → where agent *should* read/write (soft policy)
+```
+
+#### Direct answer
+
+| Concern | Defined in |
+|---------|------------|
+| **Env for MCP** | `Phase2Session.mcp_server_env()` + `StdioMcpServerConfig` in `_mcp_config()` |
+| **Path for built-ins** | `LocalAgentOptions.cwd` in `_agent_options()` |
+| **Sandbox boundary** | `SandboxOptions(enabled=True/False)` only — **no explicit path list** in this project. With sandbox on, limits come from Cursor SDK internals (likely centered on `cwd`), not from Mongo Debugger config. |
+| **Global data root** | `DATA_ROOT` → `get_run_workspace().root` → all upload/phase1/phase2 paths |
+
+**Summary:** We define `cwd` and MCP `env`/`cwd`. We do **not** define sandbox allowed paths — only whether sandbox is enabled.
+
+---
+
+### Q: `why does off has different cwd`
+
+**A:** The different `cwd` is **not** because sandbox is off. In code, **`sandbox` is always off** and **`cwd` switches on `include_mcp`**, not on `SandboxOptions`:
+
+```python
+if include_mcp:
+    agent_cwd = scratch_cwd
+else:
+    agent_cwd = bundle_cwd
+sandbox = SandboxOptions(enabled=False)
+```
+
+Two separate questions:
+
+1. **Why different `cwd` for MCP-on vs MCP-off?** ← what the code actually does  
+2. **Why did docs mention different sandbox + cwd together?** ← historical pairing from a bugfix
+
+#### Why different `cwd` (MCP on vs off)
+
+| Phase | `include_mcp` | `cwd` | Why |
+|-------|---------------|-------|-----|
+| Investigation, Final RCA, Chatbot | `True` | `chatbot_scratch/` | MCP supplies evidence; local tools are for scratch files, attachments, optional shell |
+| Clarify (Phase B) | `False` | `phase1/mongo-ftdc/` (bundle) | No MCP — if the agent uses `read`/`grep`, it should sit in the export bundle |
+
+**MCP on → `chatbot_scratch/`**
+
+- Evidence is meant to come from **MCP** (`get_metric_window`, etc.), not by wandering the bundle with `read`.
+- **`chatbot_scratch/`** is the safe write area (prompts: shell/write only there).
+- Keeps the agent from treating the export bundle as its “home” and accidentally editing tiered JSON.
+
+Path: `simagix-workspace/uploads/{run_id}/phase2/llm/{llm}/chatbot_scratch/`
+
+**MCP off → export bundle**
+
+- Phase B is **text-only JSON** (clarifying questions).
+- No MCP servers attached (`mcp_servers={}`).
+- If the model still uses built-in `read`/`grep`, `cwd` on the bundle is the natural place for export files.
+
+Path: `simagix-workspace/uploads/{run_id}/phase1/mongo-ftdc/`
+
+Prompts also say clarify should **not** re-fetch metrics — it uses the investigation summary already in the user message.
+
+#### This is separate from sandbox
+
+`SandboxOptions(enabled=False)` does **not** change `cwd`. It only controls whether Cursor **locks down** built-in tools (when `True`).
+
+**Current code:** sandbox always off; `cwd` still flips with `include_mcp`.
+
+Docs/CHANGELOG sometimes mention both together because of an **older intended setup**:
+
+> *“sandbox off when MCP on; bundle + sandbox on for clarify-only”* — CHANGELOG 2026-06-14
+
+That was: narrow `cwd` for clarify **plus** turn sandbox on for extra safety when MCP is off. **Current code** kept the **cwd split**; sandbox stays off for all phases.
+
+#### Why MCP-on uses scratch (bugfix context)
+
+Earlier, agent `cwd` was the bundle only. That contributed to MCP subprocess problems (imports, budget path). The fix split responsibilities:
+
+| Component | `cwd` / root |
+|-----------|----------------|
+| **MCP subprocess** | `workspace_root` (repo / `DATA_ROOT`) + `SIMAGIX_*` env |
+| **Agent built-ins** | `chatbot_scratch/` when MCP on |
+
+So: **MCP runs from project root; agent local tools default to scratch** — they do not share one directory.
+
+**One-line summary:** Different `cwd` = different phase needs: MCP-on phases use `chatbot_scratch/` (MCP for evidence, scratch for writes); MCP-off clarify uses the export bundle as `cwd` if built-ins read files. **Sandbox off does not pick the path — `include_mcp` does.**
+
+---
+
+### Q: `very imp convo can you write it docs and tell me where are you wrting it` (user pasted full cwd/sandbox Q&A above)
+
+**A (where to write — from Ask-mode reply, then applied in Agent mode):**
+
+| Priority | File | Why |
+|----------|------|-----|
+| **1 — main home** | [`docs/PHASE2_LLM.md`](PHASE2_LLM.md) | Matrix row: *Phase 2 agent, MCP tools, prompts, budgets* — owns agent/MCP semantics |
+| **2 — mentor Q&A** | [`docs/DESIGN_NOTES.md`](DESIGN_NOTES.md) §13 + §14 talking points | Low-level concept + why cwd split / sandbox off |
+| **3 — fix stale text** | [`docs/DESIGN_NOTES.md`](DESIGN_NOTES.md) §13 Setup | Was wrong vs current code (`cwd=bundle_dir`, `SandboxOptions(enabled=True)`) |
+| **4 — changelog** | [`docs/CHANGELOG.md`](CHANGELOG.md) | Docs-only entry: What / How / Why |
+
+**Not** a new standalone file — expand existing docs under `docs/`.
+
+**Applied:** This section (**Mentor Q&A — Cursor SDK agent runtime**) is the canonical capture. [`DESIGN_NOTES.md`](DESIGN_NOTES.md) §13 Setup bullets updated + link here. [`CHANGELOG.md`](CHANGELOG.md) dated entry added.
+
+---
 
 ## MCP tools
 

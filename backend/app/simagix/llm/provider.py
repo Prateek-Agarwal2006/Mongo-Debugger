@@ -27,7 +27,13 @@ class LLMProvider(ABC):
     """Provider seam for Phase 2 agentic RCA."""
 
     @abstractmethod
-    def run(self, session: Phase2Session, user_message: str) -> Phase2RunResult:
+    def run(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> Phase2RunResult:
         raise NotImplementedError
 
     @property
@@ -36,7 +42,13 @@ class LLMProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run_investigation(self, session: Phase2Session, user_message: str) -> InvestigationSummary:
+    def run_investigation(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> InvestigationSummary:
         raise NotImplementedError
 
     @abstractmethod

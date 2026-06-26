@@ -181,3 +181,8 @@ def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLRes
 @router.get("/upload", response_class=HTMLResponse)
 def upload_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "upload.html", {})
+
+
+@router.get("/mcp-workarea", response_class=HTMLResponse)
+def mcp_workarea(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "mcp_workarea.html", {})

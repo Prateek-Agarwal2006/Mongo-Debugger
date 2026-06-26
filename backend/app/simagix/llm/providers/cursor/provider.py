@@ -5,8 +5,7 @@ import time
 from typing import Any, Literal
 
 from backend.app.core.config import Settings, get_settings
-from backend.app.simagix.hatchet_tools import hatchet_evidence_available
-from backend.app.simagix.llm.web_fetch import build_cursor_sdk_web_tools
+from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs, to_cursor_sdk_servers
 from backend.app.simagix.llm.parse_output import (
     parse_clarifying_questions,
     parse_investigation_summary,
@@ -15,32 +14,29 @@ from backend.app.simagix.llm.parse_output import (
 from backend.app.simagix.llm.provider import LLMProvider, ChatbotResult, Phase2RunResult
 from backend.app.simagix.llm.session import Phase2Session
 from backend.app.simagix.llm.tool_trace import ToolTraceCollector, ToolTracePhase
+from backend.app.simagix.llm.web_fetch import build_cursor_sdk_web_tools
 from backend.app.simagix.output_schema import ClarifyingQuestionsBlock, InvestigationSummary
 
 try:
     from cursor_sdk import (
         Agent,
         AgentOptions,
-        CursorAgentError,
         LocalAgentOptions,
         SandboxOptions,
         SendOptions,
-        StdioMcpServerConfig,
     )
 except ImportError:  # pragma: no cover - optional dependency
     Agent = None  # type: ignore[assignment,misc]
     AgentOptions = None  # type: ignore[assignment,misc]
-    CursorAgentError = Exception  # type: ignore[assignment,misc]
     LocalAgentOptions = None  # type: ignore[assignment,misc]
     SandboxOptions = None  # type: ignore[assignment,misc]
     SendOptions = None  # type: ignore[assignment,misc]
-    StdioMcpServerConfig = None  # type: ignore[assignment,misc]
 
 AgentPhase = Literal["investigation", "clarify", "final_rca", "chatbot"]
 
 
 class CursorLLMProvider(LLMProvider):
-    """Cursor SDK agent with in-process MCP evidence server."""
+    """Cursor SDK agent — MCP servers from shared registry."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -57,40 +53,18 @@ class CursorLLMProvider(LLMProvider):
     def provider_name(self) -> str:
         return "cursor"
 
-    def _mcp_config(self, session: Phase2Session) -> dict[str, StdioMcpServerConfig]:
-        env = session.mcp_server_env()
-        workspace_cwd = str(session.workspace_root)
-        servers: dict[str, StdioMcpServerConfig] = {
-            "simagix-evidence": StdioMcpServerConfig(
-                command=sys.executable,
-                args=["-m", "backend.app.simagix.llm.mcp_evidence_server"],
-                env=env,
-                cwd=workspace_cwd,
-            )
-        }
-        if self.settings.graylog_api_url and self.settings.graylog_api_token:
-            graylog_env = {
-                **env,
-                "GRAYLOG_API_URL": self.settings.graylog_api_url,
-                "GRAYLOG_API_TOKEN": self.settings.graylog_api_token,
-                "GRAYLOG_AUTH_MODE": self.settings.graylog_auth_mode,
-                "GRAYLOG_DEFAULT_QUERY": self.settings.graylog_default_query,
-                "GRAYLOG_SEARCH_LIMIT": str(self.settings.graylog_search_limit),
-            }
-            servers["graylog"] = StdioMcpServerConfig(
-                command=sys.executable,
-                args=["-m", "backend.app.simagix.llm.graylog_mcp_server"],
-                env=graylog_env,
-                cwd=workspace_cwd,
-            )
-        if hatchet_evidence_available(session.workspace_root, session.run_id):
-            servers["hatchet-evidence"] = StdioMcpServerConfig(
-                command=sys.executable,
-                args=["-m", "backend.app.simagix.llm.hatchet_mcp_server"],
-                env=env,
-                cwd=workspace_cwd,
-            )
-        return servers
+    def _mcp_config(
+        self,
+        session: Phase2Session,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        specs = build_mcp_server_specs(
+            session,
+            self.settings,
+            enabled_mcp_ids=enabled_mcp_ids,
+        )
+        return to_cursor_sdk_servers(specs)
 
     def _agent_options(
         self,
@@ -99,13 +73,11 @@ class CursorLLMProvider(LLMProvider):
         include_mcp: bool = True,
         trace: ToolTraceCollector | None = None,
         phase: AgentPhase | None = None,
+        enabled_mcp_ids: list[str] | None = None,
     ) -> AgentOptions:
         bundle_cwd = str(session.evidence.bundle_dir)
         scratch_cwd = str(session.ensure_chatbot_scratch_dir())
-        if include_mcp:
-            agent_cwd = scratch_cwd
-        else:
-            agent_cwd = bundle_cwd
+        agent_cwd = scratch_cwd if include_mcp else bundle_cwd
         sandbox = SandboxOptions(enabled=False)
         custom_tools = {}
         if include_mcp and trace is not None and phase is not None:
@@ -119,7 +91,9 @@ class CursorLLMProvider(LLMProvider):
                 sandbox_options=sandbox,
                 custom_tools=custom_tools or None,
             ),
-            mcp_servers=self._mcp_config(session) if include_mcp else {},
+            mcp_servers=self._mcp_config(session, enabled_mcp_ids=enabled_mcp_ids)
+            if include_mcp
+            else {},
         )
 
     def _run_agent_text(
@@ -129,11 +103,18 @@ class CursorLLMProvider(LLMProvider):
         *,
         include_mcp: bool,
         phase: AgentPhase,
+        enabled_mcp_ids: list[str] | None = None,
     ) -> str:
         assistant_chunks: list[str] = []
         trace = ToolTraceCollector(session.tool_trace_path, agent_id=session.agent_id)
         with Agent.create(
-            self._agent_options(session, include_mcp=include_mcp, trace=trace, phase=phase)
+            self._agent_options(
+                session,
+                include_mcp=include_mcp,
+                trace=trace,
+                phase=phase,
+                enabled_mcp_ids=enabled_mcp_ids,
+            )
         ) as agent:
             session.agent_id = agent.agent_id
             trace.agent_id = agent.agent_id
@@ -147,9 +128,19 @@ class CursorLLMProvider(LLMProvider):
         trace.save()
         return self._best_agent_text(result, assistant_chunks)
 
-    def run_investigation(self, session: Phase2Session, user_message: str) -> InvestigationSummary:
+    def run_investigation(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> InvestigationSummary:
         raw_text = self._run_agent_text(
-            session, user_message, include_mcp=True, phase="investigation"
+            session,
+            user_message,
+            include_mcp=True,
+            phase="investigation",
+            enabled_mcp_ids=enabled_mcp_ids,
         )
         session.refresh_budget()
         try:
@@ -178,10 +169,20 @@ class CursorLLMProvider(LLMProvider):
                 f"Preview: {raw_text[:300]!r}"
             ) from exc
 
-    def run(self, session: Phase2Session, user_message: str) -> Phase2RunResult:
+    def run(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> Phase2RunResult:
         started = time.monotonic()
         raw_text = self._run_agent_text(
-            session, user_message, include_mcp=True, phase="final_rca"
+            session,
+            user_message,
+            include_mcp=True,
+            phase="final_rca",
+            enabled_mcp_ids=enabled_mcp_ids,
         )
         session.refresh_budget()
         try:
@@ -232,8 +233,6 @@ class CursorLLMProvider(LLMProvider):
             + "\n".join(lines)
         )
         return self._run_agent_text(session, prompt, include_mcp=False, phase="clarify")
-
-
 
     @staticmethod
     def _best_agent_text(result: Any, assistant_chunks: list[str]) -> str:

@@ -8,10 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.core.config import Settings, get_settings
-from backend.app.simagix.llm.cursor_provider import CursorLLMProvider
-from backend.app.simagix.llm.gemini_adk_provider import GeminiAdkLLMProvider
 from backend.app.simagix.llm.llm_paths import llm_folder_name, list_llm_sessions, update_llm_index
-from backend.app.simagix.llm.mock_provider import MockLLMProvider
+from backend.app.simagix.llm.providers import CursorLLMProvider, GeminiAdkLLMProvider, MockLLMProvider
 from backend.app.simagix.llm.chatbot_attachments import (
     format_user_content_with_attachments,
     save_chatbot_attachment,
@@ -191,6 +189,7 @@ def run_investigation(
     provider: LLMProvider | None = None,
     force_mock: bool = False,
     llm_provider: str | None = None,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> InvestigationSummary:
     settings = get_settings()
     session, user_message = prepare_investigation_run(
@@ -204,7 +203,9 @@ def run_investigation(
         llm_provider=llm_provider,
         llm=llm,
     )
-    investigation = llm_backend.run_investigation(session, user_message)
+    investigation = llm_backend.run_investigation(
+        session, user_message, enabled_mcp_ids=enabled_mcp_ids
+    )
     session.persist_investigation(investigation)
     return investigation
 
@@ -256,6 +257,7 @@ def start_phase2_run(
     force_mock: bool = False,
     llm_provider: str | None = None,
     llm: str | None = None,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     folder = resolve_llm_folder(llm=llm, llm_provider=llm_provider, force_mock=force_mock)
     provider_choice = resolve_run_llm_provider(
@@ -269,6 +271,7 @@ def start_phase2_run(
         llm=folder,
         force_mock=force_mock,
         llm_provider=llm_provider or folder,
+        enabled_mcp_ids=enabled_mcp_ids,
     )
     questions = generate_clarifying_questions_for_run(
         workspace_root,
@@ -309,6 +312,7 @@ def submit_clarifications_and_run(
     force_mock: bool = False,
     llm_provider: str | None = None,
     llm: str | None = None,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     folder = resolve_llm_folder(
         llm=llm,
@@ -340,6 +344,7 @@ def submit_clarifications_and_run(
         llm_provider=resolved_provider,
         user_answers=answers.answers or None,
         investigation=investigation,
+        enabled_mcp_ids=enabled_mcp_ids,
     )
 
     save_iterative_state(
@@ -376,6 +381,7 @@ def run_phase2(
     llm_provider: str | None = None,
     user_answers: dict[str, str] | None = None,
     investigation: InvestigationSummary | None = None,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> Phase2RunResult:
     settings = get_settings()
     session = phase2_session_store.get_or_create(
@@ -399,7 +405,7 @@ def run_phase2(
         llm_provider=llm_provider,
         llm=llm,
     )
-    result = llm_backend.run(session, user_message)
+    result = llm_backend.run(session, user_message, enabled_mcp_ids=enabled_mcp_ids)
     session.persist_report(result.report, agent_id=result.agent_id, provider=llm_backend.provider_name)
     session.last_run_at = time.time()
     return result

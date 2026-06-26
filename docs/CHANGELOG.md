@@ -3,9 +3,54 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-26
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-26 — Unified MCP + providers layout (`feat/unified-mcp-providers`)
+
+**What:** Single MCP tool surface for Cursor and Gemini ADK; providers moved under `llm/providers/`; WorkArea `enabled_mcp_ids` wired for ADK.
+
+**How:**
+- **`mcp/`** — `specs.py`, `connectors.py`, `registry.py` (`build_mcp_server_specs`, `to_cursor_sdk_servers`), `client.py` (`ClientSessionGroup` bridge for ADK), `servers/{evidence,graylog,hatchet}.py`.
+- **`providers/`** — `cursor/provider.py`, `adk/{provider,runner}.py`, `mock.py`; `service.py` imports from `providers`.
+- ADK runner opens the same MCP subprocess specs as Cursor, plus in-process `web_fetch`; deleted `adk_evidence_tools.py`.
+- Removed legacy shim modules; subprocess entrypoints are `python -m backend.app.simagix.llm.mcp.servers.{evidence,graylog,hatchet}`.
+
+**Why:** One `@mcp.tool()` source of truth; operator WorkArea parity across providers; room for future OpenAI provider without duplicating tool lists.
+
+**Docs:** [PHASE2_LLM.md](PHASE2_LLM.md), [RCA_BACKEND.md](RCA_BACKEND.md), [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18, §14.
+
+---
+
+## 2026-06-26 — Operator MCP WorkArea + per-run connector selection
+
+**What:** MCP WorkArea UI and disk-backed connector registry; run page checkboxes send `enabled_mcp_ids` on Phase A and Phase C (Cursor only).
+
+**How:**
+- Registry: `{DATA_ROOT}/simagix-workspace/operator/mcp_connectors/registry.json` via `mcp/connectors.py`.
+- REST: `GET/POST/DELETE /simagix/mcp-connectors` (`api/mcp_connectors.py`).
+- Web: `GET /mcp-workarea` — tab 1 lists configured connectors; tab 2 creates HTTP or stdio-template (GitHub MCP) connectors.
+- Run page: stateless checkboxes (no defaults except locked `simagix-evidence`); `POST /phase2/run` and `POST /phase2/clarify` accept `enabled_mcp_ids`.
+- `CursorLLMProvider._mcp_config()` merges built-ins + selected user connectors via `build_user_mcp_servers()`.
+
+**Why:** Operators need to attach optional MCPs (e.g. GitHub, remote HTTP) without editing `.env` or code; selection must be explicit per run, not persisted as defaults.
+
+**Docs:** [PHASE2_LLM.md](PHASE2_LLM.md), [RCA_BACKEND.md](RCA_BACKEND.md), [DESIGN_NOTES.md](DESIGN_NOTES.md) §14, [CONTEXT.md](../CONTEXT.md).
+
+---
+
+## 2026-06-26 — PHASE2_LLM + DESIGN_NOTES: Cursor vs ADK layout, MCP client, WorkArea (v1)
+
+**What:** Literal mentor Q&A capture for provider file organization, why ADK has extra files, MCP WorkArea Cursor-only behavior, `@mcp.tool` vs `AdkEvidenceTools`, and when an MCP client is needed.
+
+**How:** New section **Mentor Q&A — Cursor vs Gemini ADK layout, MCP client, and WorkArea (v1)** in `PHASE2_LLM.md` (tables, diagrams, tradeoffs, interview lines). Added `DESIGN_NOTES.md` **§13.18** (Gemini ADK parallel to §13.17), §14 rows (ADK in-process tools, provider file split, unified MCP future), talking points. Expanded `RCA_BACKEND.md` Phase 2 file layout table.
+
+**Why:** Design walkthrough content was only in chat; needed same literal capture habit as 2026-06-25 Cursor SDK Q&A for demos and future unify (ADK/OpenAI + shared MCP client).
+
+**Docs:** [PHASE2_LLM.md](PHASE2_LLM.md), [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18, §14, [RCA_BACKEND.md](RCA_BACKEND.md) § Backend layout.
 
 ---
 

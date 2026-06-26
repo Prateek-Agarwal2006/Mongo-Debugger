@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 
 from backend.app.core.config import Settings, get_settings
-from backend.app.simagix.llm.adk_runner import run_adk_agent_text
 from backend.app.simagix.llm.parse_output import (
     parse_clarifying_questions,
     parse_investigation_summary,
@@ -11,12 +10,13 @@ from backend.app.simagix.llm.parse_output import (
 )
 from backend.app.simagix.llm.prompts import build_chatbot_summarize_prompt
 from backend.app.simagix.llm.provider import LLMProvider, ChatbotResult, Phase2RunResult
+from backend.app.simagix.llm.providers.adk.runner import run_adk_agent_text
 from backend.app.simagix.llm.session import Phase2Session
 from backend.app.simagix.output_schema import ClarifyingQuestionsBlock, InvestigationSummary
 
 
 class GeminiAdkLLMProvider(LLMProvider):
-    """Google ADK agent with AI Studio API key — ADK runs the tool loop locally."""
+    """Google ADK agent — tools via shared MCP client + registry."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -30,13 +30,20 @@ class GeminiAdkLLMProvider(LLMProvider):
     def provider_name(self) -> str:
         return "gemini-adk"
 
-    def run_investigation(self, session: Phase2Session, user_message: str) -> InvestigationSummary:
+    def run_investigation(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> InvestigationSummary:
         raw_text = run_adk_agent_text(
             session,
             user_message,
             settings=self.settings,
             include_tools=True,
             phase="investigation",
+            enabled_mcp_ids=enabled_mcp_ids,
         )
         try:
             return parse_investigation_summary(raw_text, session.run_id)
@@ -68,7 +75,13 @@ class GeminiAdkLLMProvider(LLMProvider):
                 f"Preview: {raw_text[:300]!r}"
             ) from exc
 
-    def run(self, session: Phase2Session, user_message: str) -> Phase2RunResult:
+    def run(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> Phase2RunResult:
         started = time.monotonic()
         raw_text = run_adk_agent_text(
             session,
@@ -76,6 +89,7 @@ class GeminiAdkLLMProvider(LLMProvider):
             settings=self.settings,
             include_tools=True,
             phase="final_rca",
+            enabled_mcp_ids=enabled_mcp_ids,
         )
         try:
             report = parse_rca_report(raw_text, session.run_id)

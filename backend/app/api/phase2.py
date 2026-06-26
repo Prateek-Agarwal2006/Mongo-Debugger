@@ -59,6 +59,18 @@ class Phase2RunRequest(BaseModel):
         default=None,
         description="LLM folder: mock | cursor | gemini",
     )
+    enabled_mcp_ids: list[str] = Field(
+        default_factory=list,
+        description="User MCP connector ids to enable for Phase A (Cursor only)",
+    )
+
+
+class Phase2ClarifyRequest(BaseModel):
+    answers: dict[str, str] = Field(default_factory=dict)
+    enabled_mcp_ids: list[str] = Field(
+        default_factory=list,
+        description="User MCP connector ids to enable for Phase C (Cursor only)",
+    )
 
 
 class ChatbotAttachmentRef(BaseModel):
@@ -104,6 +116,7 @@ def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[
             force_mock=force_mock,
             llm_provider=llm_provider,
             llm=llm,
+            enabled_mcp_ids=body.enabled_mcp_ids if body else None,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -177,7 +190,7 @@ def get_phase2_tool_trace(
 @router.post("/{run_id}/phase2/clarify")
 def run_phase2_clarify(
     run_id: str,
-    body: ClarifyingAnswers,
+    body: Phase2ClarifyRequest,
     force_mock: Annotated[bool, Query(description="Use mock provider (legacy)")] = False,
     llm_provider: Annotated[str | None, Query(description="LLM backend (legacy)")] = None,
     llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
@@ -191,10 +204,11 @@ def run_phase2_clarify(
         return submit_clarifications_and_run(
             get_run_workspace().root,
             run_id,
-            body,
+            ClarifyingAnswers(answers=body.answers),
             force_mock=force_mock,
             llm_provider=llm_provider,
             llm=llm,
+            enabled_mcp_ids=body.enabled_mcp_ids or None,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -132,7 +132,7 @@ flowchart LR
     Provider["CursorLLMProvider | builds AgentOptions + mcp_servers config"]
     SDK["Cursor SDK Agent.create | agent.send tool loop | MCP client"]
     Cloud["Cursor Cloud | model only — no direct bundle access"]
-    MCP["MCP servers subprocess | mcp_evidence_server | graylog | hatchet"]
+    MCP["MCP servers subprocess | mcp/servers/* | graylog | hatchet"]
   end
 
   subgraph charts [Grafana Docker Stack]
