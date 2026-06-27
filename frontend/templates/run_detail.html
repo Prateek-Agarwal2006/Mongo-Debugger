@@ -2,8 +2,11 @@
 {% block title %}{{ run_id }} — Run analysis (Phase 2){% endblock %}
 {% block body_class %}page-run-detail{% endblock %}
 {% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/static/css/report-viewer.css"/>
 <link rel="stylesheet" href="/static/css/clarify-chat.css"/>
+<link rel="stylesheet" href="/static/css/reading-surface.css"/>
+<script src="/static/js/reading-surface.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="/static/js/phase-rail.js?v=5" defer></script>
@@ -266,9 +269,15 @@
 <section class="glass-card mt-4" id="report-section">
   <div class="card-header bg-transparent border-secondary-subtle d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h2 class="h5 mb-0"><i class="bi bi-file-earmark-medical me-2 text-success"></i>RCA Report</h2>
-    <span class="badge text-bg-dark border border-secondary-subtle" id="report-llm-label">LLM: {{ selected_llm }}</span>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm reading-theme-toggle" id="reading-theme-toggle" aria-label="Toggle reading theme">
+        <i class="bi bi-sun-fill reading-theme-icon--light" aria-hidden="true"></i>
+        <i class="bi bi-moon-stars-fill reading-theme-icon--dark" aria-hidden="true"></i>
+      </button>
+      <span class="badge text-bg-dark border border-secondary-subtle" id="report-llm-label">LLM: {{ selected_llm }}</span>
+    </div>
   </div>
-  <div class="card-body">
+  <div class="card-body reading-surface" id="reading-surface" data-reading-theme="dark">
     <p class="text-secondary small mb-3">Scroll sections — causal chain connects step-by-step. Chat below after Phase C.</p>
     <div id="report-viewer" class="report-viewer" {% if not has_report %}hidden{% endif %}></div>
     <p class="text-secondary mt-3 mb-0" id="no-report-msg" {% if not has_report %}hidden{% endif %}>No Phase 2 report for this LLM yet. Run RCA above.</p>

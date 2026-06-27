@@ -21,11 +21,27 @@ function escapeChat(text) {
     .replace(/>/g, "&gt;");
 }
 
-function ensureMermaid() {
-  if (mermaidReady || typeof mermaid === "undefined") return;
-  mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
+function mermaidThemeForReadingSurface() {
+  return typeof window.getReadingTheme === "function" && window.getReadingTheme() === "light"
+    ? "default"
+    : "dark";
+}
+
+function ensureMermaid(force = false) {
+  if (typeof mermaid === "undefined") return;
+  if (mermaidReady && !force) return;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: mermaidThemeForReadingSurface(),
+    securityLevel: "strict",
+  });
   mermaidReady = true;
 }
+
+document.addEventListener("reading-theme-change", () => {
+  mermaidReady = false;
+  ensureMermaid(true);
+});
 
 function renderMarkdown(text) {
   const raw = String(text ?? "");

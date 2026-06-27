@@ -11,6 +11,8 @@ Bootstrap 5 + motion layer for Mongo Debugger. **All product logic lives in the 
 | `static/unnamed.png` | Favicon / Apple touch icon (Sprinklr splash) |
 | `static/css/motion.css` | Lightweight scroll reveals, phase rail, glass cards |
 | `static/css/report-viewer.css` | Interactive RCA report sections + causal chain |
+| `static/css/reading-surface.css` | Scoped Claude-like light/dark reading surface (report + chat) |
+| `static/js/reading-surface.js` | Reading-surface theme toggle + `localStorage` persistence |
 | `static/js/swagger-docs.js` | `/docs` quick-jump cards → expand Swagger operations |
 | `static/css/swagger-theme.css` | Swagger UI dark overrides |
 | `static/js/motion.js` | Lightweight IO reveals on marketing pages |
