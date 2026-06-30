@@ -1,0 +1,324 @@
+/* Modern theme — light Mongo glass. CSS-only (no React). Perf: no animated orbs, minimal backdrop-filter. */
+
+html[data-app-theme="modern"] {
+  --mdb-green: #00ed64;
+  --mdb-green-dim: #13aa52;
+  --mongo-forest: #001e2b;
+  --app-bg: #f4f7f6;
+  --app-surface: #ffffff;
+  --app-surface-2: #f8faf9;
+  --app-border: rgba(0, 30, 43, 0.1);
+  --app-glow: rgba(0, 237, 100, 0.12);
+}
+
+html[data-app-theme="modern"][data-bs-theme="light"] {
+  --bs-body-bg: transparent;
+  --bs-body-color: #001e2b;
+  --bs-secondary-color: #4b5c68;
+  --bs-emphasis-color: #001e2b;
+  --bs-success: var(--mdb-green-dim);
+  --bs-success-rgb: 19, 170, 82;
+  --bs-link-color: #00684a;
+  --bs-link-hover-color: #004d38;
+  --bs-border-color: rgba(0, 30, 43, 0.12);
+  --bs-border-color-translucent: rgba(0, 30, 43, 0.08);
+}
+
+/* Flat cream behind full-page Modern iframes (no dot grid / gradient bleed) */
+html[data-app-theme="modern"] body.mdb-modern-page {
+  background: #faf9f5;
+}
+
+/* ponytail: static orbs only — animated blur layers were scroll-jank on home */
+html[data-app-theme="modern"] .app-bg-orb {
+  opacity: 0.35;
+  animation: none;
+}
+
+html[data-app-theme="modern"] .app-bg-orb--green {
+  width: 42vw;
+  height: 42vw;
+  top: -14%;
+  left: -10%;
+  background: radial-gradient(circle, rgba(0, 237, 100, 0.22), transparent 68%);
+}
+
+html[data-app-theme="modern"] .app-bg-orb--violet {
+  width: 38vw;
+  height: 38vw;
+  bottom: -12%;
+  right: -8%;
+  background: radial-gradient(circle, rgba(0, 104, 74, 0.14), transparent 68%);
+}
+
+html[data-app-theme="modern"] .app-bg-grid {
+  background-image:
+    linear-gradient(rgba(0, 30, 43, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 30, 43, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.55;
+  mask-image: radial-gradient(ellipse 85% 60% at 50% 0%, black 55%, transparent 100%);
+}
+
+html[data-app-theme="modern"] .app-bg-modern-radial {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: min(1100px, 120vw);
+  height: min(520px, 70vh);
+  transform: translateX(-50%);
+  border-radius: 100%;
+  background: radial-gradient(
+    closest-side,
+    rgba(0, 237, 100, 0.14) 0%,
+    rgba(0, 237, 100, 0.04) 45%,
+    transparent 78%
+  );
+  filter: none;
+  animation: none;
+  pointer-events: none;
+}
+
+/* Navbar — solid surface, no blur */
+html[data-app-theme="modern"] .app-navbar {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-bottom: 1px solid var(--app-border) !important;
+  box-shadow: 0 1px 0 rgba(0, 30, 43, 0.04);
+}
+
+html[data-app-theme="modern"] .navbar.navbar-dark {
+  --bs-navbar-color: #4b5c68;
+  --bs-navbar-hover-color: var(--mongo-forest);
+  --bs-navbar-active-color: #00684a;
+  --bs-navbar-brand-color: var(--mongo-forest);
+  --bs-navbar-brand-hover-color: var(--mongo-forest);
+  --bs-navbar-toggler-border-color: rgba(0, 30, 43, 0.15);
+}
+
+html[data-app-theme="modern"] .nav-link.active {
+  color: #00684a !important;
+}
+
+html[data-app-theme="modern"] .navbar-brand .brand-icon {
+  background: linear-gradient(135deg, var(--mdb-green-dim), #00684a);
+  color: var(--mongo-forest);
+  box-shadow: 0 2px 10px rgba(0, 237, 100, 0.25);
+}
+
+/* Hero */
+html[data-app-theme="modern"] .hero-title {
+  background: linear-gradient(
+    125deg,
+    var(--mongo-forest) 0%,
+    #00684a 42%,
+    var(--mdb-green-dim) 68%,
+    #00ed64 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -0.03em;
+}
+
+html[data-app-theme="modern"] .hero-glow-ring {
+  border-color: rgba(0, 237, 100, 0.2);
+  box-shadow: 0 0 60px rgba(0, 237, 100, 0.1);
+  opacity: 0.7;
+}
+
+html[data-app-theme="modern"] .hero-glow-ring::before {
+  border-color: rgba(0, 104, 74, 0.18);
+}
+
+html[data-app-theme="modern"] .hero-scene {
+  min-height: min(64vh, 560px);
+}
+
+/* Surfaces — solid cards, no backdrop-filter */
+html[data-app-theme="modern"] .glass-card,
+html[data-app-theme="modern"] .card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 4px 24px rgba(0, 30, 43, 0.06);
+}
+
+html[data-app-theme="modern"] #appearance-settings {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: rgba(0, 237, 100, 0.2);
+}
+
+html[data-app-theme="modern"] .float-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 4px 16px rgba(0, 30, 43, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+html[data-app-theme="modern"] .float-card:hover {
+  border-color: rgba(0, 237, 100, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 30, 43, 0.08);
+  transform: translateY(-2px);
+}
+
+html[data-app-theme="modern"] .pipeline-track-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 4px 20px rgba(0, 30, 43, 0.05);
+}
+
+html[data-app-theme="modern"] .pipeline-track-card--highlight {
+  border-color: rgba(0, 237, 100, 0.35);
+  background: linear-gradient(145deg, #f0fdf4, #ffffff);
+  box-shadow: 0 6px 24px rgba(0, 237, 100, 0.1);
+}
+
+html[data-app-theme="modern"] .pipeline-track-badge {
+  background: rgba(0, 237, 100, 0.12);
+  border-color: rgba(0, 237, 100, 0.25);
+  color: #00684a;
+}
+
+html[data-app-theme="modern"] .pipeline-track-connector {
+  opacity: 0.85;
+  background: linear-gradient(90deg, #00684a, var(--mdb-green));
+}
+
+html[data-app-theme="modern"] .hero-card {
+  background: linear-gradient(135deg, #ffffff, #f0fdf4);
+  box-shadow: 0 12px 40px rgba(0, 30, 43, 0.08);
+}
+
+html[data-app-theme="modern"] .btn-glow {
+  box-shadow: 0 4px 16px rgba(0, 237, 100, 0.3);
+}
+
+html[data-app-theme="modern"] .btn-glow:hover {
+  box-shadow: 0 6px 22px rgba(0, 237, 100, 0.4);
+}
+
+html[data-app-theme="modern"] .btn-success {
+  background: linear-gradient(135deg, #00684a, var(--mdb-green-dim));
+  border: none;
+  color: #001e2b;
+  font-weight: 600;
+}
+
+html[data-app-theme="modern"] .btn-outline-light {
+  --bs-btn-color: #334155;
+  --bs-btn-border-color: rgba(0, 30, 43, 0.18);
+  --bs-btn-hover-color: var(--mongo-forest);
+  --bs-btn-hover-bg: #f8faf9;
+  --bs-btn-hover-border-color: rgba(0, 104, 74, 0.35);
+}
+
+html[data-app-theme="modern"] .btn-outline-success {
+  --bs-btn-color: #00684a;
+  --bs-btn-border-color: rgba(0, 104, 74, 0.35);
+}
+
+html[data-app-theme="modern"] .runs-table thead {
+  background: #f0fdf4;
+}
+
+html[data-app-theme="modern"] .runs-table tbody tr:hover {
+  background: rgba(0, 237, 100, 0.06);
+}
+
+html[data-app-theme="modern"] .pretty-report {
+  background: #f8faf9;
+  border-color: var(--app-border);
+  color: #1e293b;
+}
+
+html[data-app-theme="modern"] .phase-rail {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  box-shadow: 0 4px 20px rgba(0, 30, 43, 0.06);
+}
+
+html[data-app-theme="modern"] .rv-hero {
+  background: linear-gradient(145deg, #f0fdf4, #ffffff);
+  border-color: rgba(0, 237, 100, 0.25);
+}
+
+html[data-app-theme="modern"] .rv-section-inner,
+html[data-app-theme="modern"] .rv-nav--side {
+  background: var(--app-surface);
+}
+
+html[data-app-theme="modern"] .rv-timeline-card,
+html[data-app-theme="modern"] .rv-finding-card,
+html[data-app-theme="modern"] .rv-evidence-card {
+  background: var(--app-surface-2);
+}
+
+html[data-app-theme="modern"] .agent-chat-log {
+  background: var(--app-surface-2);
+}
+
+html[data-app-theme="modern"] .agent-chat-bubble--user {
+  background: rgba(0, 237, 100, 0.1);
+  border-color: rgba(0, 237, 100, 0.22);
+}
+
+html[data-app-theme="modern"] .agent-chat-bubble--assistant {
+  background: var(--app-surface);
+}
+
+html[data-app-theme="modern"] .agent-chat-md strong {
+  color: var(--mongo-forest);
+}
+
+html[data-app-theme="modern"] .agent-chat-md code,
+html[data-app-theme="modern"] .agent-chat-md pre {
+  background: #f1f5f4;
+}
+
+html[data-app-theme="modern"] .upload-dropzone {
+  border-color: rgba(0, 237, 100, 0.35);
+  background: rgba(0, 237, 100, 0.04);
+}
+
+html[data-app-theme="modern"] footer {
+  border-top-color: var(--app-border) !important;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+html[data-app-theme="modern"] .app-theme-toggle {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+html[data-app-theme="modern"] .app-theme-toggle__btn.is-active {
+  background: #f0fdf4;
+  border-color: rgba(0, 237, 100, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 237, 100, 0.12);
+}
+
+/* Modern React shell */
+.modern-app-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: auto;
+}
+
+html[data-app-theme="modern"] #classic-chrome[hidden] {
+  display: none !important;
+}
+
+/* Before app-theme.js runs: hide Classic chrome on Modern shell pages */
+html[data-app-theme="modern"] body.mdb-modern-page #classic-chrome {
+  display: none !important;
+}
+
+html[data-app-theme="modern"] body.mdb-modern-page #modern-app-root {
+  display: block !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-app-theme="modern"] .float-card:hover {
+    transform: none;
+  }
+}

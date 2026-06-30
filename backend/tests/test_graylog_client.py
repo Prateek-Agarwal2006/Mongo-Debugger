@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backend.app.simagix.graylog_client import search_absolute
-from backend.app.simagix.llm import graylog_mcp_server as graylog_mcp
+from backend.app.simagix.llm.mcp.servers import graylog as graylog_mcp
 
 
 def test_search_absolute_normalizes_messages() -> None:
@@ -58,7 +58,7 @@ def test_graylog_mcp_configured_calls_client(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("GRAYLOG_API_TOKEN", "secret")
 
     with patch(
-        "backend.app.simagix.llm.graylog_mcp_server.search_absolute",
+        "backend.app.simagix.llm.mcp.servers.graylog.search_absolute",
         return_value={"configured": True, "messages": [], "message_count": 0},
     ) as mock_search:
         result = graylog_mcp.query_logs_around_window(

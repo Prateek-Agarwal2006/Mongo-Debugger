@@ -6,7 +6,7 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-26
 
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
@@ -18,8 +18,10 @@ API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `
 |-------|-------------|
 | `GET /` | Home dashboard |
 | `GET /upload` | Upload FTDC archive |
+| `GET /mcp-workarea` | Configure operator MCP connectors (registry on disk) |
+| `GET /skill-workarea` | Upload operator skill packages (ZIP by slot name) |
 | `GET /runs` | List runs |
-| `GET /runs/{run_id}` | Run detail, Grafana charts, RCA panel |
+| `GET /runs/{run_id}` | Run detail, Grafana charts, RCA panel (MCP checkboxes before Run RCA) |
 
 ---
 
@@ -351,6 +353,40 @@ One shared local stack: Grafana `:3030`, FTDC API `:5408` (Docker / Colima requi
 
 ---
 
+## Operator MCP connectors
+
+Registry path: `simagix-workspace/operator/mcp_connectors/registry.json` (under `DATA_ROOT`).
+
+```http
+GET /simagix/mcp-connectors
+POST /simagix/mcp-connectors
+DELETE /simagix/mcp-connectors/{connector_id}
+```
+
+**POST body (HTTP):** `{"id": "remote-docs", "name": "Docs MCP", "transport": "http", "url": "https://…", "headers": {}}`
+
+**POST body (stdio template):** `{"id": "github", "name": "GitHub", "transport": "stdio_template", "template_id": "github-mcp", "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "…"}}`
+
+List response includes `stdio_templates[]` and locked builtin `simagix-evidence`.
+
+**Run page:** checkboxes (no saved selection) → `enabled_mcp_ids` on Phase 2 start and clarify. Both Cursor and ADK merge selected ids via `build_mcp_server_specs`; mock ignores the field.
+
+---
+
+## Operator skill catalog
+
+Storage path: `simagix-workspace/operator/skills/{slot_name}/` (under `DATA_ROOT`). Pass-through ZIP extract — no `registry.json`.
+
+```http
+GET /simagix/skills
+POST /simagix/skills          # multipart: slot_name + archive (.zip)
+DELETE /simagix/skills/{slot_name}
+```
+
+**No run-page checkboxes.** When the catalog is non-empty, **all** skills attach on Phase A, Phase C, and chatbot (Cursor: `scratch/.cursor/skills/`; ADK: `SkillToolset`).
+
+---
+
 ## Phase 2 RCA endpoints
 
 ### LLM providers
@@ -367,7 +403,7 @@ Returns `default` from `.env` and `options[]` with `id`, `label`, `available` (w
 POST /simagix/runs/{run_id}/phase2/run
 ```
 
-Body: `{"llm": "mock"}` or `{"llm_provider": "gemini"}` (required unless legacy `force_mock`). Runs tier-2 investigation into `phase2/llm/{llm}/`. Response includes resolved `llm` folder name.
+Body: `{"llm": "mock", "enabled_mcp_ids": ["github-prod"]}` or `{"llm_provider": "gemini"}` (required unless legacy `force_mock`). `enabled_mcp_ids` is optional — user connector ids only (built-in `simagix-evidence` is always on for Cursor). Runs tier-2 investigation into `phase2/llm/{llm}/`. Response includes resolved `llm` folder name.
 
 ### Session status
 
@@ -405,14 +441,7 @@ GET /simagix/runs/{run_id}/phase2/anomaly-correlation
 POST /simagix/runs/{run_id}/phase2/clarify?llm=mock
 ```
 
-Body: `{"answers": {"question_id": "operator answer"}}`. Query `llm` is **required** (or legacy `llm_provider` / `force_mock`).
-
-### Profiler data
-
-```http
-POST /simagix/runs/{run_id}/phase2/profiler
-GET /simagix/runs/{run_id}/phase2/profiler
-```
+Body: `{"answers": {"question_id": "operator answer"}, "enabled_mcp_ids": ["github-prod"]}`. Query `llm` is **required** (or legacy `llm_provider` / `force_mock`). Phase C uses **current** checkbox state from the run page, not Phase A selection.
 
 ### Post-report chatbot (Phase 3)
 
@@ -459,7 +488,23 @@ FastAPI app under `backend/app/`.
 |--------|------|---------|
 | Simagix RCA | `app/simagix/` | Bundle loader, fallback tools, evidence service |
 | Phase 2 LLM | `app/simagix/llm/` | Cursor or Gemini ADK agent, MCP/evidence tools, 3-phase RCA flow |
-| Hatchet tier-2 | `app/simagix/hatchet_tools.py`, `llm/hatchet_mcp_server.py` | MCP/ADK tools over `hatchet.db` when logs were analyzed |
+
+#### Phase 2 LLM file layout (`app/simagix/llm/`)
+
+| File / area | Cursor | Gemini ADK | Shared |
+|-------------|--------|------------|--------|
+| Orchestration | — | — | `service.py`, `session.py`, `prompts.py`, `parse_output.py` |
+| Providers | `providers/cursor/provider.py` | `providers/adk/{provider,runner}.py` | `providers/mock.py`, `provider.py` (ABC) |
+| Agent runtime | **Cursor SDK** | ADK `InMemoryRunner` | — |
+| MCP layer | SDK spawns subprocesses | Native `McpToolset` via `to_adk_mcp_toolsets()` | `mcp/registry.py`, `mcp/connectors.py`, `mcp/servers/*` |
+| Skill catalog | `copytree` → scratch `.cursor/skills/` + `setting_sources=["project"]` | `SkillToolset` via `load_skill_from_dir` | `skills/registry.py`, `/skill-workarea` |
+| WorkArea / operator MCPs | `enabled_mcp_ids` → `build_mcp_server_specs` → SDK | Same specs → `McpToolset` | Registry + API + UI |
+| Web fetch policy | `web_fetch.py` → `build_cursor_sdk_web_tools` | `web_fetch.py` callable on ADK agent | `web_fetch.py` |
+| Tool audit | `tool_trace.py` | `tool_trace.py` | `tool_trace.py` |
+
+Full layout: [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout. Tradeoffs: [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18, §14.
+
+| Hatchet tier-2 | `app/simagix/hatchet_tools.py`, `llm/mcp/servers/hatchet.py` | MCP tools over `hatchet.db` when logs were analyzed |
 | Web UI | `app/web/` | Jinja2 templates, pages |
 | Upload jobs | `app/jobs/` | File queue, worker, job store, catalog, retry (see below) |
 | API | `app/api/` | REST routes (runs, phase2, upload, grafana) |

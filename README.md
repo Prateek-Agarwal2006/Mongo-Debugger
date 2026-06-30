@@ -79,6 +79,25 @@ uv run python -m backend.app.jobs.worker
 
 Open **http://localhost:8000** → **Upload** or browse the included test run `phase1test20260609T133314Z`.
 
+**Stop / restart the API** (required after changing `.env` — settings are cached per process):
+
+```bash
+# In the uvicorn terminal: Ctrl+C
+
+# Or from any shell:
+pkill -f "uvicorn backend.app.main:app" || true
+lsof -ti :8000 | xargs kill -9   # only if port still in use
+
+cd mongo-debugger   # repo root — `.env` is read from here
+uv run uvicorn backend.app.main:app --reload --port 8000
+```
+
+Restart the worker separately if needed (`pkill -f "backend.app.jobs.worker"` then start worker again). After updating `CURSOR_API_KEY`, confirm Cursor is available:
+
+```bash
+curl -s http://localhost:8000/simagix/runs/phase2/llm-providers | jq '.options[] | select(.id=="cursor")'
+```
+
 ### 5. Grafana charts (optional)
 
 ```bash
@@ -132,7 +151,7 @@ flowchart LR
     Provider["CursorLLMProvider | builds AgentOptions + mcp_servers config"]
     SDK["Cursor SDK Agent.create | agent.send tool loop | MCP client"]
     Cloud["Cursor Cloud | model only — no direct bundle access"]
-    MCP["MCP servers subprocess | mcp_evidence_server | graylog | hatchet"]
+    MCP["MCP servers subprocess | mcp/servers/* | graylog | hatchet"]
   end
 
   subgraph charts [Grafana Docker Stack]

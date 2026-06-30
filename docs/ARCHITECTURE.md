@@ -94,11 +94,11 @@ The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **n
 | 5 | REST Phase 2 | **FastAPI** routers | `api/phase2.py` |
 | 5 | Evidence service | **SimagixEvidenceService** | `backend/app/simagix/evidence_service.py` |
 | 5 | Report schemas | **Pydantic** | `backend/app/simagix/output_schema.py` |
-| 5 | Live LLM agent | **cursor-sdk** | `llm/cursor_provider.py` |
-| 5 | Mock LLM | **MockLLMProvider** | `llm/mock_provider.py` |
+| 5 | Live LLM agent | **cursor-sdk** | `llm/providers/cursor/provider.py` |
+| 5 | Mock LLM | **MockLLMProvider** | `llm/providers/mock.py` |
 | 5 | Model inference (live) | **Cursor Cloud API** | `CURSOR_API_KEY` |
-| 5 | Evidence MCP | **mcp** (FastMCP) | `llm/mcp_evidence_server.py` |
-| 5 | Optional logs MCP | **mcp** Graylog server | `llm/graylog_mcp_server.py` |
+| 5 | Evidence MCP | **mcp** (FastMCP) | `llm/mcp/servers/evidence.py` |
+| 5 | Optional logs MCP | **mcp** Graylog server | `llm/mcp/servers/graylog.py` |
 | 5 | SDK local tools | **cursor-sdk** built-ins | `tool_trace.json` |
 | 5 | Tool budget | **RetrievalBudget** | `simagix/budget.py` |
 | 6 | Grafana UI | **Grafana OSS** | `:3030` |

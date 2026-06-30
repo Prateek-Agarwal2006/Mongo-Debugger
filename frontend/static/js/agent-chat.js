@@ -21,11 +21,27 @@ function escapeChat(text) {
     .replace(/>/g, "&gt;");
 }
 
-function ensureMermaid() {
-  if (mermaidReady || typeof mermaid === "undefined") return;
-  mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
+function mermaidThemeForApp() {
+  return typeof window.getAppTheme === "function" && window.getAppTheme() === "modern"
+    ? "default"
+    : "dark";
+}
+
+function ensureMermaid(force = false) {
+  if (typeof mermaid === "undefined") return;
+  if (mermaidReady && !force) return;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: mermaidThemeForApp(),
+    securityLevel: "strict",
+  });
   mermaidReady = true;
 }
+
+document.addEventListener("app-theme-change", () => {
+  mermaidReady = false;
+  ensureMermaid(true);
+});
 
 function renderMarkdown(text) {
   const raw = String(text ?? "");
@@ -125,7 +141,7 @@ async function renderMessages(messages, { generating = false } = {}) {
   if (!log) return;
   if (!messages.length && !generating) {
     log.innerHTML =
-      '<p class="text-secondary small mb-0">Ask about the report, attach a file, or paste profiler JSON.</p>';
+      '<p class="text-secondary small mb-0">Ask about the report or attach a file.</p>';
     return;
   }
   const bubbles = messages
@@ -271,32 +287,6 @@ async function loadChatbot() {
   }
 }
 
-async function tryProfilerUpload(text) {
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(parsed)) return null;
-
-  const resp = await fetch(`/simagix/runs/${chatRunId}/phase2/profiler`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(parsed),
-  });
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    throw new Error(data.detail || "Profiler upload failed");
-  }
-  return `Profiler data saved (${data.sample_count ?? parsed.length} samples).`;
-}
-
-async function tryProfilerUploadFromFile(file) {
-  const text = await file.text();
-  return tryProfilerUpload(text);
-}
-
 async function uploadChatAttachment(file) {
   const llm = getLlmFn();
   const form = new FormData();
@@ -329,28 +319,7 @@ async function sendChatMessage(text, files = []) {
     let content = trimmed;
     const uploaded = [];
     for (const file of files) {
-      if (file.name.toLowerCase().endsWith(".json")) {
-        try {
-          const profilerNote = await tryProfilerUploadFromFile(file);
-          if (profilerNote) {
-            content = content
-              ? `${content}\n\n[Profiler upload: ${profilerNote}]`
-              : `[Profiler upload: ${profilerNote}]`;
-          }
-        } catch (err) {
-          throw new Error(err.message || "Profiler upload failed");
-        }
-      }
       uploaded.push(await uploadChatAttachment(file));
-    }
-
-    if (!files.length) {
-      const profilerNote = await tryProfilerUpload(trimmed);
-      if (profilerNote) {
-        content = content
-          ? `${content}\n\n[Profiler upload: ${profilerNote}]`
-          : `[Profiler upload: ${profilerNote}]`;
-      }
     }
 
     const resp = await fetch(

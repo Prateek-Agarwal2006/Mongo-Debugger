@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from backend.app.simagix.fallback_tools import unique_metrics_from_index
 from backend.app.simagix.scoring import score_semantics
 from backend.app.simagix.schemas import (
     BundleIndexEntry,
@@ -73,6 +74,9 @@ class SimagixBundleLoader:
                 highlight.model_dump()
                 for highlight in tier1.executive_context.assessment_highlights
             ],
+            "retrievable_metrics": unique_metrics_from_index(
+                [entry.model_dump() for entry in tier1.fallback_index]
+            ),
             "anomaly_event_count": tier1.executive_context.anomaly_event_count,
             "read_order": tier1.executive_context.read_order,
             "fallback_files": tier1.executive_context.fallback_files,

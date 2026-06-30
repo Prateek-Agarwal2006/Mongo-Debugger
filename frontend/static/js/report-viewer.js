@@ -149,6 +149,354 @@ function buildNav(sections) {
   </nav>`;
 }
 
+function isStitchReportViewer(container) {
+  return container?.classList?.contains("report-viewer--stitch");
+}
+
+function buildStitchNav(sections) {
+  return `<nav class="report-stitch-nav space-y-3" aria-label="Report sections">
+    ${sections
+      .map(
+        (s, i) =>
+          `<a href="#section-${s.id}" data-rv-link="${s.id}"${i === 0 ? " class=\"is-active\"" : ""}>` +
+          `${i === 0 ? '<span class="report-stitch-nav-dot"></span>' : ""}${escapeHtml(s.label)}</a>`
+      )
+      .join("")}
+  </nav>`;
+}
+
+function buildStitchConfidenceRing(pct) {
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference * (1 - pct / 100);
+  return `
+    <div class="report-stitch-confidence">
+      <div class="report-stitch-confidence-ring" aria-label="Confidence ${pct}%">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#EDEEE8" stroke-width="8"></circle>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#c96442" stroke-width="8"
+            stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"></circle>
+        </svg>
+        <span class="report-stitch-confidence-value">${pct}%</span>
+      </div>
+      <span class="report-stitch-confidence-label">Confidence</span>
+    </div>`;
+}
+
+function buildStitchParagraph(text) {
+  const raw = String(text ?? "").trim();
+  if (!raw) return "";
+  return `<p class="report-stitch-p">${escapeHtml(raw)}</p>`;
+}
+
+/** Bullets only when the value is already split (newlines in JSON string). */
+function buildStitchTextBlock(text) {
+  const raw = String(text ?? "").trim();
+  if (!raw) return "";
+  const lines = raw
+    .split(/\n+/)
+    .map((s) => s.replace(/^[-*•]\s*/, "").trim())
+    .filter(Boolean);
+  if (lines.length > 1) {
+    return `<ul class="report-stitch-list">${lines
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join("")}</ul>`;
+  }
+  return buildStitchParagraph(raw);
+}
+
+function buildStitchLabelledBlock(label, text) {
+  if (!String(text ?? "").trim()) return "";
+  return `
+    <div class="report-stitch-labelled-block">
+      <span class="report-stitch-labelled-heading">${escapeHtml(label)}</span>
+      ${buildStitchTextBlock(text)}
+    </div>`;
+}
+
+function buildStitchSummary(text) {
+  return buildStitchTextBlock(text);
+}
+
+function buildStitchCausalChain(steps) {
+  if (!steps?.length) return '<p class="report-stitch-empty">No causal chain steps.</p>';
+  const last = steps.length - 1;
+  return `
+    <div class="report-stitch-causal-box">
+      <div class="report-stitch-causal-line" aria-hidden="true"></div>
+      <div class="space-y-6">
+        ${steps
+          .map((step, i) => {
+            const impact = i === last;
+            return `
+          <div class="report-stitch-causal-step${impact ? " is-impact" : ""}">
+            <div class="report-stitch-causal-num">${i + 1}</div>
+            <div>
+              <h4>${impact ? "Observable impact" : `Step ${i + 1}`}</h4>
+              ${buildStitchParagraph(step)}
+            </div>
+          </div>`;
+          })
+          .join("")}
+      </div>
+    </div>`;
+}
+
+function buildStitchTimeline(events) {
+  if (!events?.length) return '<p class="report-stitch-empty">No timeline events.</p>';
+  return `<div class="report-stitch-timeline">
+    ${events
+      .map((ev) => {
+        const alert = /fail|error|timeout|critical/i.test(ev.observation || "");
+        const metrics = ev.metrics_involved?.length
+          ? `<div class="report-stitch-timeline-metrics">${ev.metrics_involved
+              .map((m) => `<span class="report-stitch-metric-tag">${escapeHtml(m)}</span>`)
+              .join("")}</div>`
+          : "";
+        return `
+        <div class="report-stitch-timeline-item${alert ? " is-alert" : ""}">
+          <div class="report-stitch-timeline-dot"></div>
+          <div class="report-stitch-timeline-time">${escapeHtml(ev.time_window || "—")}</div>
+          ${buildStitchLabelledBlock("Observed", ev.observation)}
+          ${ev.mechanism ? buildStitchLabelledBlock("Mechanism", ev.mechanism) : ""}
+          ${metrics}
+        </div>`;
+      })
+      .join("")}
+  </div>`;
+}
+
+function buildStitchFindings(analyses) {
+  if (!analyses?.length) return '<p class="report-stitch-empty">No finding analyses.</p>';
+  return analyses
+    .map((fa) => {
+      const factors = fa.contributing_factors?.length
+        ? `<div class="report-stitch-labelled-block">
+            <span class="report-stitch-labelled-heading">Contributing factors</span>
+            <ul class="report-stitch-list">${fa.contributing_factors
+              .map((f) => `<li>${escapeHtml(f)}</li>`)
+              .join("")}</ul>
+          </div>`
+        : "";
+      const metrics = fa.related_metrics?.length
+        ? `<p class="report-stitch-finding-metrics"><span class="report-stitch-labelled-heading">Metrics</span> ${fa.related_metrics
+            .map((m) => escapeHtml(m))
+            .join(", ")}</p>`
+        : "";
+      return `
+    <div class="report-stitch-finding-card">
+      <h4>${escapeHtml(fa.finding_name || "Finding")}</h4>
+      ${fa.time_window ? `<p class="report-stitch-finding-window">${escapeHtml(fa.time_window)}</p>` : ""}
+      ${buildStitchLabelledBlock("What was observed", fa.what_observed)}
+      ${buildStitchLabelledBlock("Why it happened", fa.why_it_happened)}
+      ${factors}
+      ${metrics}
+    </div>`;
+    })
+    .join("");
+}
+
+function buildStitchEvidence(citations) {
+  if (!citations?.length) return '<p class="report-stitch-empty">No citations.</p>';
+  return citations
+    .map((c) => {
+      const ref = c.reference || "";
+      const summary = c.summary || "";
+      const isLog = /log|mongod/i.test(c.source_type || "") || /\.log/i.test(ref);
+      const values =
+        c.values && Object.keys(c.values).length
+          ? `<ul class="report-stitch-list report-stitch-evidence-values">${Object.entries(c.values)
+              .map(([k, v]) => `<li><strong>${escapeHtml(k)}:</strong> ${escapeHtml(String(v))}</li>`)
+              .join("")}</ul>`
+          : "";
+      if (isLog && ref.length > 20) {
+        return `
+        <div class="report-stitch-evidence-card">
+          <div class="report-stitch-evidence-block">
+            <div class="report-stitch-evidence-header">${escapeHtml(c.source_type || "log excerpt")}</div>
+            <div class="report-stitch-evidence-body">${escapeHtml(ref)}</div>
+          </div>
+          ${summary ? buildStitchLabelledBlock("Summary", summary) : ""}
+          ${values}
+        </div>`;
+      }
+      return `
+      <div class="report-stitch-finding-card">
+        <h4>${escapeHtml(c.source_type || "source")} — ${escapeHtml(ref)}</h4>
+        ${summary ? buildStitchLabelledBlock("Summary", summary) : ""}
+        ${values}
+      </div>`;
+    })
+    .join("");
+}
+
+function buildStitchList(items, ordered = false) {
+  if (!items?.length) return '<p class="report-stitch-empty">None listed.</p>';
+  const tag = ordered ? "ol" : "ul";
+  const listClass = ordered ? "report-stitch-list report-stitch-list--ordered" : "report-stitch-list";
+  return `<${tag} class="${listClass}">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${tag}>`;
+}
+
+function buildStitchRuledOut(items) {
+  if (!items?.length) return '<p class="report-stitch-empty">None listed.</p>';
+  return `<ul class="report-stitch-list report-stitch-ruled-list">${items
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("")}</ul>`;
+}
+
+function stitchSection(id, title, bodyHtml) {
+  return `
+    <section class="report-section report-stitch-section" id="section-${id}" data-rv-section data-rv-nav="${id}">
+      <h3 class="report-stitch-section-title">${escapeHtml(title)}</h3>
+      ${bodyHtml}
+    </section>`;
+}
+
+function buildReportDomStitch(data) {
+  const report = data.report || {};
+  const confidence = formatConfidence(report.confidence);
+  const sections = [];
+  const parts = [];
+
+  const heroMeta = [];
+  if (data.provider) heroMeta.push(`<span><span class="material-symbols-outlined text-sm">robot_2</span> ${escapeHtml(data.provider)}</span>`);
+  if (data.agent_id) heroMeta.push(`<span>${escapeHtml(data.agent_id)}</span>`);
+
+  parts.push(`
+    <section class="report-section report-stitch-hero" id="section-hero" data-rv-section data-rv-nav="hero">
+      <div class="flex justify-between items-start gap-4 flex-wrap w-full">
+        <div class="min-w-0">
+          ${buildMetaChips(data).replace(/rv-meta-chips/g, "report-stitch-chips").replace(/rv-chip/g, "report-stitch-chip")}
+          <p class="report-stitch-kicker">Diagnostic report</p>
+          <h1 class="report-stitch-title">${escapeHtml(report.root_cause || "Root cause pending")}</h1>
+          ${heroMeta.length ? `<div class="report-stitch-meta">${heroMeta.join('<span>•</span>')}</div>` : ""}
+        </div>
+        ${confidence != null ? buildStitchConfidenceRing(confidence) : ""}
+      </div>
+    </section>`);
+  sections.push({ id: "hero", label: "Overview" });
+
+  if (report.summary) {
+    sections.push({ id: "summary", label: "Executive summary" });
+    parts.push(stitchSection("summary", "Executive summary", buildStitchSummary(report.summary)));
+  }
+
+  if (report.mechanism_summary) {
+    sections.push({ id: "mechanism", label: "Mechanism" });
+    parts.push(
+      stitchSection("mechanism", "Mechanism", buildStitchTextBlock(report.mechanism_summary))
+    );
+  }
+
+  if (report.incident_timeline?.length) {
+    sections.push({ id: "timeline", label: "Timeline" });
+    parts.push(stitchSection("timeline", "Incident timeline", buildStitchTimeline(report.incident_timeline)));
+  }
+
+  if (report.finding_analyses?.length) {
+    sections.push({ id: "findings", label: "Findings" });
+    parts.push(stitchSection("findings", "Finding analyses", buildStitchFindings(report.finding_analyses)));
+  }
+
+  if (report.causal_chain?.length) {
+    sections.push({ id: "causal", label: "Causal chain" });
+    parts.push(stitchSection("causal", "Causal chain", buildStitchCausalChain(report.causal_chain)));
+  }
+
+  if (report.evidence_citations?.length) {
+    sections.push({ id: "evidence", label: "Evidence" });
+    parts.push(stitchSection("evidence", "Evidence citations", buildStitchEvidence(report.evidence_citations)));
+  }
+
+  if (report.safe_fixes?.length) {
+    sections.push({ id: "fixes", label: "Safe fixes" });
+    parts.push(
+      stitchSection("fixes", "Actionable fixes", `<div class="report-stitch-fixes">${buildStitchList(report.safe_fixes, true)}</div>`)
+    );
+  }
+
+  if (report.ruled_out_hypotheses?.length) {
+    sections.push({ id: "ruled-out", label: "Ruled out" });
+    parts.push(
+      stitchSection("ruled-out", "Ruled out hypotheses", buildStitchRuledOut(report.ruled_out_hypotheses))
+    );
+  }
+
+  if (report.reference_urls?.length) {
+    sections.push({ id: "references", label: "References" });
+    parts.push(
+      stitchSection(
+        "references",
+        "References",
+        `<ul class="report-stitch-list">${report.reference_urls
+          .map(
+            (url) =>
+              `<li><a class="report-stitch-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></li>`
+          )
+          .join("")}</ul>`
+      )
+    );
+  }
+
+  return `
+    <div class="report-stitch-layout">
+      <div class="hidden lg:block">
+        ${buildStitchNav(sections)}
+      </div>
+      <div class="report-stitch-document">
+        ${parts.join("")}
+      </div>
+    </div>`;
+}
+
+function animateStitchReportSections(root) {
+  root.querySelectorAll(".report-section").forEach((el, index) => {
+    if (prefersReducedMotion()) {
+      el.classList.add("is-visible");
+      return;
+    }
+    window.setTimeout(() => el.classList.add("is-visible"), index * 80);
+  });
+}
+
+function initReportObserversStitch(root) {
+  if (sectionObserver) sectionObserver.disconnect();
+  if (navObserver) navObserver.disconnect();
+  if (chainResizeObserver) chainResizeObserver.disconnect();
+
+  const navLinks = root.querySelectorAll("[data-rv-link]");
+  const navSections = root.querySelectorAll("[data-rv-section]");
+
+  if (navLinks.length && navSections.length) {
+    navObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        const id = visible.target.getAttribute("data-rv-nav");
+        navLinks.forEach((link) => {
+          link.classList.toggle("is-active", link.getAttribute("data-rv-link") === id);
+        });
+      },
+      { rootMargin: "-15% 0px -55% 0px", threshold: [0, 0.25, 0.5] }
+    );
+    navSections.forEach((s) => navObserver.observe(s));
+  }
+
+  navLinks.forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = link.getAttribute("data-rv-link");
+      const target = root.querySelector(`#section-${id}`);
+      if (target) {
+        target.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+      }
+    });
+  });
+
+  animateStitchReportSections(root);
+}
+
 function buildReportDom(data) {
   const report = data.report || {};
   const confidence = formatConfidence(report.confidence);
@@ -352,9 +700,14 @@ function renderReportPayload(data, container) {
   if (!container) return;
   lastReportData = data;
   container.removeAttribute("hidden");
-  container.classList.remove("report-viewer--3d");
-  container.innerHTML = buildReportDom(data);
-  initReportObservers(container);
+  container.classList.remove("hidden", "report-viewer--3d");
+  if (isStitchReportViewer(container)) {
+    container.innerHTML = buildReportDomStitch(data);
+    initReportObserversStitch(container);
+  } else {
+    container.innerHTML = buildReportDom(data);
+    initReportObservers(container);
+  }
   window.FtdcAgentChat?.setReportContext?.(data);
 
   const rawEl = document.getElementById("saved-report-raw");
@@ -382,6 +735,7 @@ function clearReport(container) {
   lastReportData = null;
   container.innerHTML = "";
   container.setAttribute("hidden", "");
+  container.classList.add("hidden");
   container.classList.remove("report-viewer--3d");
 }
 
@@ -389,9 +743,16 @@ function getLastReportData() {
   return lastReportData;
 }
 
+function reanimateStitchReport(container) {
+  if (!container || !isStitchReportViewer(container)) return;
+  container.querySelectorAll(".report-section").forEach((el) => el.classList.remove("is-visible"));
+  animateStitchReportSections(container);
+}
+
 window.FtdcReportViewer = {
   render: renderReportPayload,
   load: loadAndRender,
   clear: clearReport,
   getLastReportData,
+  reanimateStitch: reanimateStitchReport,
 };

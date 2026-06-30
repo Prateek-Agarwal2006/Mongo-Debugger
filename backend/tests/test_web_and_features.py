@@ -11,13 +11,11 @@ from fastapi.testclient import TestClient
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.main import create_app
 from backend.app.simagix.anomaly_correlation import build_correlation_package
-from backend.app.core.run_workspace import RunWorkspace
 from backend.app.simagix.llm.service import (
     generate_clarifying_questions_for_run,
     run_investigation,
 )
 from backend.app.simagix.evidence_service import SimagixEvidenceService
-from backend.app.simagix.profiler import load_profiler_data, save_profiler_data
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_RUN_ID = "phase1test20260609T133314Z"
@@ -137,22 +135,6 @@ def test_phase2_flow_api(client: TestClient) -> None:
     result = _complete_mock_rca(client, FIXTURE_RUN_ID)
     assert result["status"] == "completed"
     assert result.get("report", {}).get("summary")
-
-
-def test_profiler_upload_and_fetch(client: TestClient) -> None:
-    samples = [{"op": "query", "millis": 120, "ns": "test.orders"}]
-    upload = client.post(f"/simagix/runs/{FIXTURE_RUN_ID}/phase2/profiler", json=samples)
-    assert upload.status_code == 200
-    fetch = client.get(f"/simagix/runs/{FIXTURE_RUN_ID}/phase2/profiler")
-    assert fetch.status_code == 200
-    assert fetch.json()["available"] is True
-
-
-def test_profiler_module() -> None:
-    save_profiler_data(WORKSPACE_ROOT, "test-profiler-run", [{"op": "update"}])
-    data = load_profiler_data(WORKSPACE_ROOT, "test-profiler-run")
-    assert data["available"] is True
-    assert data["sample_count"] == 1
 
 
 def test_html_report_view(client: TestClient) -> None:

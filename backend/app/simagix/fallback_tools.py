@@ -21,6 +21,10 @@ def _in_window(ts: datetime, start: datetime | None, end: datetime | None) -> bo
     return not (end and ts > end)
 
 
+def unique_metrics_from_index(index: list[dict[str, Any]]) -> list[str]:
+    return sorted({entry.get("metric", "") for entry in index if entry.get("metric")})
+
+
 class SimagixFallbackTools:
     """Read-only fallback retrieval tools for tier_2/tier_3 bundle files."""
 
@@ -113,7 +117,7 @@ class SimagixFallbackTools:
 
     def list_fallback_metrics(self, pattern: str | None = None) -> list[str]:
         index = self._load_fallback_index()
-        names = sorted({entry.get("metric", "") for entry in index if entry.get("metric")})
+        names = unique_metrics_from_index(index)
         if not pattern:
             return names
         needle = pattern.lower()

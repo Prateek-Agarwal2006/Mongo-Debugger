@@ -1,6 +1,6 @@
 # Operations Guide
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-29
 
 ## Prerequisites
 
@@ -193,6 +193,14 @@ Requires **Docker** for the background pipeline (Colima on Mac).
 ```bash
 pkill -f "backend.app.jobs.worker" || true
 uv run python -m backend.app.jobs.worker
+```
+
+**Stop / restart the API** (required after `.env` changes — `get_settings()` is cached for the process lifetime):
+
+```bash
+pkill -f "uvicorn backend.app.main:app" || true
+lsof -ti :8000 | xargs kill -9   # only if port still in use
+uv run uvicorn backend.app.main:app --reload --port 8000
 ```
 
 Ensure `simagix-workspace/scripts/run-hatchet-job.sh` is executable (`chmod +x`) or rely on the worker invoking it via `bash`.

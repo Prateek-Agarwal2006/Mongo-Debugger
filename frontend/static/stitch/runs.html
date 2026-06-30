@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Analysis Runs - Mongo Debugger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "inverse-surface": "#0d0f0d",
+                        "surface-container-highest": "#e0e4dc",
+                        "on-secondary-container": "#58504d",
+                        "on-primary-fixed-variant": "#685853",
+                        "tertiary": "#7b555d",
+                        "on-tertiary-fixed-variant": "#714c54",
+                        "on-primary-fixed": "#4b3c37",
+                        "on-tertiary": "#fff7f7",
+                        "outline-variant": "#afb3ac",
+                        "inverse-on-surface": "#9d9d9a",
+                        "secondary-dim": "#5a514f",
+                        "surface-tint": "#6b5b56",
+                        "on-primary": "#fff6f3",
+                        "primary-container": "#f5ded7",
+                        "on-secondary": "#fff7f5",
+                        "primary-fixed": "#f5ded7",
+                        "outline": "#787c75",
+                        "tertiary-fixed-dim": "#f0c0c9",
+                        "secondary-fixed-dim": "#ded2ce",
+                        "error": "#9f403d",
+                        "secondary-fixed": "#ede0dc",
+                        "error-dim": "#4e0309",
+                        "surface-dim": "#d7dcd2",
+                        "on-surface-variant": "#5c605a",
+                        "surface-container": "#edeee8",
+                        "primary-fixed-dim": "#e6d0c9",
+                        "background": "#faf9f5",
+                        "on-tertiary-fixed": "#513038",
+                        "on-error": "#fff7f6",
+                        "on-secondary-fixed": "#453e3b",
+                        "tertiary-fixed": "#ffcdd7",
+                        "tertiary-container": "#ffcdd7",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-dim": "#5f4f4a",
+                        "on-background": "#2f342e",
+                        "secondary-container": "#ede0dc",
+                        "surface": "#faf9f5",
+                        "inverse-primary": "#fee6df",
+                        "primary": "#6b5b56",
+                        "tertiary-dim": "#6e4951",
+                        "surface-variant": "#e0e4dc",
+                        "surface-container-low": "#f4f4ef",
+                        "secondary": "#665d5b",
+                        "on-tertiary-container": "#66434b",
+                        "on-surface": "#2f342e",
+                        "on-primary-container": "#5e4e49",
+                        "error-container": "#fe8983",
+                        "on-secondary-fixed-variant": "#625a57",
+                        "surface-container-high": "#e6e9e2",
+                        "on-error-container": "#752121",
+                        "surface-bright": "#faf9f5",
+                        "clay": "#C96442",
+                        "clay-dim": "#b35636",
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans", "sans-serif"],
+                        display: ["Public Sans", "sans-serif"],
+                        body: ["Public Sans", "sans-serif"],
+                        label: ["Public Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        :root { --clay: #C96442; --clay-dim: #b35636; }
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #faf9f5;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col">
+<div id="mdb-stitch-nav-mount"></div>
+<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+<!-- Main Content -->
+<main class="flex-grow pt-24 pb-16 px-6 max-w-7xl mx-auto w-full">
+<!-- Header -->
+<header class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+<div>
+<h1 class="text-3xl font-headline font-bold text-on-surface mb-2">Analysis runs</h1>
+<p class="text-on-surface-variant text-body-large">Track and manage your past root cause analysis pipelines.</p>
+</div>
+<div>
+<a class="inline-flex items-center space-x-2 bg-[var(--clay)] hover:bg-[var(--clay-dim)] text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md" href="/upload" target="_top">
+<span class="material-symbols-outlined text-lg">upload</span>
+<span>New upload</span>
+</a>
+</div>
+</header>
+<!-- Runs Table Card -->
+<section id="runs-card" class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/40 overflow-hidden mb-12">
+<div id="runs-empty" class="hidden px-6 py-16 text-center">
+<p class="text-on-surface-variant mb-4">No uploads yet.</p>
+<a class="inline-flex items-center space-x-2 bg-[var(--clay)] hover:bg-[var(--clay-dim)] text-white px-5 py-2.5 rounded-lg font-medium transition-all" href="/upload" target="_top">
+<span class="material-symbols-outlined text-lg">upload</span>
+<span>New upload</span>
+</a>
+</div>
+<div id="runs-table-wrap" class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant/30 bg-surface-container-low/50 text-label-small uppercase tracking-wider text-on-surface-variant">
+<th class="px-6 py-4 font-medium">Run ID</th>
+<th class="px-6 py-4 font-medium">Uploaded</th>
+<th class="px-6 py-4 font-medium">Phase 1</th>
+<th class="px-6 py-4 font-medium">Phase 2</th>
+<th class="px-6 py-4 font-medium text-right">Actions</th>
+</tr>
+</thead>
+<tbody id="runs-tbody" class="text-body-medium"></tbody>
+</table>
+</div>
+<div id="runs-footer" class="hidden px-6 py-4 bg-surface-container-lowest border-t border-outline-variant/20 text-label-small text-on-surface-variant"></div>
+</section>
+<!-- Summary Stat Cards -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm flex flex-col hover:border-[var(--clay)]/50 transition-colors">
+<div class="flex items-center space-x-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">storage</span>
+</div>
+<h3 class="text-label-large font-medium text-on-surface">Total runs</h3>
+</div>
+<div id="stat-total" class="text-4xl font-headline font-bold text-on-surface mb-2">0</div>
+<p class="text-label-small text-on-surface-variant mt-auto">Uploads in the local workspace catalog.</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm flex flex-col hover:border-[var(--clay)]/50 transition-colors">
+<div class="flex items-center space-x-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-[var(--clay)]">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<h3 class="text-label-large font-medium text-on-surface">Phase 2 complete</h3>
+</div>
+<div id="stat-complete" class="text-4xl font-headline font-bold text-on-surface mb-2">0</div>
+<p class="text-label-small text-on-surface-variant mt-auto">Runs with a persisted RCA report.</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm flex flex-col hover:border-[var(--clay)]/50 transition-colors">
+<div class="flex items-center space-x-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-green-600">
+<span class="material-symbols-outlined">description</span>
+</div>
+<h3 class="text-label-large font-medium text-on-surface">Success rate</h3>
+</div>
+<div id="stat-rate" class="text-4xl font-headline font-bold text-on-surface mb-2">0%</div>
+<p class="text-label-small text-on-surface-variant mt-auto">Share of runs that completed Phase C.</p>
+</div>
+</section>
+</main>
+<div id="mdb-stitch-footer-mount"></div>
+<script>
+(function () {
+  function readPageData() {
+    try {
+      const el = window.parent?.document?.getElementById('mdb-page-data');
+      if (!el?.textContent) return null;
+      return JSON.parse(el.textContent);
+    } catch {
+      return null;
+    }
+  }
+
+  function phase1Label(status) {
+    switch (status) {
+      case 'finished': return 'Decode complete';
+      case 'processing': return 'Decoding';
+      case 'queued': return 'Queued';
+      case 'failed': return 'Failed';
+      case 'stale': return 'Stale';
+      default: return status || 'Not started';
+    }
+  }
+
+  function phase1Variant(status) {
+    switch (status) {
+      case 'finished': return 'green';
+      case 'processing': return 'blue';
+      case 'failed': return 'red';
+      case 'queued': return 'muted';
+      case 'stale': return 'muted';
+      default: return 'muted';
+    }
+  }
+
+  function phase2Label(status) {
+    switch (status) {
+      case 'completed': return 'RCA report';
+      case 'in_progress': return 'In progress';
+      case 'not_started': return 'Not started';
+      case 'not_ready': return 'Not ready';
+      default: return status || 'Not started';
+    }
+  }
+
+  function phase2Variant(status) {
+    switch (status) {
+      case 'completed': return 'green';
+      case 'in_progress': return 'blue';
+      default: return 'muted';
+    }
+  }
+
+  function hatchetLabel(status) {
+    switch (status) {
+      case 'finished': return 'Logs complete';
+      case 'processing': return 'Logs processing';
+      case 'queued': return 'Logs queued';
+      case 'failed': return 'Logs failed';
+      case 'stale': return 'Logs stale';
+      default: return 'Logs ' + status;
+    }
+  }
+
+  function hatchetVariant(status) {
+    switch (status) {
+      case 'finished': return 'green';
+      case 'processing': return 'blue';
+      case 'failed': return 'red';
+      default: return 'muted';
+    }
+  }
+
+  function badgeHtml(label, variant, icon) {
+    const styles = {
+      green: 'bg-green-50 text-green-700 border border-green-200',
+      blue: 'bg-blue-50 text-blue-700 border border-blue-200',
+      red: 'bg-red-50 text-red-700 border border-red-200',
+      muted: 'bg-surface-container text-on-surface-variant border border-outline-variant/50',
+    };
+    const cls = styles[variant] || styles.muted;
+    let lead = '<span class="w-1.5 h-1.5 rounded-full bg-outline-variant mr-1.5"></span>';
+    if (variant === 'green') lead = '<span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>';
+    if (variant === 'blue') lead = '<span class="material-symbols-outlined text-[14px] mr-1 animate-spin">progress_activity</span>';
+    if (variant === 'red') lead = '<span class="material-symbols-outlined text-[14px] mr-1">error</span>';
+    if (icon === 'error') lead = '<span class="material-symbols-outlined text-[14px] mr-1">error</span>';
+    return '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ' + cls + '">' + lead + label + '</span>';
+  }
+
+  function isComplete(entry) {
+    return entry.phase2_status === 'completed';
+  }
+
+  function renderRuns(runs) {
+    const tbody = document.getElementById('runs-tbody');
+    const empty = document.getElementById('runs-empty');
+    const tableWrap = document.getElementById('runs-table-wrap');
+    const footer = document.getElementById('runs-footer');
+    const totalEl = document.getElementById('stat-total');
+    const completeEl = document.getElementById('stat-complete');
+    const rateEl = document.getElementById('stat-rate');
+
+    const completed = runs.filter(isComplete).length;
+    const rate = runs.length ? Math.round((completed / runs.length) * 100) : 0;
+    totalEl.textContent = String(runs.length);
+    completeEl.textContent = String(completed);
+    rateEl.textContent = rate + '%';
+
+    if (!runs.length) {
+      empty.classList.remove('hidden');
+      tableWrap.classList.add('hidden');
+      footer.classList.add('hidden');
+      tbody.innerHTML = '';
+      return;
+    }
+
+    empty.classList.add('hidden');
+    tableWrap.classList.remove('hidden');
+    footer.classList.remove('hidden');
+    footer.textContent = 'Showing ' + runs.length + ' analysis run' + (runs.length === 1 ? '' : 's');
+
+    tbody.innerHTML = runs.map(function (entry, i) {
+      const border = i < runs.length - 1 ? 'border-b border-outline-variant/20' : '';
+      const runUrl = '/runs/' + encodeURIComponent(entry.run_id);
+      let phase1Badges = badgeHtml(phase1Label(entry.phase1_status), phase1Variant(entry.phase1_status));
+      if (entry.hatchet_status && entry.hatchet_status !== 'not_applicable') {
+        phase1Badges += badgeHtml(hatchetLabel(entry.hatchet_status), hatchetVariant(entry.hatchet_status));
+      }
+      const phase2Badge = badgeHtml(phase2Label(entry.phase2_status), phase2Variant(entry.phase2_status));
+      const uploaded = entry.upload_time_utc || '—';
+      return (
+        '<tr class="' + border + ' hover:bg-surface-container/30 hover:scale-[1.01] hover:shadow-md hover:z-10 relative transition-all duration-200 group bg-surface-container-lowest">' +
+        '<td class="px-6 py-5 font-mono text-sm text-on-surface">' + entry.run_id + '</td>' +
+        '<td class="px-6 py-5 text-on-surface-variant">' + uploaded + '</td>' +
+        '<td class="px-6 py-5"><div class="flex flex-wrap gap-2">' + phase1Badges + '</div></td>' +
+        '<td class="px-6 py-5">' + phase2Badge + '</td>' +
+        '<td class="px-6 py-5 text-right">' +
+        '<a class="text-[var(--clay)] hover:text-[var(--clay-dim)] font-medium text-sm inline-flex items-center justify-end gap-1" href="' + runUrl + '" target="_top">' +
+        'View <span class="material-symbols-outlined text-sm">arrow_forward</span></a></td></tr>'
+      );
+    }).join('');
+  }
+
+  const data = readPageData();
+  const runs = (data && data.page === 'runs' && Array.isArray(data.runs)) ? data.runs : [];
+  renderRuns(runs);
+})();
+</script>
+</body></html>

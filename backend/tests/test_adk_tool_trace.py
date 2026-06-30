@@ -43,21 +43,15 @@ def test_record_grounding_metadata_writes_web_row(tmp_path: Path) -> None:
     assert '"category": "web"' in payload
 
 
-def test_build_adk_agent_tools_includes_web_fetch() -> None:
-    from backend.app.simagix.evidence_service import SimagixEvidenceService
+def test_adk_tool_trace_identity_prefixed_evidence() -> None:
+    name, category, server = adk_tool_trace_identity("simagix-evidence/get_metric_window")
+    assert name == "simagix-evidence/get_metric_window"
+    assert category == "mcp"
+    assert server == "simagix-evidence"
 
-    from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists
 
-    workspace = Path(__file__).resolve().parents[2]
-    run_id = FIXTURE_RUN_ID
-    if not fixture_bundle_exists():
-        import pytest
+def test_build_web_fetch_tool_callable() -> None:
+    from backend.app.simagix.llm.web_fetch import build_web_fetch_tool
 
-        pytest.skip("fixture bundle missing")
-
-    from backend.app.simagix.llm.adk_evidence_tools import build_adk_agent_tools
-
-    evidence = SimagixEvidenceService(workspace, run_id)
-    tools = build_adk_agent_tools(evidence)
-    tool_names = [getattr(t, "__name__", type(t).__name__) for t in tools]
-    assert "web_fetch" in tool_names
+    tool = build_web_fetch_tool()
+    assert getattr(tool, "__name__", "") == "web_fetch"

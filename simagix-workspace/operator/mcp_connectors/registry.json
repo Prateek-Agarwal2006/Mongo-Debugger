@@ -1,0 +1,16 @@
+{
+  "connectors": [
+    {
+      "id": "test_mcp_local_http",
+      "name": "test_mcp_local_http",
+      "transport": "http",
+      "description": "",
+      "url": "http://127.0.0.1:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_ME"
+      },
+      "template_id": null,
+      "env": {}
+    }
+  ]
+}

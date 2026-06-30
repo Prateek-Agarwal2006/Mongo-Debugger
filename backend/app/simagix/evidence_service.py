@@ -87,7 +87,6 @@ class SimagixEvidenceService:
             "get_raw_path",
             "list_fallback_metrics",
             "get_budget_status",
-            "get_profiler_samples",
         ]
         if hatchet_summary is not None:
             available_tools.extend(sorted(HATCHET_MCP_TOOL_NAMES))

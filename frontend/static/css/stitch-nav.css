@@ -1,0 +1,115 @@
+:root {
+  --mdb-clay: #c96442;
+  --mdb-clay-dim: #b35636;
+  --mdb-nav-active: #6b5b56;
+  --mdb-nav-muted: #5c605a;
+  --mdb-nav-surface: #faf9f5;
+  --mdb-nav-border: rgba(175, 179, 172, 0.3);
+  --mdb-nav-hover-bg: #f4f4ef;
+  --mdb-nav-on-surface: #2f342e;
+}
+
+.mdb-stitch-nav {
+  font-family: "Public Sans", sans-serif;
+}
+
+.mdb-stitch-nav__logo {
+  font-variation-settings: "FILL" 1;
+}
+
+.mdb-stitch-nav__link {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--mdb-nav-muted);
+  border-radius: 0.5rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.mdb-stitch-nav__link:hover {
+  color: var(--mdb-nav-active);
+  background-color: var(--mdb-nav-hover-bg);
+}
+
+.mdb-stitch-nav__link.is-active {
+  color: var(--mdb-nav-active);
+  border-bottom: 2px solid var(--mdb-nav-active);
+  padding-bottom: 0.25rem;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mdb-stitch-nav__cta {
+  background: var(--mdb-clay);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.mdb-stitch-nav__cta:hover {
+  background: var(--mdb-clay-dim);
+}
+
+.mdb-stitch-footer {
+  background: #f4f4ef;
+  width: 100%;
+  border-top: 1px solid rgba(175, 179, 172, 0.3);
+  margin-top: auto;
+  font-family: "Public Sans", sans-serif;
+}
+
+.mdb-stitch-footer__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 2rem 1.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .mdb-stitch-footer__inner {
+    flex-direction: row;
+  }
+}
+
+.mdb-stitch-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mdb-stitch-footer__name {
+  font-weight: 600;
+  color: #52443f;
+}
+
+.mdb-stitch-footer__copy {
+  font-size: 0.75rem;
+  color: #4e4542;
+  margin-left: 0.5rem;
+}
+
+.mdb-stitch-footer__links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.mdb-stitch-footer__link {
+  font-size: 0.875rem;
+  color: #655c5a;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.mdb-stitch-footer__link:hover {
+  color: #603d45;
+}

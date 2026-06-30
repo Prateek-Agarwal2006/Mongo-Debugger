@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Skill WorkArea — Mongo Debugger</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        primary: "#52443f",
+        tertiary: "#603d45",
+        secondary: "#655c5a",
+        surface: "#FAF9F5",
+        "on-surface": "#2F342E",
+        "on-surface-variant": "#4e4542",
+        "surface-container-low": "#F4F4EF",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-high": "#e9e8e4",
+        "outline-variant": "#AFB3AC",
+      },
+      fontFamily: { sans: ["Public Sans", "sans-serif"] },
+    },
+  },
+};
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24; }
+.skill-file-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  border: 2px dashed #afb3ac;
+  background: #f4f4ef;
+  color: #2f342e;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.skill-file-picker:hover {
+  border-color: #c96442;
+  background: rgba(201, 100, 66, 0.08);
+  box-shadow: 0 4px 12px rgba(201, 100, 66, 0.15);
+}
+.skill-file-picker:active {
+  transform: scale(0.98);
+}
+.skill-file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>
+<link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+</head>
+<body class="bg-surface text-on-surface font-sans min-h-screen flex flex-col antialiased">
+<div id="mdb-stitch-nav-mount"></div>
+<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+
+<main class="flex-grow w-full max-w-[1600px] mx-auto px-6 py-8 pt-24 flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<svg class="shrink-0 text-primary" width="32" height="32" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+<path fill-rule="evenodd" d="M8.646 5.646a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1 0 .708l-2 2a.5.5 0 0 1-.708-.708L10.293 8 8.646 6.354a.5.5 0 0 1 0-.708m-1.292 0a.5.5 0 0 0-.708 0l-2 2a.5.5 0 0 0 0 .708l2 2a.5.5 0 0 0 .708-.708L5.707 8l1.647-1.646a.5.5 0 0 0 0-.708"/>
+<path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2"/>
+<path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z"/>
+</svg>
+<h1 class="text-2xl font-bold text-primary tracking-tight">Skill WorkArea</h1>
+</div>
+<p class="text-sm text-on-surface-variant max-w-3xl">
+Upload skill packages (ZIP). Files are stored and attached as-is on every Phase A, Phase C, and chatbot run.
+</p>
+</div>
+
+<div class="flex border-b border-outline-variant/30 mt-2" role="tablist">
+<button type="button" class="px-6 py-3 text-sm font-medium text-tertiary border-b-2 border-tertiary" id="btn-tab-configured" role="tab" aria-selected="true">
+Configured skills
+</button>
+<button type="button" class="px-6 py-3 text-sm font-medium text-on-surface-variant hover:text-primary" id="btn-tab-new" role="tab" aria-selected="false">
+Upload new skill
+</button>
+</div>
+
+<div id="pane-configured" role="tabpanel">
+<div class="flex flex-wrap items-center gap-2 mb-3">
+<span class="text-xs text-on-surface-variant">All skills attach automatically on tool phases (no run-page checkboxes)</span>
+<button type="button" class="text-sm text-primary hover:text-tertiary ms-auto flex items-center gap-1" id="skill-refresh-btn">
+<span class="material-symbols-outlined text-base">refresh</span>Refresh
+</button>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden w-full max-w-4xl">
+<div id="skill-configured-list" class="hidden"></div>
+<table class="w-full text-left border-collapse" id="skill-configured-table">
+<thead class="bg-surface-container-low border-b border-outline-variant/30">
+<tr>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Slot name</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Description</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20"></tbody>
+</table>
+<p class="px-6 py-8 text-sm text-on-surface-variant text-center hidden" id="skill-configured-empty">No skills uploaded yet. Use Upload new skill.</p>
+<div class="p-6 bg-surface-container-low/30 border-t border-outline-variant/30">
+<button type="button" class="flex items-center gap-2 text-primary text-sm font-medium hover:text-tertiary transition-colors" id="skill-add-btn">
+<span class="material-symbols-outlined">add</span>Upload another skill
+</button>
+</div>
+</div>
+</div>
+
+<div id="pane-new" class="hidden" role="tabpanel">
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm p-6 max-w-4xl">
+<form id="skill-upload-form" class="space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium mb-1" for="skill-slot-name">Slot name</label>
+<input class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2" id="skill-slot-name" name="slot_name" required pattern="[a-z0-9][a-z0-9_-]{0,63}" placeholder="mongo-rca-playbook"/>
+<p class="text-xs text-on-surface-variant mt-1">Lowercase letters, digits, hyphen, underscore (1–64 chars).</p>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1" for="skill-archive-label">Skill ZIP</label>
+<label id="skill-archive-label" for="skill-archive" class="skill-file-picker" role="button">
+<span class="material-symbols-outlined text-[#C96442]">upload_file</span>
+<span>Choose ZIP file</span>
+</label>
+<input class="skill-file-input-hidden" id="skill-archive" name="archive" type="file" accept=".zip,application/zip" required/>
+<p class="text-sm text-on-surface-variant mt-2 min-h-[1.25rem]" id="skill-file-name" aria-live="polite"></p>
+<p class="text-xs text-on-surface-variant mt-1">ZIP must contain SKILL.md (stored unchanged).</p>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-3 pt-2">
+<button type="submit" class="bg-[#C96442] hover:bg-[#b35636] text-white px-5 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-base">cloud_upload</span>Upload skill
+</button>
+<span class="text-sm text-on-surface-variant" id="skill-form-status" role="status"></span>
+</div>
+</form>
+</div>
+</div>
+</main>
+
+<div id="mdb-stitch-footer-mount"></div>
+
+<script src="/static/js/skill-workarea.js?v=3"></script>
+</body>
+</html>

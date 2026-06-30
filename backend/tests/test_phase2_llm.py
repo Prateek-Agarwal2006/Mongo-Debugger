@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -8,9 +9,14 @@ from fastapi.testclient import TestClient
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.core.config import get_settings
 from backend.app.main import create_app
-from backend.app.simagix.llm import mcp_evidence_server as mcp_server
-from backend.app.simagix.llm.mock_provider import MockLLMProvider
-from backend.app.simagix.llm.parse_output import parse_clarifying_questions, parse_investigation_summary, parse_rca_report
+from backend.app.simagix.llm.mcp.servers import evidence as mcp_server
+from backend.app.simagix.llm.providers.mock import MockLLMProvider
+from backend.app.simagix.llm.parse_output import (
+    load_persisted_rca_report,
+    parse_clarifying_questions,
+    parse_investigation_summary,
+    parse_rca_report,
+)
 from backend.app.simagix.llm.prompts import (
     build_clarify_user_message,
     build_investigate_user_message,
@@ -153,13 +159,37 @@ def test_parse_investigation_summary() -> None:
   "tool_calls_made": ["get_metric_window"],
   "metric_insights": ["cpu_idle stable"],
   "log_insights": [],
-  "profiler_insights": ["not uploaded"],
   "open_questions_for_operator": ["Any maintenance?"]
 }
 ```"""
     summary = parse_investigation_summary(text, "phase1test")
     assert summary.summary == "Investigated replication lag"
     assert summary.open_questions_for_operator == ["Any maintenance?"]
+
+
+def test_load_persisted_rca_report_strips_legacy_profiler_citations() -> None:
+    raw = json.dumps(
+        {
+            "run_id": "phase1test",
+            "summary": "RCA summary",
+            "root_cause": "Root cause",
+            "evidence_citations": [
+                {
+                    "source_type": "profiler",
+                    "reference": "db.coll",
+                    "summary": "slow query",
+                },
+                {
+                    "source_type": "finding",
+                    "reference": "Replication Lag",
+                    "summary": "lag observed",
+                },
+            ],
+        }
+    )
+    report = load_persisted_rca_report(raw, "phase1test")
+    assert len(report.evidence_citations) == 1
+    assert report.evidence_citations[0].source_type == "finding"
 
 
 def test_prompt_builder_includes_investigation(fixture_run_id: str) -> None:
@@ -239,6 +269,22 @@ def test_resolve_tool_identity_mcp_wrapper() -> None:
     )
     assert name == "simagix-evidence/get_metric_window"
     assert server == "simagix-evidence"
+
+
+def test_resolve_tool_identity_operator_http_mcp() -> None:
+    name, server = resolve_tool_identity(
+        "mcp",
+        {"toolName": "test_ping", "providerIdentifier": "local-test-http"},
+    )
+    assert name == "local-test-http/test_ping"
+    assert server == "local-test-http"
+    assert classify_tool_category("mcp", {"toolName": "test_ping", "providerIdentifier": "local-test-http"}) == "mcp"
+
+
+def test_resolve_tool_identity_prefixed_operator_tool() -> None:
+    name, server = resolve_tool_identity("local-test-http_test_ping", None)
+    assert name == "local-test-http/test_ping"
+    assert server == "local-test-http"
 
 
 
@@ -448,22 +494,10 @@ def test_get_llm_provider_gemini_when_configured(monkeypatch: pytest.MonkeyPatch
 
 def test_gemini_adk_provider_requires_api_key() -> None:
     from backend.app.core.config import Settings
-    from backend.app.simagix.llm.gemini_adk_provider import GeminiAdkLLMProvider
+    from backend.app.simagix.llm.providers.adk import GeminiAdkLLMProvider
 
     with pytest.raises(RuntimeError, match="GOOGLE_API_KEY"):
         GeminiAdkLLMProvider(Settings(google_api_key=None))
-
-
-def test_adk_evidence_tools_delegate_to_service(fixture_run_id: str) -> None:
-    from backend.app.simagix.llm.adk_evidence_tools import build_adk_evidence_tools
-
-    evidence = SimagixEvidenceService(WORKSPACE_ROOT, fixture_run_id)
-    tools = build_adk_evidence_tools(evidence)
-    names = {getattr(tool, "__name__", "") for tool in tools}
-    assert "get_metric_window" in names
-    assert "get_budget_status" in names
-    budget = tools[4]()
-    assert "remaining" in budget or "tool_calls_used" in budget
 
 
 def test_phase2_status_requires_llm(fixture_run_id: str) -> None:

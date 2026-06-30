@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import os
 from datetime import datetime, timezone
 from typing import Any
 
 from backend.app.core.config import Settings
-from backend.app.simagix.llm.adk_evidence_tools import build_adk_agent_tools
+from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs, to_adk_mcp_toolsets
 from backend.app.simagix.llm.session import Phase2Session
+from backend.app.simagix.llm.skills.registry import build_adk_skill_toolset_all
 from backend.app.simagix.llm.tool_trace import (
     ToolTraceCollector,
     ToolTraceEntry,
@@ -16,6 +18,7 @@ from backend.app.simagix.llm.tool_trace import (
     adk_tool_trace_identity,
     record_grounding_metadata,
 )
+from backend.app.simagix.llm.web_fetch import build_web_fetch_tool
 
 try:
     from google.adk import Agent
@@ -89,7 +92,6 @@ def _make_after_tool_callback(
 
 
 def _extract_assistant_text(events: list[Any]) -> str:
-    """Collect final model text from ADK events (non-partial, non-user)."""
     chunks: list[str] = []
     for event in events:
         if getattr(event, "author", "") == "user":
@@ -106,6 +108,16 @@ def _extract_assistant_text(events: list[Any]) -> str:
     return "\n".join(chunks).strip()
 
 
+async def _close_toolsets(toolsets: list[Any]) -> None:
+    for toolset in toolsets:
+        close = getattr(toolset, "close", None)
+        if not callable(close):
+            continue
+        result = close()
+        if inspect.iscoroutine(result):
+            await result
+
+
 async def _run_adk_async(
     session: Phase2Session,
     user_message: str,
@@ -113,34 +125,55 @@ async def _run_adk_async(
     settings: Settings,
     include_tools: bool,
     phase: ToolTracePhase,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> str:
     _require_adk()
     _apply_google_env(settings)
 
-    tools = build_adk_agent_tools(session.evidence) if include_tools else []
     trace = ToolTraceCollector(session.tool_trace_path, agent_id=session.agent_id)
     trace.agent_id = f"gemini-adk:{session.run_id}"
 
-    agent = Agent(
-        name=_AGENT_NAME,
-        model=settings.google_model,
-        instruction=(
-            "You are a MongoDB FTDC root-cause analysis agent. "
-            "Use simagix evidence tools when you need metric proof. "
-            "Use web_fetch for HTTPS documentation when prompts ask to fetch URLs. "
-            "Follow the user message format exactly, especially JSON output requirements."
-        ),
-        tools=tools,
-        after_tool_callback=_make_after_tool_callback(trace, phase) if include_tools else None,
-    )
-    runner = InMemoryRunner(agent=agent, app_name=_ADK_APP_NAME)
-    adk_session_id = f"{session.run_id}:{phase}"
-    events = await runner.run_debug(
-        user_message,
-        user_id=session.run_id,
-        session_id=adk_session_id,
-        quiet=True,
-    )
+    closable_toolsets: list[Any] = []
+    tools: list[Any] = []
+    if include_tools:
+        specs = build_mcp_server_specs(
+            session,
+            settings,
+            enabled_mcp_ids=enabled_mcp_ids,
+        )
+        mcp_toolsets = to_adk_mcp_toolsets(specs)
+        closable_toolsets.extend(mcp_toolsets)
+        tools.extend(mcp_toolsets)
+        skill_toolset = build_adk_skill_toolset_all(session.workspace_root)
+        if skill_toolset is not None:
+            closable_toolsets.append(skill_toolset)
+            tools.append(skill_toolset)
+        tools.append(build_web_fetch_tool(settings))
+
+    try:
+        agent = Agent(
+            name=_AGENT_NAME,
+            model=settings.google_model,
+            instruction=(
+                "You are a MongoDB FTDC root-cause analysis agent. "
+                "Use simagix evidence tools when you need metric proof. "
+                "Use web_fetch for HTTPS documentation when prompts ask to fetch URLs. "
+                "Follow the user message format exactly, especially JSON output requirements."
+            ),
+            tools=tools,
+            after_tool_callback=_make_after_tool_callback(trace, phase) if include_tools else None,
+        )
+        runner = InMemoryRunner(agent=agent, app_name=_ADK_APP_NAME)
+        adk_session_id = f"{session.run_id}:{phase}"
+        events = await runner.run_debug(
+            user_message,
+            user_id=session.run_id,
+            session_id=adk_session_id,
+            quiet=True,
+        )
+    finally:
+        await _close_toolsets(closable_toolsets)
+
     session.agent_id = trace.agent_id
     if include_tools:
         record_grounding_metadata(trace, phase, events)
@@ -159,6 +192,7 @@ def run_adk_agent_text(
     settings: Settings,
     include_tools: bool,
     phase: ToolTracePhase,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> str:
     """Sync wrapper for FastAPI — ADK runs the model/tool loop asynchronously."""
     return asyncio.run(
@@ -168,5 +202,6 @@ def run_adk_agent_text(
             settings=settings,
             include_tools=include_tools,
             phase=phase,
+            enabled_mcp_ids=enabled_mcp_ids,
         )
     )

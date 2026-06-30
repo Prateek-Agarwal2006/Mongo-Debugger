@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Uploads — FTDC Analyzer{% endblock %}
+{% block body_class %}mdb-modern-page{% endblock %}
+{% block page_data %}{"page":"runs","runs":{{ run_entries | tojson }}}{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
   <div>
@@ -24,6 +26,8 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
 <script>
 document.querySelectorAll(".retry-pipeline-btn").forEach((btn) => {
   btn.addEventListener("click", async () => {

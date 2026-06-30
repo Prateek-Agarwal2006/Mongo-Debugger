@@ -30,43 +30,334 @@ function phaseLabel(phase) {
   }
 }
 
-function renderToolTrace(payload) {
-  const panel = document.getElementById("tool-trace-panel");
-  const summaryEl = document.getElementById("tool-trace-summary");
-  const tbody = document.querySelector("#tool-trace-table tbody");
-  if (!panel || !summaryEl || !tbody) return;
+function isStitchToolTrace() {
+  return document.getElementById("tool-trace-table")?.classList.contains("tool-trace-table--stitch");
+}
 
-  const entries = payload?.entries || [];
-  const summary = payload?.summary || {};
+function phaseBadgeHtml(phase) {
+  const label = phaseLabel(phase);
+  if (isStitchToolTrace()) {
+    return `<span class="tool-trace-badge tool-trace-badge--phase">${label}</span>`;
+  }
+  return `<span class="badge text-bg-dark border border-secondary-subtle">${label}</span>`;
+}
+
+function categoryBadgeHtml(category) {
+  if (isStitchToolTrace()) {
+    const cat = category || "default";
+    const cls = ["mcp", "web", "local", "shell"].includes(cat)
+      ? `tool-trace-badge--cat-${cat}`
+      : "tool-trace-badge--cat-default";
+    return `<span class="tool-trace-badge ${cls}">${cat}</span>`;
+  }
+  return `<span class="${categoryBadgeClass(category)}">${category}</span>`;
+}
+
+function statusHtml(status) {
+  const value = status || "";
+  if (!isStitchToolTrace()) return value;
+  const lower = value.toLowerCase();
+  const cls =
+    lower === "ok" || lower === "success" || lower === "succeeded"
+      ? "trace-status--ok"
+      : lower === "error" || lower === "failed"
+        ? "trace-status--error"
+        : "";
+  return `<span class="trace-status ${cls}">${value}</span>`;
+}
+
+const TOOL_TRACE_CATEGORIES = ["mcp", "web", "local", "shell", "other"];
+
+/** @type {{ entries: unknown[], summary: Record<string, unknown> } | null} */
+let toolTracePayload = null;
+let toolTraceCategoryFilter = null;
+let toolTraceFiltersBound = false;
+
+function renderToolTraceSummary(summaryEl, summary, activeFilter) {
   const byCat = summary.by_category || {};
+  const total = summary.total || 0;
+  if (isStitchToolTrace()) {
+    const chips = TOOL_TRACE_CATEGORIES.map((cat) => {
+      const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+      const count = byCat[cat] || 0;
+      const active = activeFilter === cat ? " is-active" : "";
+      return (
+        `<button type="button" class="tool-trace-chip tool-trace-chip--filter tool-trace-chip--${cat}${active}" data-trace-filter="${cat}" aria-pressed="${activeFilter === cat ? "true" : "false"}">` +
+        `${label} <strong>${count}</strong></button>`
+      );
+    }).join("");
+    const totalActive = !activeFilter ? " is-active" : "";
+    summaryEl.innerHTML = `
+      <div class="tool-trace-summary-chips">
+        <button type="button" class="tool-trace-chip tool-trace-chip--filter tool-trace-chip--total${totalActive}" data-trace-filter="" aria-pressed="${!activeFilter ? "true" : "false"}">
+          Total <strong>${total}</strong>
+        </button>
+        ${chips}
+      </div>`;
+    bindToolTraceFilters(summaryEl);
+    return;
+  }
   summaryEl.textContent =
-    `Total: ${summary.total || 0} | MCP: ${byCat.mcp || 0} | Web: ${byCat.web || 0} | ` +
+    `Total: ${total} | MCP: ${byCat.mcp || 0} | Web: ${byCat.web || 0} | ` +
     `Local: ${byCat.local || 0} | Shell: ${byCat.shell || 0}`;
+}
 
+function bindToolTraceFilters(summaryEl) {
+  if (!isStitchToolTrace() || toolTraceFiltersBound) return;
+  toolTraceFiltersBound = true;
+  summaryEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-trace-filter]");
+    if (!btn) return;
+    const cat = btn.dataset.traceFilter;
+    if (!cat) {
+      toolTraceCategoryFilter = null;
+    } else if (toolTraceCategoryFilter === cat) {
+      toolTraceCategoryFilter = null;
+    } else {
+      toolTraceCategoryFilter = cat;
+    }
+    renderToolTraceView();
+  });
+}
+
+function renderToolTraceRows(tbody, entries, activeFilter, totalUnfiltered) {
   tbody.innerHTML = "";
   if (!entries.length) {
-    tbody.innerHTML =
-      '<tr><td colspan="5" class="text-secondary small">No tool calls recorded yet — run RCA to populate.</td></tr>';
+    let emptyMsg = "No tool calls recorded yet — run RCA to populate.";
+    if (isStitchToolTrace() && activeFilter && totalUnfiltered > 0) {
+      emptyMsg = `No ${activeFilter} tool calls in this trace.`;
+    }
+    if (isStitchToolTrace()) {
+      tbody.innerHTML = `<tr class="tool-trace-empty"><td colspan="5">${emptyMsg}</td></tr>`;
+    } else {
+      tbody.innerHTML =
+        `<tr><td colspan="5" class="text-secondary small">${emptyMsg}</td></tr>`;
+    }
     return;
   }
 
   for (const entry of entries) {
     const row = document.createElement("tr");
+    if (isStitchToolTrace()) row.className = "tool-trace-row";
+    const argsText = entry.args_summary || entry.result_summary || "";
+    const safeTitle = argsText.replace(/"/g, "&quot;");
     row.innerHTML = `
-      <td><span class="badge text-bg-dark border border-secondary-subtle">${phaseLabel(entry.phase)}</span></td>
-      <td><span class="${categoryBadgeClass(entry.category)}">${entry.category}</span></td>
-      <td>${entry.tool_name || ""}</td>
-      <td>${entry.status || ""}</td>
-      <td class="trace-args" title="${(entry.args_summary || "").replace(/"/g, "&quot;")}">
-        ${entry.args_summary || entry.result_summary || ""}
-      </td>`;
+      <td>${phaseBadgeHtml(entry.phase)}</td>
+      <td>${categoryBadgeHtml(entry.category)}</td>
+      <td class="trace-tool-name">${entry.tool_name || ""}</td>
+      <td>${statusHtml(entry.status)}</td>
+      <td class="trace-args" title="${safeTitle}">${argsText}</td>`;
     tbody.appendChild(row);
   }
+}
+
+function initToolTraceDragScroll() {
+  const el = document.getElementById("tool-trace-scroll");
+  if (!el || el.dataset.dragBound || !isStitchToolTrace()) return;
+  el.dataset.dragBound = "1";
+
+  let dragging = false;
+  let startX = 0;
+  let startScrollLeft = 0;
+
+  el.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || e.target.closest("button, a, input, label")) return;
+    dragging = true;
+    startX = e.pageX;
+    startScrollLeft = el.scrollLeft;
+    el.classList.add("tool-trace-scroll--dragging");
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    el.scrollLeft = startScrollLeft - (e.pageX - startX);
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove("tool-trace-scroll--dragging");
+  });
+}
+
+function renderToolTraceView() {
+  const panel = document.getElementById("tool-trace-panel");
+  const summaryEl = document.getElementById("tool-trace-summary");
+  const tbody = document.querySelector("#tool-trace-table tbody");
+  if (!panel || !summaryEl || !tbody || !toolTracePayload) return;
+
+  initToolTraceDragScroll();
+
+  const entries = toolTracePayload.entries || [];
+  const summary = toolTracePayload.summary || {};
+  renderToolTraceSummary(summaryEl, summary, toolTraceCategoryFilter);
+
+  const filtered = toolTraceCategoryFilter
+    ? entries.filter((entry) => entry.category === toolTraceCategoryFilter)
+    : entries;
+  renderToolTraceRows(tbody, filtered, toolTraceCategoryFilter, entries.length);
+}
+
+function renderToolTrace(payload) {
+  toolTracePayload = payload;
+  renderToolTraceView();
 }
 
 function selectedLlm() {
   const select = document.getElementById("llm-context-select");
   return select?.value || "mock";
+}
+
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isStitchRunPage() {
+  return Boolean(document.getElementById("btn-investigation"));
+}
+
+function mcpTransportChip(connector) {
+  if (connector.transport === "http") {
+    return `<span class="mcp-run-panel__chip mcp-run-panel__chip--http">HTTP</span>`;
+  }
+  if (connector.transport === "stdio_template") {
+    return `<span class="mcp-run-panel__chip mcp-run-panel__chip--stdio">Stdio</span>`;
+  }
+  return "";
+}
+
+function renderMcpRequiredRow(container) {
+  const row = document.createElement("label");
+  row.className = "mcp-run-panel__row mcp-run-panel__row--required";
+  row.innerHTML = `
+    <input type="checkbox" value="simagix-evidence" checked disabled aria-label="Simagix evidence (required)"/>
+    <span class="mcp-run-panel__row-body">
+      <span class="mcp-run-panel__row-name">Simagix evidence</span>
+      <span class="mcp-run-panel__row-meta">
+        <span class="mcp-run-panel__chip mcp-run-panel__chip--required">Required</span>
+        <span class="mcp-run-panel__id">simagix-evidence</span>
+      </span>
+    </span>`;
+  container.appendChild(row);
+}
+
+function renderMcpConnectorRow(connector) {
+  const row = document.createElement("label");
+  row.className = "mcp-run-panel__row";
+  row.dataset.connectorId = connector.id;
+  row.innerHTML = `
+    <input class="mcp-run-toggle" type="checkbox" value="${escapeHtml(connector.id)}" aria-label="${escapeHtml(connector.name)}"/>
+    <span class="mcp-run-panel__row-body">
+      <span class="mcp-run-panel__row-name">${escapeHtml(connector.name)}</span>
+      <span class="mcp-run-panel__row-meta">
+        ${mcpTransportChip(connector)}
+        <span class="mcp-run-panel__id">${escapeHtml(connector.id)}</span>
+      </span>
+    </span>`;
+  const input = row.querySelector("input");
+  input?.addEventListener("change", () => syncMcpBulkActions());
+  return row;
+}
+
+function mcpOptionalToggles() {
+  return Array.from(document.querySelectorAll(".mcp-run-toggle"));
+}
+
+function syncMcpRowStyles() {
+  document.querySelectorAll(".mcp-run-panel__row:not(.mcp-run-panel__row--required)").forEach((row) => {
+    const input = row.querySelector(".mcp-run-toggle");
+    row.classList.toggle("is-checked", Boolean(input?.checked));
+  });
+}
+
+function syncMcpBulkActions() {
+  const toggles = mcpOptionalToggles();
+  const selectAllBtn = document.getElementById("mcp-select-all");
+  const clearAllBtn = document.getElementById("mcp-clear-all");
+  const hasOptional = toggles.length > 0;
+  const checkedCount = toggles.filter((input) => input.checked).length;
+
+  if (selectAllBtn) {
+    selectAllBtn.hidden = !hasOptional;
+    if (isStitchRunPage()) selectAllBtn.classList.toggle("hidden", !hasOptional);
+    selectAllBtn.disabled = hasOptional && checkedCount === toggles.length;
+  }
+  if (clearAllBtn) {
+    clearAllBtn.hidden = !hasOptional;
+    if (isStitchRunPage()) clearAllBtn.classList.toggle("hidden", !hasOptional);
+    clearAllBtn.disabled = checkedCount === 0;
+  }
+  syncMcpRowStyles();
+}
+
+function selectedMcpIds() {
+  const panel = document.getElementById("mcp-run-checkboxes");
+  if (!panel) return [];
+  return Array.from(panel.querySelectorAll('input[type="checkbox"]:checked:not([disabled])'))
+    .map((input) => input.value)
+    .filter(Boolean);
+}
+
+async function loadRunMcpConnectors() {
+  const container = document.getElementById("mcp-run-checkboxes");
+  const emptyMsg = document.getElementById("mcp-run-empty");
+  if (!container) return;
+
+  container.innerHTML = "";
+  renderMcpRequiredRow(container);
+
+  const resp = await fetch("/simagix/mcp-connectors");
+  if (!resp.ok) {
+    if (emptyMsg) {
+      emptyMsg.hidden = false;
+      emptyMsg.textContent = "Could not load MCP connectors.";
+      if (isStitchRunPage()) emptyMsg.classList.remove("hidden");
+    }
+    syncMcpBulkActions();
+    return;
+  }
+  const data = await resp.json();
+  const connectors = data.connectors || [];
+  if (!connectors.length) {
+    if (emptyMsg) {
+      emptyMsg.hidden = false;
+      if (isStitchRunPage()) emptyMsg.classList.remove("hidden");
+    }
+    syncMcpBulkActions();
+    return;
+  }
+  if (emptyMsg) {
+    emptyMsg.hidden = true;
+    if (isStitchRunPage()) emptyMsg.classList.add("hidden");
+  }
+
+  for (const connector of connectors) {
+    container.appendChild(renderMcpConnectorRow(connector));
+  }
+  syncMcpBulkActions();
+}
+
+function initRunMcpPanel() {
+  const selectAllBtn = document.getElementById("mcp-select-all");
+  const clearAllBtn = document.getElementById("mcp-clear-all");
+  selectAllBtn?.addEventListener("click", () => {
+    mcpOptionalToggles().forEach((input) => {
+      input.checked = true;
+    });
+    syncMcpBulkActions();
+  });
+  clearAllBtn?.addEventListener("click", () => {
+    mcpOptionalToggles().forEach((input) => {
+      input.checked = false;
+    });
+    syncMcpBulkActions();
+  });
+  loadRunMcpConnectors();
 }
 
 function llmQuery() {
@@ -93,10 +384,12 @@ async function fetchToolTrace() {
   const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/tool-trace${llmQuery()}`);
   if (!resp.ok) {
     if (summaryEl) summaryEl.textContent = "Could not load tool trace.";
+    toolTraceCategoryFilter = null;
     renderToolTrace({ entries: [], summary: { total: 0, by_category: {} } });
     return;
   }
   const data = await resp.json();
+  toolTraceCategoryFilter = null;
   renderToolTrace(data);
 }
 
@@ -118,13 +411,20 @@ function syncPhaseRail(active, running = false) {
 }
 
 function scrollToReportSection() {
-  const section = document.getElementById("report-section");
+  const viewer = document.getElementById("report-viewer");
+  const section = document.getElementById("report-section") || viewer;
   if (!section) return;
   if (window.FtdcMotion?.scrollTo) {
     window.FtdcMotion.scrollTo(section);
   } else {
     section.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+}
+
+function setPanelVisible(el, visible) {
+  if (!el) return;
+  el.hidden = !visible;
+  el.classList.toggle("hidden", !visible);
 }
 
 async function loadSavedReport() {
@@ -138,8 +438,8 @@ async function loadSavedReport() {
   const reportResp = await fetch(url);
   if (reportResp.status === 404) {
     window.FtdcReportViewer?.clear(viewer);
-    if (noMsg) noMsg.hidden = false;
-    if (rawDetails) rawDetails.hidden = true;
+    setPanelVisible(noMsg, true);
+    setPanelVisible(rawDetails, false);
     return;
   }
   if (!reportResp.ok) {
@@ -149,8 +449,8 @@ async function loadSavedReport() {
   if (viewer && window.FtdcReportViewer) {
     window.FtdcReportViewer.render(data, viewer);
   }
-  if (noMsg) noMsg.hidden = true;
-  if (rawDetails) rawDetails.hidden = false;
+  setPanelVisible(noMsg, false);
+  setPanelVisible(rawDetails, true);
 }
 
 async function loadLlmContext() {
@@ -186,7 +486,7 @@ async function loadLlmContext() {
   } else if (statusData.status === "completed") {
     if (statusEl) {
       statusEl.textContent =
-        "RCA complete — report below. Use the chat panel for follow-up questions or profiler data.";
+        "RCA complete — report below. Use the chat panel for follow-up questions.";
     }
     window.FtdcAgentChat?.onCompleted?.(selectedLlm);
   } else if (statusData.status === "not_started") {
@@ -207,6 +507,7 @@ function initRcaPanel(initialLlm) {
   if (llmSelect && initialLlm) {
     llmSelect.value = initialLlm;
   }
+  initRunMcpPanel();
   loadLlmContext();
   window.FtdcAgentChat?.init?.(RUN_ID, selectedLlm, { hasReport: HAS_REPORT });
 
@@ -229,7 +530,7 @@ function initRcaPanel(initialLlm) {
       const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ llm }),
+        body: JSON.stringify({ llm, enabled_mcp_ids: selectedMcpIds() }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || "Failed to start RCA");
@@ -268,7 +569,7 @@ function initRcaPanel(initialLlm) {
       const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/clarify${llmQuery()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, enabled_mcp_ids: selectedMcpIds() }),
       });
       const data = await resp.json();
       if (!resp.ok) {

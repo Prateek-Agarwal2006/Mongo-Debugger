@@ -89,7 +89,6 @@ _VALID_EVIDENCE_SOURCE_TYPES = {
     "assessment",
     "metric_slice",
     "raw_path",
-    "profiler",
     "log",
     "operator",
     "web",
@@ -158,6 +157,12 @@ def parse_rca_report(text: str, run_id: str) -> RCAReportDraft:
     return report
 
 
+def load_persisted_rca_report(raw_json: str, run_id: str) -> RCAReportDraft:
+    """Load report JSON from disk; strips legacy fields (e.g. profiler citations)."""
+    payload = json.loads(raw_json)
+    return RCAReportDraft.model_validate(_normalize_rca_payload(payload, run_id))
+
+
 def parse_clarifying_questions(
     text: str,
     run_id: str,
@@ -177,4 +182,5 @@ def parse_investigation_summary(text: str, run_id: str) -> InvestigationSummary:
     payload = _extract_json_object(text)
     if "run_id" not in payload:
         payload["run_id"] = run_id
+    payload.pop("profiler_insights", None)
     return InvestigationSummary.model_validate(payload)

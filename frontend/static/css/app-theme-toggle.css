@@ -1,0 +1,56 @@
+/* 21st-inspired pill toggle — Classic vs Modern (Bootstrap, no React) */
+
+.app-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0.2rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface-2) 88%, transparent);
+}
+
+.app-theme-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--bs-secondary-color);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-theme-toggle__btn i {
+  font-size: 0.85rem;
+}
+
+.app-theme-toggle__btn:hover {
+  color: var(--bs-body-color);
+  background: color-mix(in srgb, var(--app-surface) 60%, transparent);
+}
+
+.app-theme-toggle__btn.is-active {
+  color: var(--bs-body-color);
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.app-theme-toggle--compact .app-theme-toggle__btn span {
+  display: none;
+}
+
+.app-theme-toggle--compact .app-theme-toggle__btn {
+  padding: 0.4rem 0.55rem;
+}
+
+html[data-app-theme="modern"] .app-theme-toggle__btn.is-active {
+  border-color: color-mix(in srgb, var(--mdb-green-dim) 35%, var(--app-border));
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}

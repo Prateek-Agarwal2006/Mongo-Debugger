@@ -3,7 +3,7 @@ from __future__ import annotations
 import ipaddress
 import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -94,6 +94,17 @@ def execute_web_fetch(
         safe_url = url.strip() or url
         message = str(exc)
         return {"url": safe_url, "error": message}, "error", message
+
+
+def build_web_fetch_tool(settings: Settings | None = None) -> Callable[..., dict[str, Any]]:
+    resolved = settings or get_settings()
+
+    def web_fetch(url: str) -> dict[str, Any]:
+        """Fetch trusted HTTPS documentation (same policy as Cursor web_fetch)."""
+        result, _status, _excerpt = execute_web_fetch(url, settings=resolved)
+        return result
+
+    return web_fetch
 
 
 def build_cursor_sdk_web_tools(

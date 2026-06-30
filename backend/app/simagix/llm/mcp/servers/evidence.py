@@ -10,7 +10,6 @@ from mcp.server.fastmcp import FastMCP
 
 from backend.app.simagix.budget import RetrievalBudget
 from backend.app.simagix.evidence_service import SimagixEvidenceService
-from backend.app.simagix.profiler import load_profiler_data
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
@@ -100,13 +99,6 @@ def list_fallback_metrics(pattern: str | None = None) -> list[str]:
 def get_budget_status() -> dict[str, Any]:
     """Return remaining retrieval budget for this session."""
     return _evidence_service().get_budget_status()
-
-
-@mcp.tool()
-def get_profiler_samples(limit: int = 50) -> dict[str, Any]:
-    """Return MongoDB profiler samples uploaded for this run (db.system.profile JSON)."""
-    service = _evidence_service()
-    return load_profiler_data(service.workspace_root, service.run_id, limit=limit)
 
 
 def main() -> None:

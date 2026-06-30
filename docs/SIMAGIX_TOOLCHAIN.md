@@ -97,7 +97,7 @@ Do **not** use `simagix/hatchet:latest` from Docker Hub for multi-file merge unt
 
 **Tier-1 summary contents:** metadata, source files, `top_slow_ops_by_avg_ms`, `top_slow_ops_by_total_ms`, separate `collscan_ops`, audit highlights, observed driver versions only, top 10 slowest log examples with ~500-character snippets, and a capped connection timeline. Full logs, full charts, compatibility verdicts, and arbitrary SQL stay out of the prompt.
 
-**Hatchet MCP (v2):** `backend/app/simagix/hatchet_tools.py`, `backend/app/simagix/llm/hatchet_mcp_server.py`. Tools read the same `hatchet.db` using `summary.json.store_paths`.
+**Hatchet MCP (v2):** `backend/app/simagix/hatchet_tools.py`, `backend/app/simagix/llm/mcp/servers/hatchet.py`. Tools read the same `hatchet.db` using `summary.json.store_paths`.
 
 **Why not the Hatchet web service:** its pages and REST endpoints are wrappers over the same SQLite `Database` methods (`GetSlowOps`, `GetAuditData`, `GetSlowestLogs`, connection/reslen queries). Reading the DB directly keeps the Phase 2 path deterministic and avoids another long-running service.
 

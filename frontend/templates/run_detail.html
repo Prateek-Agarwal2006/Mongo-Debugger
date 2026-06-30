@@ -1,17 +1,33 @@
 {% extends "base.html" %}
 {% block title %}{{ run_id }} — Run analysis (Phase 2){% endblock %}
-{% block body_class %}page-run-detail{% endblock %}
+{% block body_class %}page-run-detail mdb-modern-page{% endblock %}
+{% block page_data %}
+{
+  "page": "run_workspace",
+  "run_id": "{{ run_id }}",
+  "selected_llm": "{{ selected_llm }}",
+  "upload_time_utc": {{ upload_time_utc | tojson }},
+  "has_report": {{ has_report | tojson }},
+  "phase2_hatchet_blocked": {{ phase2_hatchet_blocked | tojson }},
+  "host": {{ manifest.get("host") | tojson }},
+  "export_tier": {{ manifest.get("export_tier") | tojson }},
+  "hatchet_status": {{ hatchet_status | tojson }},
+  "has_mongodb_logs": {{ has_mongodb_logs | tojson }},
+  "mongodb_log_files": {{ mongodb_log_files | tojson }}
+}
+{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="/static/css/report-viewer.css"/>
 <link rel="stylesheet" href="/static/css/clarify-chat.css"/>
+<link rel="stylesheet" href="/static/css/mcp-run-panel.css"/>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="/static/js/phase-rail.js?v=5" defer></script>
-<script src="/static/js/clarify-wizard.js" defer></script>
+<script src="/static/js/clarify-wizard.js?v=2" defer></script>
 <script src="/static/js/report-viewer.js" defer></script>
 <script src="/static/js/agent-chat.js?v=2" defer></script>
 <script src="/static/js/grafana.js?v=4" defer></script>
-<script src="/static/js/rca.js" defer></script>
+<script src="/static/js/rca.js?v=7" defer></script>
 {% endblock %}
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
@@ -187,9 +203,24 @@
           <button class="btn btn-success btn-glow" id="run-rca-btn" type="button">
             <i class="bi bi-play-fill me-1"></i>Run RCA
           </button>
-          <a class="btn btn-outline-secondary btn-sm" href="/docs#/simagix-phase2/upload_profiler_data_simagix_runs__run_id__phase2_profiler_post" target="_blank" rel="noopener">
-            Profiler API
-          </a>
+        </div>
+        <div class="mcp-run-panel mb-3" id="mcp-run-panel">
+          <div class="mcp-run-panel__header">
+            <div>
+              <span class="mcp-run-panel__title">MCP connectors for this run</span>
+              <p class="mcp-run-panel__subtitle">Optional connectors from MCP WorkArea. Checked items are sent when you Run RCA or submit clarifications.</p>
+            </div>
+            <div class="mcp-run-panel__actions">
+              <button type="button" class="mcp-run-panel__btn" id="mcp-select-all" hidden>Select all</button>
+              <button type="button" class="mcp-run-panel__btn" id="mcp-clear-all" hidden>Clear</button>
+              <a class="mcp-run-panel__link" href="/mcp-workarea">
+                <i class="bi bi-plug me-1"></i>Configure
+              </a>
+            </div>
+          </div>
+          <div id="mcp-run-checkboxes" class="mcp-run-panel__list"></div>
+          <p class="mcp-run-panel__empty mb-0" id="mcp-run-empty" hidden>No user MCP connectors configured. Add one in MCP WorkArea.</p>
+          <p class="mcp-run-panel__footer">Selections are not saved between runs.</p>
         </div>
         <pre id="investigation-summary" class="pretty-report" hidden></pre>
         <form id="clarify-form" class="mt-3" hidden>
@@ -256,7 +287,7 @@
 
     <div id="agent-chat-panel" class="agent-chat-panel" {% if not has_report %}hidden{% endif %}>
       <h3 class="h6 mb-1"><i class="bi bi-chat-dots me-2 text-success"></i>Chatbot</h3>
-      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up — attach <code>.json</code>, <code>.log</code>, <code>.txt</code>, or paste profiler JSON in the message.</p>
+      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up — attach <code>.json</code>, <code>.log</code>, or <code>.txt</code> files.</p>
       <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
       <div id="agent-chat-pending-files" class="agent-chat-pending-files" hidden></div>
       <p id="agent-chat-file-error" class="agent-chat-file-error text-warning small mb-2" role="alert" hidden></p>

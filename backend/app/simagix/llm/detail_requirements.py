@@ -1,7 +1,7 @@
 """Shared prompt text for mechanistic RCA: format, illustrative examples, evidence rules."""
 
 MOCK_WHY_STUB = (
-    "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results."
+    "[mock] Not inferred — live agent must derive mechanism from metric/log tool results."
 )
 
 MOCK_MECHANISM_STUB = "[mock] pending evidence-backed analysis"
@@ -39,7 +39,7 @@ def warn_prompt_example_echo(text: str) -> list[str]:
 EVIDENCE_RULES = (
     "EVIDENCE RULES (binding):\n"
     "- Every why_it_happened and incident_timeline mechanism must cite at least one of: "
-    "metric_insights value, anomaly window, profiler/log slice, or operator answer.\n"
+    "metric_insights value, anomaly window, log slice, or operator answer.\n"
     "- Forbidden: inferring mechanism from finding name keywords alone "
     "(e.g. seeing 'RAM' and asserting cache eviction without metric proof).\n"
     "- Forbidden: copying prompt examples verbatim into output.\n"

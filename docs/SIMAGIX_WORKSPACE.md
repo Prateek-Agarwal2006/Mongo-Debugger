@@ -6,7 +6,7 @@ Local workspace for running the Simagix diagnostic toolchain and producing tiere
 **Tool roles and Docker scripts:** [Simagix Toolchain](SIMAGIX_TOOLCHAIN.md)  
 **Bundle schema:** [Export Contract](export_contract.md)
 
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-29
 
 ## Current status
 
@@ -204,11 +204,11 @@ Updated incrementally by the Python RCA backend.
 |------|--------|------|
 | `phase2/llm_index.json` | `update_llm_index()` | Summary per LLM slot: `status`, `has_report`, `last_run_at` |
 
-### Optional input JSON
+### Optional input files
 
 | File | Role |
 |------|------|
-| `inputs/profiler/system.profile.json` | Optional profiler upload for Phase 2 |
+| `inputs/mongodb-logs/` | Optional log files (Hatchet) |
 
 ### Source-of-truth cheat sheet
 
@@ -230,7 +230,6 @@ simagix-workspace/
   uploads/<run_id>/         One tree per web upload / pipeline run
     inputs/
       diagnostic.data/      FTDC metrics (web upload target)
-      profiler/             Optional profiler JSON (Phase 2)
       mongodb-logs/         Optional log files (Hatchet)
     phase1/
       jobs/{job_id}.json    Phase 1 job records

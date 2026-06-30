@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MCP WorkArea — Mongo Debugger</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        primary: "#52443f",
+        tertiary: "#603d45",
+        secondary: "#655c5a",
+        surface: "#FAF9F5",
+        "on-surface": "#2F342E",
+        "on-surface-variant": "#4e4542",
+        "surface-container-low": "#F4F4EF",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-high": "#e9e8e4",
+        "outline-variant": "#AFB3AC",
+      },
+      fontFamily: {
+        sans: ["Public Sans", "sans-serif"],
+      },
+    },
+  },
+};
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24; }
+</style>
+<link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+</head>
+<body class="bg-surface text-on-surface font-sans min-h-screen flex flex-col antialiased">
+<div id="mdb-stitch-nav-mount"></div>
+<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+
+<main class="flex-grow w-full max-w-[1600px] mx-auto px-6 py-8 pt-24 flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[32px]">cable</span>
+<h1 class="text-2xl font-bold text-primary tracking-tight">MCP WorkArea</h1>
+</div>
+<p class="text-sm text-on-surface-variant max-w-3xl">
+Configure MCP connectors here. To <strong>select which connectors run</strong>, open a run → <strong>Investigation</strong> tab → checkboxes under <strong>Run RCA</strong> (not on this page).
+</p>
+</div>
+
+<div class="flex border-b border-outline-variant/30 mt-2" role="tablist">
+<button type="button" class="px-6 py-3 text-sm font-medium text-tertiary border-b-2 border-tertiary" id="btn-tab-configured" role="tab" aria-selected="true">
+Configured MCPs
+</button>
+<button type="button" class="px-6 py-3 text-sm font-medium text-on-surface-variant hover:text-primary" id="btn-tab-new" role="tab" aria-selected="false">
+Configure New MCP
+</button>
+</div>
+
+<div id="pane-configured" role="tabpanel">
+<div class="flex flex-wrap items-center gap-2 mb-3">
+<span class="text-xs text-on-surface-variant">Saved connectors (operator registry on disk)</span>
+<button type="button" class="text-sm text-primary hover:text-tertiary ms-auto flex items-center gap-1" id="mcp-refresh-btn">
+<span class="material-symbols-outlined text-base">refresh</span>Refresh
+</button>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden w-full max-w-4xl">
+<div id="mcp-configured-list" class="hidden"></div>
+<table class="w-full text-left border-collapse" id="mcp-configured-table">
+<thead class="bg-surface-container-low border-b border-outline-variant/30">
+<tr>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Display name</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Connector ID</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Transport</th>
+<th class="px-6 py-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20"></tbody>
+</table>
+<p class="px-6 py-8 text-sm text-on-surface-variant text-center hidden" id="mcp-configured-empty">No user connectors yet. Use Configure New MCP.</p>
+<div class="p-6 bg-surface-container-low/30 border-t border-outline-variant/30">
+<button type="button" class="flex items-center gap-2 text-primary text-sm font-medium hover:text-tertiary transition-colors" id="mcp-add-btn">
+<span class="material-symbols-outlined">add</span>Add another connector
+</button>
+</div>
+</div>
+</div>
+
+<div id="pane-new" class="hidden" role="tabpanel">
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm p-6 max-w-4xl">
+<form id="mcp-create-form" class="space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-medium mb-1" for="mcp-id">Connector id</label>
+<input class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2" id="mcp-id" name="id" required pattern="[a-z0-9][a-z0-9_-]{0,63}" placeholder="github-prod"/>
+<p class="text-xs text-on-surface-variant mt-1">Lowercase letters, digits, hyphen, underscore (1–64 chars).</p>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1" for="mcp-name">Display name</label>
+<input class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2" id="mcp-name" name="name" required placeholder="GitHub production"/>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1" for="mcp-transport">Transport</label>
+<select class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2" id="mcp-transport" name="transport" required>
+<option value="http">HTTP (remote MCP URL)</option>
+<option value="stdio_template">Stdio template (Docker)</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1" for="mcp-description">Description</label>
+<input class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2" id="mcp-description" name="description" placeholder="Optional notes"/>
+</div>
+<div id="mcp-http-fields">
+<label class="block text-sm font-medium mb-1" for="mcp-url">MCP URL</label>
+<input class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2 mb-3" id="mcp-url" name="url" type="url" placeholder="http://127.0.0.1:8765/mcp or https://example.com/mcp"/>
+<label class="block text-sm font-medium mb-1" for="mcp-headers">Headers (JSON object)</label>
+<textarea class="w-full text-sm font-mono border border-outline-variant rounded-lg px-3 py-2" id="mcp-headers" name="headers" rows="3" placeholder='{"Authorization": "Bearer …"}'></textarea>
+</div>
+<div id="mcp-stdio-fields" hidden>
+<label class="block text-sm font-medium mb-1" for="mcp-template">Stdio template</label>
+<select class="w-full text-sm border border-outline-variant rounded-lg px-3 py-2" id="mcp-template" name="template_id"></select>
+<p class="text-xs text-on-surface-variant mt-2" id="mcp-template-help"></p>
+<div id="mcp-env-fields" class="mt-3 space-y-2"></div>
+</div>
+<div class="flex flex-wrap items-center gap-3 pt-2">
+<button type="submit" class="bg-[#C96442] hover:bg-[#b35636] text-white px-5 py-2 rounded-lg text-sm font-semibold">Save connector</button>
+<span class="text-sm text-on-surface-variant" id="mcp-form-status" role="status"></span>
+</div>
+</form>
+</div>
+</div>
+</main>
+
+<div id="mdb-stitch-footer-mount"></div>
+
+<script src="/static/js/mcp-workarea.js?v=2"></script>
+</body>
+</html>

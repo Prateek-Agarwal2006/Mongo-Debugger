@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Upload Logs - Mongo Debugger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-error": "#fff7f6",
+                      "primary": "#6b5b56",
+                      "surface-tint": "#6b5b56",
+                      "on-tertiary-fixed": "#513038",
+                      "tertiary-fixed": "#ffcdd7",
+                      "on-secondary-container": "#58504d",
+                      "secondary-container": "#ede0dc",
+                      "tertiary-dim": "#6e4951",
+                      "outline": "#787c75",
+                      "inverse-on-surface": "#9d9d9a",
+                      "surface-dim": "#d7dcd2",
+                      "secondary-dim": "#5a514f",
+                      "surface-container-high": "#e6e9e2",
+                      "error": "#9f403d",
+                      "secondary-fixed-dim": "#ded2ce",
+                      "surface-container-lowest": "#ffffff",
+                      "outline-variant": "#afb3ac",
+                      "primary-fixed-dim": "#e6d0c9",
+                      "primary-container": "#f5ded7",
+                      "inverse-surface": "#0d0f0d",
+                      "on-surface": "#2f342e",
+                      "on-primary-container": "#5e4e49",
+                      "error-container": "#fe8983",
+                      "on-tertiary-fixed-variant": "#714c54",
+                      "on-primary-fixed": "#4b3c37",
+                      "tertiary-container": "#ffcdd7",
+                      "surface-variant": "#e0e4dc",
+                      "on-surface-variant": "#5c605a",
+                      "on-secondary-fixed-variant": "#625a57",
+                      "surface": "#faf9f5",
+                      "on-error-container": "#752121",
+                      "on-secondary": "#fff7f5",
+                      "on-primary": "#fff6f3",
+                      "tertiary-fixed-dim": "#f0c0c9",
+                      "primary-dim": "#5f4f4a",
+                      "on-background": "#2f342e",
+                      "surface-container-low": "#f4f4ef",
+                      "surface-container-highest": "#e0e4dc",
+                      "on-primary-fixed-variant": "#685853",
+                      "error-dim": "#4e0309",
+                      "background": "#faf9f5",
+                      "secondary-fixed": "#ede0dc",
+                      "secondary": "#665d5b",
+                      "tertiary": "#7b555d",
+                      "primary-fixed": "#f5ded7",
+                      "on-tertiary-container": "#66434b",
+                      "on-tertiary": "#fff7f7",
+                      "surface-bright": "#faf9f5",
+                      "surface-container": "#edeee8",
+                      "inverse-primary": "#fee6df",
+                      "on-secondary-fixed": "#453e3b",
+                      "clay": "#C96442"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": ["Public Sans", "sans-serif"],
+                      "display": ["Public Sans", "sans-serif"],
+                      "body": ["Public Sans", "sans-serif"],
+                      "label": ["Public Sans", "sans-serif"]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #faf9f5;
+        }
+        .drop-zone-active {
+            border-color: #C96442 !important;
+            background-color: rgba(244, 244, 239, 1);
+        }
+        .pipeline-rail {
+            position: relative;
+        }
+        .pipeline-rail-line {
+            position: absolute;
+            left: 15px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: rgba(175, 179, 172, 0.45);
+            border-radius: 1px;
+        }
+        .pipeline-step {
+            position: relative;
+            display: flex;
+            gap: 1rem;
+        }
+        .pipeline-step + .pipeline-step {
+            margin-top: 2rem;
+        }
+        .pipeline-step-dot {
+            z-index: 1;
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid #faf9f5;
+        }
+        .pipeline-step-dot--active {
+            background: #c96442;
+            color: #fff;
+        }
+        .pipeline-step-dot--muted {
+            background: #e0e4dc;
+            color: #5c605a;
+            border-color: #faf9f5;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col font-body">
+<div id="mdb-stitch-nav-mount"></div>
+<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-5xl mx-auto px-6 pt-24 pb-12">
+<!-- Header Section -->
+<header class="mb-10 max-w-3xl">
+<h1 class="text-4xl font-headline font-bold text-on-surface mb-4 tracking-tight">Upload logs</h1>
+<p class="text-lg text-on-surface-variant mb-2">Upload your FTDC <code class="bg-surface-container-high px-1.5 py-0.5 rounded text-sm font-mono text-on-surface">diagnostic.data</code> bundle to begin the automated root cause analysis pipeline.</p>
+<p class="text-sm text-outline mb-4">Accepted: .zip or .tar.gz containing metrics.*, or a single metrics.* file.</p>
+<div class="inline-flex items-center gap-2 bg-primary-container/30 px-3 py-2 rounded-md text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px] text-primary">lightbulb</span>
+<span>Mac tip: <code class="font-mono text-xs">cd tmp &amp;&amp; zip -r diagnostic.zip diagnostic.data</code></span>
+</div>
+</header>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+<!-- Primary Card (Upload Form) -->
+<div class="lg:col-span-2 bg-surface-container-lowest rounded-xl border border-outline-variant/50 p-8 shadow-sm">
+<form id="upload-form" class="space-y-8">
+<!-- Drag and Drop Zone -->
+<div id="drop-zone" class="border-2 border-dashed border-outline-variant hover:border-[#C96442] bg-surface-container-low/50 hover:bg-surface-container-low transition-colors rounded-xl p-12 text-center cursor-pointer group">
+<div class="w-16 h-16 rounded-full bg-[#C96442]/10 mx-auto flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl text-[#C96442]">cloud_upload</span>
+</div>
+<h3 class="text-lg font-semibold text-on-surface mb-2">Drop FTDC archive here or click to browse</h3>
+<p class="text-sm text-on-surface-variant">Supported: .zip, .tar.gz, or metrics.* diagnostic bundle</p>
+<input accept=".zip,.tar.gz,.tgz,.metrics.*" class="hidden" id="file-input" name="file" type="file"/>
+<p class="text-sm text-on-surface-variant mt-3" id="file-name"></p>
+</div>
+<div class="space-y-3">
+<button class="w-full bg-[#C96442] hover:bg-[#b05536] text-white rounded-lg px-6 py-4 font-semibold text-lg flex items-center justify-center gap-2 transition-colors shadow-sm" id="submit-btn" type="submit">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                            Start pipeline
+                        </button>
+<div class="text-center text-sm text-on-surface-variant/70 min-h-[20px]" id="status-area">
+<!-- Status messages will appear here -->
+</div>
+</div>
+</form>
+</div>
+<!-- Sidebar -->
+<div class="space-y-6">
+<!-- What happens next -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/50 p-6 shadow-sm">
+<h3 class="font-semibold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#C96442]">route</span>
+What happens next
+</h3>
+<div class="pipeline-rail">
+<div class="pipeline-rail-line" aria-hidden="true"></div>
+<div class="pipeline-step">
+<div class="pipeline-step-dot pipeline-step-dot--active">1</div>
+<div>
+<h4 class="text-sm font-semibold text-on-surface">Phase 1 — Decode &amp; export</h4>
+<p class="text-xs text-on-surface-variant mt-1 leading-relaxed">FTDC archive is decoded locally; metrics export and manifest land in your workspace.</p>
+</div>
+</div>
+<div class="pipeline-step">
+<div class="pipeline-step-dot pipeline-step-dot--muted">A</div>
+<div>
+<h4 class="text-sm font-semibold text-on-surface/80">Phase 2 A — Investigation</h4>
+<p class="text-xs text-on-surface-variant mt-1 leading-relaxed">Tier-2 agent pulls MCP evidence, metrics, and logs.</p>
+</div>
+</div>
+<div class="pipeline-step">
+<div class="pipeline-step-dot pipeline-step-dot--muted">B</div>
+<div>
+<h4 class="text-sm font-semibold text-on-surface/80">Phase 2 B — Clarifying questions</h4>
+<p class="text-xs text-on-surface-variant mt-1 leading-relaxed">Up to 10 questions to narrow the failure vector.</p>
+</div>
+</div>
+<div class="pipeline-step">
+<div class="pipeline-step-dot pipeline-step-dot--muted">C</div>
+<div>
+<h4 class="text-sm font-semibold text-on-surface/80">Phase 2 C — RCA report</h4>
+<p class="text-xs text-on-surface-variant mt-1 leading-relaxed">Final narrative report plus post-report chatbot.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Security Box -->
+<div class="bg-primary-container/40 rounded-xl p-5 flex gap-4 items-start border border-primary/10">
+<span class="material-symbols-outlined text-primary mt-0.5">shield_lock</span>
+<p class="text-sm text-on-surface-variant leading-relaxed">Uploads stay on your workspace disk; Phase 1 decode runs locally via the pipeline worker.</p>
+</div>
+<!-- Decorative Image -->
+<div class="rounded-xl overflow-hidden shadow-sm h-48 border border-outline-variant/50 relative bg-surface-container">
+<img alt="Decorative abstract data center" class="w-full h-full object-cover mix-blend-luminosity opacity-80" data-alt="A macro photograph of an abstract data center server rack glowing with calm, warm clay and white indicator lights in a high-key, pristine white environment. The shallow depth of field creates a soft, professional, technical aesthetic suitable for a modern diagnostic interface. The mood is secure, organized, and quietly efficient." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPrcPhr7lNBFUsblbA71e9Pd6FT6I2frjWJeZ4-xw_kKUn40hBaT6CnoORp9jGSWpkxxmCmW5GyL00XaIowTW__7qatym05JH2XAT19htGY7QEok7_l68Bqnrc16u6i92TV5At8Jk9DJodtwg5iRfTBeqD_2uMDjPgb-8UrzjdYbjBo7mFkgbePIA4C1IcmwaDGKTCbVDuyWDRxtAwthFt7JaFof3EVyEn_VFRF8KZWtykH7CBAiSWhfZXRxdq9h_32b32hAHZCYu4"/>
+</div>
+</div>
+</div>
+</main>
+<div id="mdb-stitch-footer-mount"></div>
+<script>
+(function () {
+  const fileInput = document.getElementById('file-input');
+  const dropZone = document.getElementById('drop-zone');
+  const fileNameEl = document.getElementById('file-name');
+  const form = document.getElementById('upload-form');
+  const statusEl = document.getElementById('status-area');
+
+  function setDragActive(active) {
+    dropZone.classList.toggle('drop-zone-active', active);
+    dropZone.classList.toggle('border-[#C96442]', active);
+  }
+
+  function onFileSelected(file) {
+    if (!file) {
+      fileNameEl.textContent = '';
+      return;
+    }
+    fileNameEl.textContent = file.name;
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    setDragActive(true);
+  });
+  dropZone.addEventListener('dragleave', () => setDragActive(false));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file && fileInput) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      onFileSelected(file);
+    }
+  });
+
+  fileInput.addEventListener('change', () => onFileSelected(fileInput.files?.[0]));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!fileInput.files?.[0]) {
+      statusEl.textContent = 'Choose a file first.';
+      return;
+    }
+
+    statusEl.textContent = 'Uploading…';
+    const data = new FormData();
+    data.append('file', fileInput.files[0]);
+
+    try {
+      const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
+      let body;
+      try {
+        body = await resp.json();
+      } catch {
+        statusEl.textContent = 'Upload failed: server returned ' + resp.status + ' (non-JSON response)';
+        return;
+      }
+      if (!resp.ok) {
+        const detail = Array.isArray(body.detail)
+          ? body.detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+          : (body.detail || 'Upload failed');
+        statusEl.textContent = 'Error: ' + detail;
+        return;
+      }
+
+      statusEl.textContent = 'Phase 1 queued for ' + body.run_id + '. Polling decode…';
+      const poll = window.setInterval(async () => {
+        const job = await fetch('/simagix/uploads/jobs/' + body.job_id).then((r) => r.json());
+        statusEl.textContent = 'Phase 1 ' + job.state + ': ' + job.message;
+        if (job.state === 'succeeded') {
+          window.clearInterval(poll);
+          window.top.location.href = '/runs/' + body.run_id;
+        }
+        if (job.state === 'failed') {
+          window.clearInterval(poll);
+          statusEl.textContent = 'Phase 1 failed: ' + (job.error || job.message);
+        }
+      }, 3000);
+    } catch (err) {
+      statusEl.textContent = 'Upload failed: ' + err.message;
+    }
+  });
+})();
+</script>
+</body></html>

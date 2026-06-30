@@ -16,7 +16,6 @@ from backend.app.simagix.output_schema import (
     RCAReportDraft,
     TimelineEvent,
 )
-from backend.app.simagix.profiler import load_profiler_data
 
 
 def _field(obj: Any, name: str, default: Any = None) -> Any:
@@ -112,24 +111,21 @@ class MockLLMProvider(LLMProvider):
                 insights.append(f"metric:{metric} unavailable in fixture")
         return insights
 
-    def run_investigation(self, session: Phase2Session, user_message: str) -> InvestigationSummary:
+    def run_investigation(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> InvestigationSummary:
         tier1 = session.evidence.load_tier1()
         exec_ctx = tier1.executive_context
         findings = [finding.name for finding in exec_ctx.findings]
         finding_analyses = _mock_finding_analyses(exec_ctx.findings, exec_ctx.top_anomaly_windows)
         incident_timeline = _mock_incident_timeline(exec_ctx.top_anomaly_windows)
-        tool_calls = ["get_metric_window", "get_profiler_samples"]
+        tool_calls = ["get_metric_window"]
 
         metric_insights = self._sample_metric_insights(session)
-
-        profiler_insights: list[str] = []
-        profiler = load_profiler_data(session.workspace_root, session.run_id)
-        if profiler.get("available"):
-            profiler_insights.append(
-                f"profiler: {profiler.get('sample_count', 0)} samples uploaded"
-            )
-        else:
-            profiler_insights.append("profiler: not uploaded for this run")
 
         open_questions: list[str] = [
             "Live agent: call get_metric_window around top anomaly windows before stating mechanism."
@@ -155,7 +151,6 @@ class MockLLMProvider(LLMProvider):
             tool_calls_made=tool_calls,
             metric_insights=metric_insights,
             log_insights=["graylog: not queried in mock mode"],
-            profiler_insights=profiler_insights,
             web_insights=web_insights,
             open_questions_for_operator=open_questions,
         )
@@ -217,7 +212,13 @@ class MockLLMProvider(LLMProvider):
             ),
         )
 
-    def run(self, session: Phase2Session, user_message: str) -> Phase2RunResult:
+    def run(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> Phase2RunResult:
         started = time.monotonic()
         if self.delay_seconds:
             time.sleep(self.delay_seconds)

@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Upload {{ run_id }} — Phase 1{% endblock %}
+{% block body_class %}mdb-modern-page{% endblock %}
+{% block page_data %}
+{
+  "page": "pipeline",
+  "run_id": "{{ run_id }}",
+  "pipeline_status": {{ pipeline_status | tojson }},
+  "job_id": {{ job_id | tojson }},
+  "upload_time_utc": {{ upload_time_utc | tojson }}
+}
+{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
   <div>

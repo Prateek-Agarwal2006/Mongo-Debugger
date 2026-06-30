@@ -2,7 +2,7 @@
 
 **Reference spec:** [FTDC_Analyzer_AI_Agent_Intern_Project_final.pdf](../FTDC_Analyzer_AI_Agent_Intern_Project_final.pdf)
 
-**Last updated:** 2026-06-16
+**Last updated:** 2026-06-29
 
 **Improvement history:** [CHANGELOG.md](CHANGELOG.md) · **Doc update matrix:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md)
 
@@ -22,7 +22,7 @@ Mongo Debugger implements an **AI-powered FTDC Analyzer** that ingests MongoDB `
 | Per-LLM artifact isolation (cursor / gemini / mock) | **Complete** |
 | Hybrid anomaly correlation | **Complete** |
 | 3-phase iterative RCA (investigate → clarify → RCA) | **Complete** |
-| Graylog MCP + profiler ingestion (PDF 3.4 Step 2) | **Complete** |
+| Graylog MCP (PDF 3.4 Step 2) | **Complete** |
 | HTML report with graph placeholders | **Complete** |
 
 ---
@@ -38,7 +38,6 @@ Mongo Debugger implements an **AI-powered FTDC Analyzer** that ingests MongoDB `
 | **3.4 Step 1** | Iterative RCA agent | **Done** | 3-phase flow: investigation (MCP) → clarify → final RCA |
 | **3.4** | Ask user all at once | **Done** | LLM-generated questions (max 10) after tier-2 investigation |
 | **3.4 Step 2** | Graylog MCP | **Done** | Live Universal Search client in `graylog_client.py` |
-| **3.4 Step 2** | Profiler data | **Done** | Upload API + `get_profiler_samples` wired in investigation |
 | **3.6** | Final RCA report | **Done** | `RCAReportDraft`, pretty text, HTML view |
 | **4** | End-to-end web workflow | **Done** | `/`, `/upload`, `/runs/{id}`, 3-phase RCA panel |
 
@@ -68,11 +67,11 @@ diagnostic.data (upload or disk)
 - [x] **M3** — Grafana charts (shared Docker stack, external dashboard links)
 - [x] **M4** — Hybrid anomaly correlation endpoint
 - [x] **M5** — Iterative RCA + clarifying questions (all at once)
-- [x] **M6** — Graylog MCP (live client) + profiler upload/MCP tool
+- [x] **M6** — Graylog MCP (live client)
 - [x] **M7** — HTML report view (Grafana for interactive charts)
 - [x] **M8** — Tests, demo script, documentation refresh
 - [x] **M9** — 3-phase iterative RCA (investigation before clarify)
-- [x] **M10** — PDF 3.4 Step 2 completion (Graylog + profiler wiring)
+- [x] **M10** — PDF 3.4 Step 2 completion (Graylog wiring)
 - [x] **M11** — Docs scorecard correction
 
 ---
@@ -109,7 +108,6 @@ open http://localhost:8000/runs/phase1test20260605T071425Z
 | `POST /simagix/runs/{id}/phase2/run` | Phase A+B: investigate + clarifying questions |
 | `POST /simagix/runs/{id}/phase2/clarify` | Phase C: submit answers + final RCA |
 | `GET /simagix/runs/{id}/phase2/status` | RCA session state |
-| `POST /simagix/runs/{id}/phase2/profiler` | Upload profiler JSON |
 | `GET /simagix/runs/{id}/phase2/reports/latest/view` | HTML report |
 
 ---
