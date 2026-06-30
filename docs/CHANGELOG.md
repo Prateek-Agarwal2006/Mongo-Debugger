@@ -3,9 +3,515 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-29 — Phase A lists all retrievable metric names
+
+**What:** Investigation (Phase A) prompt includes every unique metric from `fallback_retrieval_index.json`, not only mongo-ftdc assessment highlights.
+
+**How:** `unique_metrics_from_index()` in `fallback_tools.py`; `assemble_prompt_context()` adds `retrievable_metrics`; `build_investigate_user_message()` renders the list and softens tier-1 anchoring text.
+
+**Why:** Highlighted metrics alone could anchor the agent; full catalog matches MCP `list_fallback_metrics` so operators can explore beyond Simagix priorities.
+
+---
+
+## 2026-06-29 — Cursor autoReview for headless MCP (sandbox on)
+
+**What:** Phase 2 Cursor runs with MCP servers use `LocalAgentOptions(auto_review=True)` so MCP tool calls are not rejected for missing interactive approval.
+
+**How:** `providers/cursor/provider.py` — `auto_review=True` when `include_mcp`; sandbox stays enabled.
+
+**Why:** Local SDK runs cannot prompt for MCP approval; users saw all MCP calls rejected with sandbox policy error.
+
+---
+
+## 2026-06-29 — Local test HTTP MCP connector
+
+**What:** Streamable HTTP test MCP server on `http://127.0.0.1:8765/mcp` plus `local-test-http` registry entry (fill `Authorization` header yourself).
+
+**How:** `test_mcp_http_server.py`; `_validate_http_mcp_url` allows `http://127.0.0.1` / `localhost` for local test endpoints.
+
+**Why:** Operators can verify HTTP MCP wiring (ADK/Cursor tool trace) without a remote HTTPS endpoint.
+
+---
+
+## 2026-06-29 — Local test MCP connector (ping/echo)
+
+**What:** Shipped `test_mcp_server.py` stdio MCP plus `test-ping-mcp` WorkArea template.
+
+**How:** `simagix-workspace/operator/mcp_connectors/test_mcp_server.py`; `STDIO_TEMPLATES["test-ping-mcp"]`.
+
+**Why:** Stdio MCP wiring check without GitHub or remote HTTP.
+
+---
+
+## 2026-06-29 — Legacy profiler citations stripped on report load
+
+**What:** Old `latest_report.json` files with `evidence_citations.source_type=profiler` load without Pydantic validation errors.
+
+**How:** `load_persisted_rca_report()` applies `_normalize_rca_payload` when reading disk; `session.load_persisted_report()` uses it.
+
+**Why:** Profiler removal dropped `profiler` from the schema; existing Gemini/Cursor reports on disk still cited profiler and broke report HTML view.
+
+---
+
+## 2026-06-29 — Gemini API 503 mapped to HTTP 503 (not ASGI crash)
+
+**What:** Gemini `ServerError` / upstream API failures return JSON 503/429/502 from Phase 2 endpoints instead of unhandled ASGI exceptions.
+
+**How:** `gemini_errors.py` + `except` handlers on `/phase2/run`, `/clarify`, `/chatbot/messages`.
+
+**Why:** Google returned 503 UNAVAILABLE (model high demand); operators need a clear retry message.
+
+---
+
+## 2026-06-29 — Remove MongoDB profiler feature entirely
+
+**What:** Removed profiler upload API, `get_profiler_samples` MCP tool, `profiler_insights` schema field, and chatbot profiler JSON auto-upload.
+
+**How:** Deleted `profiler.py`; stripped MCP/prompts/mock/UI/tests; legacy `profiler_insights` stripped on parse.
+
+**Why:** User requested full removal — profiler calls caused Gemini failures and are out of scope.
+
+---
+
+## 2026-06-29 — Profiler MCP call optional in Phase 2 prompts
+
+**What:** Investigation and final RCA prompts no longer require `get_profiler_samples` (or other evidence tools) when MCP is unavailable.
+
+**How:** `prompts.py` — optional profiler check; fallback tools only when registered.
+
+**Why:** Gemini ADK crashed when MCP toolsets failed but prompt forced `get_profiler_samples` call.
+
+---
+
+## 2026-06-29 — Cursor SDK sandbox enabled
+
+**What:** Cursor agent built-in tools (`read`/`grep`/`shell`) run with `SandboxOptions(enabled=True)` for all phases.
+
+**How:** `cursor/provider.py` — sandbox on; MCP servers unchanged (separate subprocesses).
+
+**Why:** User testing tighter filesystem boundary; prompts still steer writes to `chatbot_scratch/`. May limit absolute-path reads outside cwd — use MCP for evidence.
+
+---
+
+## 2026-06-29 — Stitch Phase B wizard styling (progress dots + answer area)
+
+**What:** Clarifying-question progress dots are visible on Stitch; terracotta theme instead of green; polished answer label and textarea.
+
+**How:** `clarify-chat-stitch.css`; `clarify-wizard--stitch` on run workspace form; stitch-specific card/answer markup in `clarify-wizard.js`.
+
+**Why:** Dots used white-on-light (invisible); green accent clashed with Stitch palette; Bootstrap form styles looked out of place.
+
+---
+
+## 2026-06-29 — Phase B clarifying questions visible in Stitch run workspace
+
+**What:** Clarifying-question wizard appears after Run RCA on Modern/Stitch run workspace (Investigation tab).
+
+**How:** `clarify-wizard.js` toggles both HTML `hidden` and Tailwind `class="hidden"` (Stitch uses Tailwind; Classic uses attribute only).
+
+**Why:** `showClarifyWizard` only cleared the `hidden` attribute; Stitch `#clarify-form` kept `display:none` from Tailwind.
+
+---
+
+## 2026-06-29 — Modern theme flash fix (Classic chrome before React shell)
+
+**What:** Modern theme no longer flashes Classic dark navbar before the React/Stitch shell appears.
+
+**How:** Inline head script preloads Modern CSS; `theme-modern.css` hides `#classic-chrome` when `data-app-theme=modern`; `app-theme.js` syncs shell on script load (not only DOMContentLoaded).
+
+**Why:** Classic chrome was visible until deferred `app-theme.js` ran; user saw previous theme then current.
+
+---
+
+## 2026-06-29 — Unified MCP WorkArea footer on all pages
+
+**What:** Every page uses the same footer as MCP WorkArea (Mongo Debugger + © 2026 + API link).
+
+**How:** `stitch-nav.js` renders shared footer; `mdb-stitch-footer` CSS; `StitchFooter` React component; Classic `base.html` markup aligned.
+
+**Why:** User requested consistent footer across all pages.
+
+---
+
+## 2026-06-29 — Nav: remove Documentation footer link; API only
+
+**What:** Documentation tab removed from all footers; single working **API** link to `/docs` on Stitch pages, Classic base template, and Modern shells.
+
+**How:** Footer cleanup in `static/stitch/*.html`; `target="_top` for iframe pages; `StitchShell` / `ModernShell` / `base.html`; pipeline footer added.
+
+**Why:** User request — no Documentation tab; API link must work from every page.
+
+---
+
+## 2026-06-29 — Stitch report heading scale fix
+
+**What:** Sub-headings (section titles, labelled blocks, finding/causal step titles) are no longer smaller than body text.
+
+**How:** Bumped `.report-stitch-section-title`, `.report-stitch-labelled-heading`, and card `h4` sizes in `report-viewer-stitch.css`.
+
+**Why:** User reported headings smaller than the prose below them.
+
+---
+
+## 2026-06-29 — Stitch report: paragraphs by default, bullets only from JSON structure
+
+**What:** Summary, mechanism, findings prose render as normal paragraphs; bullets only for JSON arrays (`safe_fixes`, `causal_chain`, …) or strings that already contain newlines.
+
+**How:** Removed semicolon/sentence splitting in `report-viewer.js`; `buildStitchTextBlock` newline-only rule.
+
+**Why:** User — frontend should not invent bullet points; LLM structures content in JSON.
+
+---
+
+## 2026-06-29 — Stitch report: bullet lists + section order fix
+
+**What:** Executive summary and mechanism show visible bullet points; findings/timeline split semicolon clauses; section order matches classic (summary → mechanism → timeline → findings → causal chain).
+
+**How:** `list-style: disc` overrides Tailwind reset; safer `splitToBulletItems` (no sentence-split); labelled sub-blocks in `report-viewer.js`.
+
+**Why:** User reported executive summary/mechanism broken — bullets were invisible and long fields rendered as paragraph walls.
+
+---
+
+## 2026-06-29 — Stitch report: smaller overview + bullet-first layout
+
+**What:** Overview headline and body text are smaller; summary, mechanism, causal steps, and timeline render as bullet points instead of serif paragraphs.
+
+**How:** `splitToBulletItems()` in `report-viewer.js`; Public Sans at `0.875rem` in `report-viewer-stitch.css`.
+
+**Why:** User feedback — overview font too large; content should scan as points not walls of text.
+
+---
+
+## 2026-06-29 — Stitch report tab (Claude-like reading surface)
+
+**What:** Modern workspace Report tab uses side nav, Lora serif body, confidence ring, causal chain, timeline, and dark log evidence blocks — matching the Stitch design paste without fake chrome.
+
+**How:** `report-viewer-stitch.css`; `report-viewer.js` `buildReportDomStitch()` when `#report-viewer` has `report-viewer--stitch`; Report tab shell in `run_workspace.html`; `rca.js` Tailwind `hidden` class toggles for empty state.
+
+**Why:** User provided Stitch HTML for report layout; classic Bootstrap report viewer unchanged on classic theme.
+
+---
+
+## 2026-06-29 — Chatbot Claude-like reading surface (Modern workspace)
+
+**What:** Post-report chatbot uses warm cream `#FAF9F5`, white assistant cards, and dark readable prose — not grey dark-theme log styling.
+
+**How:** `agent-chat-stitch.css` scoped to `#agent-chat-panel.agent-chat-stitch` in `run_workspace.html`.
+
+**Why:** User reported grey muddy chatbot background; wanted Claude-like clarity.
+
+---
+
+## 2026-06-29 — Tool activity scroll fix (filters + table)
+
+**What:** Horizontal/vertical scroll works on tool activity with any filter active; wheel passes to page when table has no overflow; drag-to-pan on table area.
+
+**How:** Single `#tool-trace-scroll` container, `overscroll-behavior: auto`, flex height bounds on panel, removed nested wrap; chip row scrolls horizontally.
+
+**Why:** User reported scroll stuck on table and broken when filters applied.
+
+---
+
+## 2026-06-29 — Tool activity: horizontal scroll + category filter chips
+
+**What:** Agent tool activity table scrolls horizontally; summary chips match category badge colors; click MCP/Web/Local/Shell to filter rows (Total clears).
+
+**How:** `tool-trace.css` chip colors + table wrap; `rca.js` filter state and click handlers (Stitch Modern only).
+
+**Why:** User request — movable wide args column, colored headings, frontend category filter.
+
+---
+
+## 2026-06-29 — Remove dot-grid backgrounds (upload flow pages)
+
+**What:** Flat cream `#FAF9F5` backgrounds on Modern upload, runs, run workspace, and pipeline — no polka-dot grid pattern.
+
+**How:** Dropped `radial-gradient` dot grid from `run_workspace.html` and `pipeline.html`; explicit flat body on upload/runs; `mdb-modern-page` body override in `theme-modern.css`.
+
+**Why:** User request — dot pattern on upload flow pages.
+
+---
+
+## 2026-06-29 — Agent tool activity tab (Stitch theme + row hover)
+
+**What:** Tool activity tab matches Modern cream/clay theme; summary chips; hovered row lifts with shadow.
+
+**How:** `tool-trace.css`, stitch markup in `run_workspace.html`, `rca.js` stitch-aware badges and row classes.
+
+**Why:** User reported blunt table that did not blend with theme; wanted active row to pop on hover.
+
+---
+
+## 2026-06-29 — Run workspace Phase A/B/C rail (Modern iframe)
+
+**What:** Phase progress rail on `/runs/{id}` shows track, fill, and node states in Modern theme.
+
+**How:** New `frontend/static/css/phase-rail.css` (Stitch light theme); linked from `run_workspace.html` — JS was already loaded but `motion.css` never reached the iframe.
+
+**Why:** User reported individual run rail not working in Modern shell.
+
+---
+
+## 2026-06-29 — Upload page pipeline rail + runs table polish
+
+**What:** “What happens next” vertical timeline on `/upload` shows the connecting rail; runs table View link is always visible; footer API links point to `/docs`.
+
+**How:** Explicit `.pipeline-rail-line` CSS in `upload.html` (replaces broken Tailwind `before:` pseudo); step labels aligned to Phase 1 + Phase 2 A/B/C; `runs.html` View link + API href; `STITCH_ASSET_V` bump.
+
+**Why:** User reported uploads/upload page rail not rendering; hover-only View was easy to miss.
+
+---
+
+## 2026-06-29 — Skill WorkArea Modern Stitch page
+
+**What:** `/skill-workarea` in Modern theme uses Stitch HTML iframe with shared nav, skills table, and ZIP upload form wired to `skill-workarea.js`.
+
+**How:** `frontend/static/stitch/skill_workarea.html`, `SkillWorkareaPage.tsx`, table + tab support in `skill-workarea.js` (mirrors MCP WorkArea pattern).
+
+**Why:** User request — same Modern treatment as MCP WorkArea.
+
+---
+
+## 2026-06-29 — MCP WorkArea Modern Stitch page
+
+**What:** `/mcp-workarea` in Modern theme uses Stitch HTML iframe with shared `/runs` nav, connector table, and configure-new form wired to `mcp-workarea.js`.
+
+**How:** `frontend/static/stitch/mcp_workarea.html`, `McpWorkareaPage.tsx`, table + tab support in `mcp-workarea.js`.
+
+**Why:** User Stitch paste; replace Classic-only fallback with full Modern workarea.
+
+---
+
+## 2026-06-29 — Fix stale Modern UI cache (Stitch iframes + nav script)
+
+**What:** Nav and Stitch page updates now load after refresh; browsers were caching iframe HTML and `stitch-nav.js` without cache busting.
+
+**How:** `stitchAssets.ts` version query on iframe `src`; `?v=` on stitch-nav assets; `MODERN_ASSET_V` in `app-theme.js`; `FrontendStaticFiles` sends `Cache-Control: no-cache` for stitch/modern HTML and nav assets.
+
+**Why:** User reported UI not refreshing after nav changes.
+
+---
+
+## 2026-06-29 — Shared Stitch nav (matches /runs on every page)
+
+**What:** One nav bar across all Modern Stitch pages — same markup as `/runs`, no Home tab; brand links home.
+
+**How:** `frontend/static/js/stitch-nav.js` + `stitch-nav.css`; mount point on home, runs, upload, run workspace, pipeline; `StitchShell.tsx` aligned.
+
+**Why:** User request — nav was inconsistent per page due to duplicate inline markup and theme tokens.
+
+---
+
+## 2026-06-29 — Consistent Modern nav: brand links home, wider chatbot
+
+**What:** All Stitch pages drop the Home nav link; bug icon + “Mongo Debugger” brand links to `/`. Chatbot tab uses full content width.
+
+**How:** `home.html`, `runs.html`, `upload.html`, `run_workspace.html`, `pipeline.html`, `StitchShell.tsx`; chatbot panel `max-w-*` removed in `run_workspace.html`.
+
+**Why:** User request for consistent navbar and wider chat surface.
+
+---
+
+## 2026-06-29 — Run workspace: separate Chatbot and Agent tool activity tabs
+
+**What:** Modern run workspace has five tabs — Evidence, Investigation, Report, Agent tool activity, Chatbot — instead of bundling tool trace with Investigation and chat with Report.
+
+**How:** `frontend/static/stitch/run_workspace.html` tab layout; `switchTab` refreshes tool trace and chat when those tabs are opened.
+
+**Why:** User request for dedicated surfaces for live MCP tool calls vs post-report chat.
+
+---
+
+## 2026-06-29 — Modern shell routing fallbacks (pipeline + unknown page fix)
+
+**What:** “This page is not in the Modern shell yet” no longer appears for run workspace, Phase 1 pipeline, or stale `page: "results"` payloads.
+
+**How:** `resolveModernPage()` in `pageData.ts` maps `results` → `run_workspace` and infers page from URL; `PipelinePage` + `stitch/pipeline.html`; `run_pipeline.html`, MCP/Skill templates emit `mdb-modern-page` + `page_data`.
+
+**Why:** Users on Modern theme hit fallback when `page_data` was missing, legacy, or on `/runs/{id}/pipeline` before export completed.
+
+---
+
+## 2026-06-29 — Run workspace Stitch UI (full Phase 2 shell)
+
+**What:** Modern `/runs/{id}` uses full RCA workspace: phase rail, Evidence (Hatchet + Grafana), Investigation (Run RCA, MCP panel, 10-Q wizard, tool trace), Report + chatbot.
+
+**How:** `frontend/static/stitch/run_workspace.html` (glass + bug nav); iframe via `RunWorkspacePage.tsx`; reuses `rca.js`, `clarify-wizard`, `report-viewer`, `agent-chat`, `grafana.js`. `page_data` extended on `run_detail.html`.
+
+**Why:** Replace thin read-only Results page with real interactive workspace; user Stitch paste cleaned to match product structure.
+
+---
+
+## 2026-06-29 — Runs page literal Stitch HTML + iframe hydration
+
+**What:** Modern `/runs` loads Stitch runs HTML via iframe; table and stat cards filled from server `page_data.runs`.
+
+**How:** `frontend/static/stitch/runs.html`; `RunsPage.tsx` iframe; script reads parent `#mdb-page-data`. Nav wired with `target="_top`.
+
+**Why:** Same copy-paste fidelity as home/upload; real catalog data instead of placeholder rows.
+
+---
+
+## 2026-06-29 — Upload page: remove run label and notes fields
+
+**What:** Run label and notes inputs removed from Modern upload UI.
+
+**How:** Deleted fields from `frontend/static/stitch/upload.html` (not wired to API).
+
+**Why:** User request; fields were display-only with no backend support.
+
+---
+
+## 2026-06-29 — Upload page literal Stitch HTML + iframe
+
+**What:** Modern `/upload` loads user’s Stitch upload HTML verbatim via iframe (same pattern as home).
+
+**How:** `frontend/static/stitch/upload.html`; `UploadPage.tsx` iframe only; `App.tsx` bypasses `StitchShell` for upload. Wired: drag-drop, `POST /simagix/uploads`, job poll, redirect on success. Nav links `target="_top`.
+
+**Why:** Match home copy-paste fidelity; avoid React reimplementation.
+
+---
+
+## 2026-06-29 — Home HTML literal paste + MCP/Skill nav tabs
+
+**What:** `frontend/static/stitch/home.html` replaced with the user’s Stitch export verbatim (hero `fade-slide-left`/`fade-slide-right`, Three.js background, buttons unchanged). Only addition: **MCP WorkArea** and **Skill WorkArea** nav links.
+
+**How:** Full-page iframe in `HomePage.tsx`; new nav tabs use `href="/mcp-workarea"` and `href="/skill-workarea"` with `target="_top"`. All other markup matches the paste (`href="#"` on Home/Uploads/Upload/footer).
+
+**Why:** User asked for copy-paste fidelity with WorkArea tabs only.
+
+---
+
+## 2026-06-29 — Home is literal Stitch HTML (no React rewrite)
+
+**What:** Modern home loads the user’s Stitch HTML file verbatim in a full-page iframe — same Tailwind CDN, Three.js script, animations, and markup.
+
+**How:** `frontend/static/stitch/home.html` (paste of Stitch export); `HomePage.tsx` iframe only; `target="_top"` on wired links (`/upload`, `/runs`, `/docs`). Removed React Three.js port.
+
+**Why:** User asked to copy-paste the design, not reimplement it in React.
+
+---
+
+## 2026-06-29 — Stitch animated home (Three.js + scroll reveal)
+
+**What:** Modern Home matches the updated Stitch export: full-screen hero on dark 3D background, scroll animations, flip cards, and wired CTAs.
+
+**How:** `HomePage.tsx` from user Stitch HTML; `HomeThreeBackground.tsx` (three.js database nodes); `useScrollReveal`; nav includes MCP + Skill WorkArea; links to `/upload`, `/runs`, `/docs`, workareas.
+
+**Why:** User provided updated Stitch home with animation — wire APIs/links without redesigning layout.
+
+---
+
+## 2026-06-29 — Home page matches Stitch export exactly
+
+**What:** Modern Home and shell header/footer now mirror `.stitch/designs/home.html` markup and copy — no extra recent-runs block or rewritten bullet text.
+
+**How:** `HomePage.tsx` copied from Stitch body sections; `StitchShell.tsx` restored simple Mongo Debugger nav (Home / Uploads / Upload) and footer text from the export.
+
+**Why:** User asked to use the Stitch home design verbatim instead of customized React variants.
+
+---
+
+## 2026-06-29 — Modern Stitch shell polish and run page recovery
+
+**What:** Fixed the Modern Stitch navigation, restored WorkArea discoverability, separated Phase 1 and Phase 2 status on the runs page, and recovered the individual run detail page from the stale live server `500`.
+
+**How:**
+- **`StitchShell.tsx`** — branded nav block with Stitch icon treatment, active pill navigation, MCP WorkArea and Skill WorkArea links.
+- **`RunsTable.tsx` / `runStatus.ts`** — explicit Phase 1 decode and Phase 2 RCA columns instead of one mixed status/phase view.
+- **`base.html`** — Skill WorkArea link added to Classic navigation too.
+- **Dev server** — restarted the stale listener on port 8000; fresh app instance returns `200` for run detail.
+
+**Why:** The previous Stitch wiring was visually too close to plain hyperlinks, hid key WorkArea routes, and made pipeline state ambiguous.
+
+---
+
+## 2026-06-27 — Stitch designs wired into Modern React shell
+
+**What:** Modern UI now uses Google Stitch HTML layouts (Tailwind + Public Sans + Material Symbols) with live API data — not ad-hoc CSS approximations.
+
+**How:**
+- **Tailwind v4** + Stitch color tokens in `frontend/src/styles/stitch.css` (from `.stitch/designs/*.html`).
+- **`StitchShell`** — fixed nav/footer from Stitch home/uploads/upload screens.
+- **Pages** — `HomePage`, `RunsPage`, `UploadPage`, `ResultsPage` rebuilt from `.stitch/designs/` markup; `RunsTable` + `loadResultsData` feed real catalog and Simagix APIs.
+- **Removed** DotGrid/mongo-green hero; Stitch preview images and phase sidebar from upload design.
+
+**Why:** User asked to take Stitch designs and wire them — prior Modern shell only loosely matched Stitch tokens.
+
+**Docs:** [CHANGELOG.md](CHANGELOG.md); `.stitch/metadata.json`.
+
+---
+
+## 2026-06-27 — Modern Results wired to Simagix APIs
+
+**What:** Modern `ResultsPage` loads live tier-1 context, Phase 2 status, and latest RCA report instead of hardcoded demo metrics; Home/Runs/Upload share Claude/Stitch cream palette.
+
+**How:**
+- **`loadResultsData.ts`** — fetches `/context`, `/phase2/status`, `/phase2/reports/latest`; maps anomaly windows, activity summary, findings, and report fields into metric cards, FTDC chart, RCA block, and phase accordions.
+- **`ResultsPage.tsx`** — async load with loading/error states; Download Report uses `format=pretty`; “Full RCA workspace” switches to Classic theme.
+- **`run_detail.html`** — `page_data` passes only `run_id`, `selected_llm`, `upload_time_utc` (no fake ticket counts).
+- **`routes.py`** — `upload_time_utc` in run detail template context.
+- **`app.css` / HomePage** — Public Sans, cream `#FAF9F5`, clay accent `#C96442`.
+
+**Why:** Demo data (128 tickets, 2024 dates) misaligned with real APIs; users need truthful Modern results and consistent navigation across Home, Uploads, Upload, and run detail.
+
+**Docs:** [DESIGN_NOTES.md](DESIGN_NOTES.md) §14.
+
+---
+
+## 2026-06-29 — Modern Analysis Results Detail view
+
+**What:** Added a professional results and analysis detail view to the Modern React shell, generated via Stitch MCP CLI, with real-time responsive SVG charts, stat grids, RCA details, and phase accordions.
+
+**How:**
+- **Stitch generation**: Generated a high-fidelity results detail page via Stitch MCP (`generate_screen_from_text`) using project design tokens (background `#faf9f5`, accent `#C96442`, Public Sans font).
+- **`ResultsPage.tsx`**: Created a modular React page for analysis detail including breadcrumbs, severity metrics, custom responsive SVG sparklines + area charts, interactive RCA timeline/causal chain, and collapsible phase sections.
+- **`run_detail.html`**: Added `mdb-modern-page` class and custom JSON page data block to bootstrap `ResultsPage` in the Modern shell when modern theme is active.
+- **Vite compilation**: Validated compilation of modern modules with Vite production build pipelines.
+
+**Why:** Closing the gap in the modern user interface layout, replacing static classic views with unified modern React dashboard views.
+
+**Docs:** [DESIGN_NOTES.md](DESIGN_NOTES.md) §14.
+
+---
+
+## 2026-06-27 — Scoped reading surface (light/dark toggle)
+
+**What:** RCA report section + post-report chatbot use a scoped Claude-like reading surface with a header toggle between warm light (`#FAF9F5`) and warm dark (`#1A1917`); rest of run page keeps Mongo dark chrome.
+
+**How:**
+- **`reading-surface.css`** — CSS variables + overrides for report viewer, chat, raw report inside `#reading-surface`.
+- **`reading-surface.js`** — toggle, `localStorage` key `mdb-reading-theme`, `prefers-color-scheme` default when unset.
+- **`run_detail.html`** — sun/moon button in report header; `card-body` is `#reading-surface`.
+- **`agent-chat.js`** — mermaid theme follows reading surface mode.
+
+**Why:** Mentor asked for Claude-like report/chat readability without reskinning uploads, Grafana, or the phase rail.
+
+**Docs:** [DESIGN_NOTES.md](DESIGN_NOTES.md) §14.
+
+---
+
+## 2026-06-26 — Skill WorkArea + native ADK MCP/skills
+
+**What:** Operator Skill WorkArea (ZIP upload by slot name); all uploaded skills attach automatically on Phase A, Phase C, and chatbot. ADK uses native `McpToolset` + `SkillToolset`; custom `mcp/client.py` bridge removed.
+
+**How:**
+- **`skills/registry.py`** — pass-through zip extract to `operator/skills/{slot_name}/`, list/delete, `copy_all_to_cursor_scratch`, `build_adk_skill_toolset_all` via `load_skill_from_dir`.
+- **`api/skill_workarea.py`** + **`/skill-workarea`** UI — multipart upload (name + ZIP), list, delete; nav link in base template.
+- **Cursor** — `copytree` all skills to `{scratch}/.cursor/skills/`; `setting_sources=["project"]` when catalog non-empty.
+- **ADK** — `to_adk_mcp_toolsets()` in `mcp/registry.py`; runner attaches `McpToolset` + optional `SkillToolset(all)` + `web_fetch`; async `close()` in `finally`.
+- **Deleted** `mcp/client.py`; `build_web_fetch_tool()` moved to `web_fetch.py`.
+
+**Why:** Skills are playbooks (not MCP tools); provider-native attachment avoids prompt injection and run-page checkbox complexity. ADK `McpToolset`/`SkillToolset` replace a custom MCP bridge we no longer need.
+
+**Docs:** [PHASE2_LLM.md](PHASE2_LLM.md), [RCA_BACKEND.md](RCA_BACKEND.md), [DESIGN_NOTES.md](DESIGN_NOTES.md) §14.
 
 ---
 

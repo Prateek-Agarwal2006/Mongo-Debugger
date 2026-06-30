@@ -19,6 +19,7 @@ API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `
 | `GET /` | Home dashboard |
 | `GET /upload` | Upload FTDC archive |
 | `GET /mcp-workarea` | Configure operator MCP connectors (registry on disk) |
+| `GET /skill-workarea` | Upload operator skill packages (ZIP by slot name) |
 | `GET /runs` | List runs |
 | `GET /runs/{run_id}` | Run detail, Grafana charts, RCA panel (MCP checkboxes before Run RCA) |
 
@@ -368,7 +369,21 @@ DELETE /simagix/mcp-connectors/{connector_id}
 
 List response includes `stdio_templates[]` and locked builtin `simagix-evidence`.
 
-**Run page:** checkboxes (no saved selection) → `enabled_mcp_ids` on Phase 2 start and clarify. Cursor provider merges selected ids into `AgentOptions.mcp_servers`; mock/gemini ignore the field.
+**Run page:** checkboxes (no saved selection) → `enabled_mcp_ids` on Phase 2 start and clarify. Both Cursor and ADK merge selected ids via `build_mcp_server_specs`; mock ignores the field.
+
+---
+
+## Operator skill catalog
+
+Storage path: `simagix-workspace/operator/skills/{slot_name}/` (under `DATA_ROOT`). Pass-through ZIP extract — no `registry.json`.
+
+```http
+GET /simagix/skills
+POST /simagix/skills          # multipart: slot_name + archive (.zip)
+DELETE /simagix/skills/{slot_name}
+```
+
+**No run-page checkboxes.** When the catalog is non-empty, **all** skills attach on Phase A, Phase C, and chatbot (Cursor: `scratch/.cursor/skills/`; ADK: `SkillToolset`).
 
 ---
 
@@ -428,13 +443,6 @@ POST /simagix/runs/{run_id}/phase2/clarify?llm=mock
 
 Body: `{"answers": {"question_id": "operator answer"}, "enabled_mcp_ids": ["github-prod"]}`. Query `llm` is **required** (or legacy `llm_provider` / `force_mock`). Phase C uses **current** checkbox state from the run page, not Phase A selection.
 
-### Profiler data
-
-```http
-POST /simagix/runs/{run_id}/phase2/profiler
-GET /simagix/runs/{run_id}/phase2/profiler
-```
-
 ### Post-report chatbot (Phase 3)
 
 ```http
@@ -488,9 +496,10 @@ FastAPI app under `backend/app/`.
 | Orchestration | — | — | `service.py`, `session.py`, `prompts.py`, `parse_output.py` |
 | Providers | `providers/cursor/provider.py` | `providers/adk/{provider,runner}.py` | `providers/mock.py`, `provider.py` (ABC) |
 | Agent runtime | **Cursor SDK** | ADK `InMemoryRunner` | — |
-| MCP layer | SDK spawns subprocesses | `mcp/client.py` (`ClientSessionGroup`) | `mcp/registry.py`, `mcp/connectors.py`, `mcp/servers/*` |
-| WorkArea / operator MCPs | `enabled_mcp_ids` → `build_mcp_server_specs` → SDK | Same specs → MCP client | Registry + API + UI |
-| Web fetch policy | `web_fetch.py` → `build_cursor_sdk_web_tools` | `web_fetch.py` via MCP client append | `web_fetch.py` |
+| MCP layer | SDK spawns subprocesses | Native `McpToolset` via `to_adk_mcp_toolsets()` | `mcp/registry.py`, `mcp/connectors.py`, `mcp/servers/*` |
+| Skill catalog | `copytree` → scratch `.cursor/skills/` + `setting_sources=["project"]` | `SkillToolset` via `load_skill_from_dir` | `skills/registry.py`, `/skill-workarea` |
+| WorkArea / operator MCPs | `enabled_mcp_ids` → `build_mcp_server_specs` → SDK | Same specs → `McpToolset` | Registry + API + UI |
+| Web fetch policy | `web_fetch.py` → `build_cursor_sdk_web_tools` | `web_fetch.py` callable on ADK agent | `web_fetch.py` |
 | Tool audit | `tool_trace.py` | `tool_trace.py` | `tool_trace.py` |
 
 Full layout: [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout. Tradeoffs: [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18, §14.

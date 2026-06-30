@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% block title %}MCP WorkArea — FTDC Analyzer{% endblock %}
+{% block body_class %}mdb-modern-page{% endblock %}
+{% block page_data %}{"page":"mcp_workarea"}{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-xl-10">
     <div class="page-hero-compact reveal-panel" data-reveal="up">
       <h1 class="h2 mb-1 hero-title" style="font-size: 2rem;"><i class="bi bi-plug me-2 text-success"></i>MCP WorkArea</h1>
-      <p class="text-secondary mb-0">Configure MCP connectors for RCA runs. Enable them per run on the run page — nothing is pre-selected.</p>
+      <p class="text-secondary mb-0">Configure connectors here. Per-run checkboxes live on each run’s <strong>Investigation</strong> tab (under Run RCA).</p>
     </div>
 
     <ul class="nav nav-tabs border-secondary-subtle mb-3 reveal-panel" id="mcp-tabs" role="tablist">
@@ -63,8 +65,8 @@
               </div>
 
               <div class="col-12" id="mcp-http-fields">
-                <label class="form-label" for="mcp-url">HTTPS URL</label>
-                <input class="form-control" id="mcp-url" name="url" type="url" placeholder="https://example.com/mcp"/>
+                <label class="form-label" for="mcp-url">MCP URL</label>
+                <input class="form-control" id="mcp-url" name="url" type="url" placeholder="http://127.0.0.1:8765/mcp or https://example.com/mcp"/>
                 <label class="form-label mt-3" for="mcp-headers">Headers (JSON object)</label>
                 <textarea class="form-control font-monospace" id="mcp-headers" name="headers" rows="3" placeholder='{"Authorization": "Bearer …"}'></textarea>
               </div>

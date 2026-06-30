@@ -1,0 +1,205 @@
+@import url("https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0");
+@import "../../static/css/stitch-nav.css";
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #faf9f5;
+  --color-on-background: #2f342e;
+  --color-on-surface: #2f342e;
+  --color-on-surface-variant: #5c605a;
+  --color-surface: #faf9f5;
+  --color-surface-bright: #faf9f5;
+  --color-surface-dim: #d7dcd2;
+  --color-surface-tint: #6b5b56;
+  --color-surface-variant: #e0e4dc;
+  --color-surface-container: #edeee8;
+  --color-surface-container-low: #f4f4ef;
+  --color-surface-container-high: #e6e9e2;
+  --color-surface-container-highest: #e0e4dc;
+  --color-surface-container-lowest: #ffffff;
+
+  --color-primary: #6b5b56;
+  --color-primary-dim: #5f4f4a;
+  --color-primary-container: #f5ded7;
+  --color-on-primary: #fff6f3;
+  --color-on-primary-container: #5e4e49;
+  --color-primary-fixed: #f5ded7;
+  --color-on-primary-fixed: #4b3c37;
+  --color-primary-fixed-dim: #e6d0c9;
+  --color-on-primary-fixed-variant: #685853;
+
+  --color-secondary: #665d5b;
+  --color-secondary-dim: #5a514f;
+  --color-secondary-container: #ede0dc;
+  --color-on-secondary: #fff7f5;
+  --color-on-secondary-container: #58504d;
+  --color-secondary-fixed: #ede0dc;
+  --color-on-secondary-fixed: #453e3b;
+  --color-secondary-fixed-dim: #ded2ce;
+  --color-on-secondary-fixed-variant: #625a57;
+
+  --color-tertiary: #7b555d;
+  --color-tertiary-dim: #6e4951;
+  --color-tertiary-container: #ffcdd7;
+  --color-on-tertiary: #fff7f7;
+  --color-on-tertiary-container: #66434b;
+  --color-tertiary-fixed: #ffcdd7;
+  --color-tertiary-fixed-dim: #f0c0c9;
+  --color-on-tertiary-fixed: #513038;
+  --color-on-tertiary-fixed-variant: #714c54;
+
+  --color-outline: #787c75;
+  --color-outline-variant: #afb3ac;
+
+  --color-error: #9f403d;
+  --color-error-dim: #4e0309;
+  --color-error-container: #fe8983;
+  --color-on-error: #fff7f6;
+  --color-on-error-container: #752121;
+
+  --color-inverse-surface: #0d0f0d;
+  --color-inverse-on-surface: #9d9d9a;
+  --color-inverse-primary: #fee6df;
+
+  --color-accent: #c96442;
+  --color-brand-primary: #c96442;
+  --color-brand-accent: #c96442;
+  --color-accent-terracotta: #c96442;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+}
+
+.document-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.glass-effect {
+  backdrop-filter: blur(8px);
+  background-color: rgba(250, 249, 245, 0.8);
+}
+
+.card-perspective {
+  perspective: 1000px;
+}
+
+@keyframes flipY {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(360deg);
+  }
+}
+
+.group:hover .flip-target {
+  animation: flipY 0.6s ease-in-out;
+  transform-style: preserve-3d;
+}
+
+.animate-on-scroll {
+  opacity: 0;
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.fade-slide-up {
+  transform: translateY(40px);
+}
+
+.fade-slide-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-slide-left {
+  transform: translateX(-40px);
+}
+
+.fade-slide-left.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.fade-slide-right {
+  transform: translateX(40px);
+}
+
+.fade-slide-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.stagger-1 {
+  transition-delay: 0.1s;
+}
+
+.stagger-2 {
+  transition-delay: 0.3s;
+}
+
+.stagger-3 {
+  transition-delay: 0.5s;
+}
+
+.status-spinner {
+  animation: stitch-spin 2s linear infinite;
+}
+
+.status-pulse {
+  animation: stitch-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.accent-border-left {
+  border-left: 4px solid #c96442;
+}
+
+@keyframes stitch-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stitch-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes heightGrow {
+  from {
+    height: 0;
+  }
+}
+
+.modern-app-root,
+#modern-app-root {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}

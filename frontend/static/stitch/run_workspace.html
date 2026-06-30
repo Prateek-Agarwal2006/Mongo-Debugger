@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mongo Debugger — RCA Workspace</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/static/css/report-viewer-stitch.css?v=6"/>
+<link rel="stylesheet" href="/static/css/clarify-chat.css"/>
+<link rel="stylesheet" href="/static/css/clarify-chat-stitch.css?v=1"/>
+<link rel="stylesheet" href="/static/css/phase-rail.css?v=1"/>
+<link rel="stylesheet" href="/static/css/tool-trace.css?v=3"/>
+<link rel="stylesheet" href="/static/css/agent-chat-stitch.css?v=2"/>
+<link rel="stylesheet" href="/static/css/mcp-run-panel.css"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        primary: "#C96442",
+        "on-primary": "#ffffff",
+        "primary-container": "#fcdbc1",
+        background: "#faf9f5",
+        surface: "#FAF9F5",
+        "surface-variant": "#e3e2df",
+        "on-surface": "#1b1c1a",
+        "on-surface-variant": "#4e4542",
+        "outline-variant": "#d2c3bf",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-low": "#f4f4f0",
+        "surface-container": "#EDEEE8",
+        "surface-container-high": "#e9e8e4",
+        "surface-container-highest": "#E0E4DC",
+      },
+      fontFamily: {
+        sans: ["Public Sans", "sans-serif"],
+        serif: ["Lora", "serif"],
+      },
+    },
+  },
+};
+</script>
+<style>
+body {
+  font-family: "Public Sans", sans-serif;
+  background-color: #FAF9F5;
+  color: #1b1c1a;
+}
+.material-symbols-outlined { font-variation-settings: "FILL" 1; }
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(210, 195, 191, 0.6);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.06);
+}
+.report-body { font-family: "Lora", serif; line-height: 1.8; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #d2c3bf; border-radius: 4px; }
+#chatbot:has(#agent-chat-panel:not([hidden])) #chatbot-unavailable { display: none; }
+</style>
+<link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+</head>
+<body class="flex flex-col min-h-screen">
+<div id="mdb-stitch-nav-mount"></div>
+<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+
+<main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
+<!-- Breadcrumb + run header -->
+<nav class="text-xs font-medium text-on-surface-variant mb-4 uppercase tracking-wider flex items-center gap-2 flex-wrap">
+<a href="/runs" target="_top" class="hover:text-primary">Uploads</a>
+<span>/</span>
+<span id="breadcrumb-run-id" class="font-mono text-on-surface"></span>
+<span class="text-primary">· Phase 2</span>
+</nav>
+
+<div class="mb-6">
+<h1 class="text-2xl font-bold tracking-tight mb-1">Run analysis</h1>
+<p class="text-sm text-on-surface-variant" id="run-meta-line"></p>
+</div>
+
+<!-- Phase A → B → C rail (always visible) -->
+<div id="phase-rail-shell" class="phase-rail-shell mb-6">
+<div id="phase-rail" class="phase-rail glass-panel" data-phase="idle" aria-label="RCA phase progress">
+<div class="phase-rail-track" aria-hidden="true"><div class="phase-rail-fill"></div></div>
+<div class="phase-rail-nodes">
+<div class="phase-node" data-step="A">
+<span class="phase-node-dot">A</span>
+<span class="phase-node-label">Investigate</span>
+<span class="phase-node-sublabel">MCP tools</span>
+</div>
+<div class="phase-node" data-step="B">
+<span class="phase-node-dot">B</span>
+<span class="phase-node-label">Clarify</span>
+<span class="phase-node-sublabel">Up to 10 questions</span>
+</div>
+<div class="phase-node" data-step="C">
+<span class="phase-node-dot">C</span>
+<span class="phase-node-label">Final RCA</span>
+<span class="phase-node-sublabel">Report</span>
+</div>
+</div>
+<p class="phase-rail-status mb-0 text-sm text-on-surface-variant" id="phase-rail-status">Ready — click Run RCA to start Phase A</p>
+</div>
+</div>
+<div id="phase-rail-sentinel" class="phase-rail-sentinel" aria-hidden="true"></div>
+
+<!-- Export links row -->
+<div class="glass-panel rounded-xl px-5 py-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+<div class="flex flex-wrap gap-2 text-sm" id="run-badges"></div>
+<div class="flex flex-wrap gap-2">
+<a id="html-report-link" class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface text-sm font-medium hover:bg-surface-variant transition-colors" href="#" target="_blank" rel="noopener">HTML Report</a>
+<a id="plain-report-link" class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface text-sm font-medium hover:bg-surface-variant transition-colors" href="#" target="_blank" rel="noopener">Plain text</a>
+</div>
+</div>
+
+<!-- Tabs -->
+<div class="border-b border-outline-variant mb-6 flex gap-4 sm:gap-6 overflow-x-auto">
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-evidence" onclick="switchTab('evidence')">
+<span class="material-symbols-outlined text-base align-middle mr-1">dataset</span>Evidence
+</button>
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-primary text-primary shrink-0" id="btn-investigation" onclick="switchTab('investigation')">
+<span class="material-symbols-outlined text-base align-middle mr-1">troubleshoot</span>Investigation
+</button>
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-report" onclick="switchTab('report')">
+<span class="material-symbols-outlined text-base align-middle mr-1">description</span>Report
+</button>
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-tool-activity" onclick="switchTab('tool-activity')">
+<span class="material-symbols-outlined text-base align-middle mr-1">list_alt</span>Agent tool activity
+</button>
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-chatbot" onclick="switchTab('chatbot')">
+<span class="material-symbols-outlined text-base align-middle mr-1">smart_toy</span>Chatbot
+</button>
+</div>
+
+<!-- Evidence tab: Hatchet + Grafana -->
+<div class="tab-content block" id="evidence">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<section class="glass-panel rounded-xl p-6" id="hatchet-section">
+<h2 class="text-lg font-semibold mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">receipt_long</span>MongoDB logs (Hatchet)
+</h2>
+<p class="text-sm text-on-surface-variant mb-3">Optional: upload <code class="text-xs">mongod.log</code>, rotated logs, or a zip/tar of logs. Phase 2 waits for Hatchet when logs are present.</p>
+<div id="hatchet-status-badges" class="flex flex-wrap gap-2 mb-3 text-sm"></div>
+<p id="hatchet-log-list" class="text-sm text-on-surface-variant mb-3 hidden"></p>
+<div id="hatchet-block-alert" class="hidden text-sm bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2 mb-3"></div>
+<form id="hatchet-log-upload-form" class="flex flex-wrap gap-2 items-end">
+<input type="file" id="hatchet-log-files" name="files" multiple accept=".log,.txt,.gz,.zip,.tar,.tgz" class="text-sm flex-1 min-w-[200px]"/>
+<button type="submit" id="hatchet-upload-btn" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium">Upload logs</button>
+<button type="button" id="hatchet-retry-btn" class="hidden bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Retry Hatchet</button>
+</form>
+<p id="hatchet-upload-status" class="text-xs text-on-surface-variant mt-2" role="status"></p>
+</section>
+
+<section class="glass-panel rounded-xl p-6" id="grafana-section">
+<h2 class="text-lg font-semibold mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">show_chart</span>Metrics (Grafana)
+</h2>
+<p class="text-sm text-on-surface-variant mb-3">Charts open in Grafana (localhost:3030) in a new tab.</p>
+<div id="grafana-status" class="text-sm bg-surface-container-low rounded-lg px-3 py-2 mb-3">Checking Grafana stack…</div>
+<div class="flex flex-wrap gap-2">
+<button type="button" id="grafana-load-btn" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium">Load FTDC for this run</button>
+<button type="button" id="grafana-open-anomaly" class="hidden bg-surface-container-high px-4 py-2 rounded-lg text-sm font-medium" disabled>Anomaly view</button>
+<button type="button" id="grafana-open-all" class="hidden bg-surface-container-high px-4 py-2 rounded-lg text-sm font-medium" disabled>All metrics</button>
+</div>
+<div id="grafana-meta" class="text-xs text-on-surface-variant mt-3 hidden"></div>
+</section>
+</div>
+</div>
+
+<!-- Investigation tab: RCA + clarify wizard -->
+<div class="tab-content hidden" id="investigation">
+<section class="glass-panel rounded-xl p-6 max-w-4xl" id="rca-section">
+<h2 class="text-lg font-semibold mb-3">Root Cause Analysis</h2>
+<p class="text-sm text-on-surface-variant mb-4" id="rca-status">Phase A: tier-2 investigation (MCP tools) → Phase B: up to 10 clarifying questions → Phase C: final RCA.</p>
+<div class="flex flex-wrap items-end gap-3 mb-4">
+<div>
+<label class="block text-xs text-on-surface-variant mb-1" for="llm-context-select">LLM</label>
+<select id="llm-context-select" class="llm-provider-select text-sm border border-outline-variant rounded-lg px-3 py-2 bg-surface-container-lowest"></select>
+</div>
+<button type="button" id="run-rca-btn" class="bg-primary text-on-primary px-5 py-2 rounded-lg text-sm font-semibold">Run RCA</button>
+</div>
+<div class="mcp-run-panel mb-4" id="mcp-run-panel">
+<div class="mcp-run-panel__header">
+<div>
+<span class="mcp-run-panel__title">MCP connectors for this run</span>
+<p class="mcp-run-panel__subtitle">Optional connectors from MCP WorkArea. Checked items run when you click Run RCA.</p>
+</div>
+<div class="mcp-run-panel__actions">
+<button type="button" class="mcp-run-panel__btn hidden" id="mcp-select-all">Select all</button>
+<button type="button" class="mcp-run-panel__btn hidden" id="mcp-clear-all">Clear</button>
+<a href="/mcp-workarea" target="_top" class="mcp-run-panel__link">Configure</a>
+</div>
+</div>
+<div id="mcp-run-checkboxes" class="mcp-run-panel__list"></div>
+<p class="mcp-run-panel__empty hidden" id="mcp-run-empty">No user MCP connectors configured. Add one in MCP WorkArea.</p>
+<p class="mcp-run-panel__footer">Selections are not saved between runs.</p>
+</div>
+<pre id="investigation-summary" class="text-xs bg-surface-container-low p-3 rounded-lg overflow-auto max-h-48 hidden"></pre>
+<form id="clarify-form" class="mt-4 hidden clarify-wizard--stitch">
+<div id="clarify-progress" class="mb-3" aria-label="Question progress"></div>
+<div id="questions-container"></div>
+<div class="flex flex-wrap gap-2 mt-3" id="clarify-actions">
+<button type="button" id="clarify-prev" class="hidden px-3 py-1.5 text-sm rounded-lg bg-surface-container-high" hidden>Previous</button>
+<button type="button" id="clarify-skip" class="px-3 py-1.5 text-sm rounded-lg bg-surface-container-high">Skip</button>
+<button type="button" id="clarify-next" class="px-3 py-1.5 text-sm rounded-lg bg-surface-container-high">Next</button>
+<button type="submit" id="clarify-submit" class="hidden px-3 py-1.5 text-sm rounded-lg bg-primary text-on-primary font-medium">Submit &amp; run final RCA</button>
+</div>
+</form>
+<pre id="rca-result" class="text-xs mt-3 hidden"></pre>
+</section>
+</div>
+
+<!-- Report tab -->
+<div class="tab-content hidden" id="report">
+<p class="text-sm text-on-surface-variant mb-4 hidden" id="no-report-msg">No Phase 2 report for this LLM yet. Run RCA on the Investigation tab.</p>
+<div id="report-viewer" class="report-viewer--stitch hidden" aria-live="polite"></div>
+<details class="mt-4 text-sm hidden" id="report-raw-details">
+<summary class="cursor-pointer text-on-surface-variant hover:text-primary">View raw plain-text report</summary>
+<pre class="text-xs mt-2 p-3 bg-surface-container-low rounded-lg overflow-auto max-h-64 font-mono" id="saved-report-raw"></pre>
+</details>
+</div>
+
+<!-- Agent tool activity tab -->
+<div class="tab-content hidden" id="tool-activity">
+<section class="glass-panel rounded-xl flex flex-col tool-trace-panel" id="tool-trace-panel">
+<div class="tool-trace-header">
+<div>
+<h2 class="tool-trace-header__title">
+<span class="material-symbols-outlined">hub</span>
+Agent tool activity
+</h2>
+<p class="tool-trace-header__hint">Per-LLM tool calls for the model selected on Investigation — click a category chip to filter; scroll horizontally for full args.</p>
+</div>
+</div>
+<div class="tool-trace-summary-wrap">
+<div id="tool-trace-summary" class="text-xs text-on-surface-variant">Loading tool trace…</div>
+</div>
+<p class="tool-trace-scroll-hint" aria-hidden="true">
+<span class="material-symbols-outlined">swipe_left</span>
+<span>Drag or scroll sideways to read long tool arguments</span>
+</p>
+<div class="tool-trace-scroll" id="tool-trace-scroll">
+<table class="tool-trace-table--stitch" id="tool-trace-table">
+<thead>
+<tr>
+<th>Phase</th>
+<th>Category</th>
+<th>Tool</th>
+<th>Status</th>
+<th>Args / result</th>
+</tr>
+</thead>
+<tbody><tr class="tool-trace-empty"><td colspan="5">No tool calls yet.</td></tr></tbody>
+</table>
+</div>
+</section>
+</div>
+
+<!-- Chatbot tab -->
+<div class="tab-content hidden" id="chatbot">
+<p id="chatbot-unavailable" class="glass-panel rounded-xl p-6 text-sm agent-chat-stitch-unavailable w-full">
+Chat unlocks after Phase C completes. Run RCA on the Investigation tab, then return here for follow-up questions. You can attach <code>.json</code>, <code>.log</code>, or <code>.txt</code> files.
+</p>
+<div class="agent-chat-stitch glass-panel rounded-xl flex flex-col w-full" id="agent-chat-panel" hidden>
+<div class="agent-chat-stitch__header">
+<h3 class="agent-chat-stitch__title">
+<span class="material-symbols-outlined">smart_toy</span>
+Chatbot
+</h3>
+<p class="agent-chat-stitch__hint">Post-report follow-up on your RCA — warm reading surface, attach <code>.json</code>, <code>.log</code>, or <code>.txt</code>.</p>
+</div>
+<div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
+<div id="agent-chat-pending-files" class="px-4" hidden></div>
+<p id="agent-chat-file-error" class="text-xs text-amber-800 px-4 hidden" role="alert"></p>
+<form id="agent-chat-form" class="agent-chat-composer">
+<textarea id="agent-chat-input" rows="3" placeholder="Ask about root cause, fixes, evidence…"></textarea>
+<div class="agent-chat-composer-actions flex gap-2 items-center justify-end">
+<input type="file" id="agent-chat-file" class="agent-chat-file-input hidden" multiple accept=".json,.txt,.log,.md,.csv,.yaml,.yml"/>
+<label for="agent-chat-file" id="agent-chat-attach-label" class="text-sm px-3 py-1.5 rounded-lg cursor-pointer" role="button">Attach</label>
+<button type="submit" class="px-4 py-1.5 rounded-lg text-sm font-medium" aria-label="Send">Send</button>
+</div>
+</form>
+</div>
+</div>
+</main>
+
+<div id="mdb-stitch-footer-mount"></div>
+
+<script>
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-content").forEach((el) => {
+    el.classList.add("hidden");
+    el.classList.remove("block");
+  });
+  document.querySelectorAll(".tab-btn").forEach((el) => {
+    el.classList.remove("border-primary", "text-primary");
+    el.classList.add("border-transparent", "text-on-surface-variant");
+  });
+  const content = document.getElementById(tabId);
+  if (content) {
+    content.classList.remove("hidden");
+    content.classList.add("block");
+  }
+  const btn = document.getElementById("btn-" + tabId);
+  if (btn) {
+    btn.classList.add("border-primary", "text-primary");
+    btn.classList.remove("border-transparent", "text-on-surface-variant");
+  }
+  if (tabId === "tool-activity" && window.FtdcRca?.fetchToolTrace) {
+    window.FtdcRca.fetchToolTrace();
+  }
+  if (tabId === "chatbot") {
+    const panel = document.getElementById("agent-chat-panel");
+    if (panel && !panel.hidden && window.FtdcAgentChat?.load) {
+      window.FtdcAgentChat.load();
+    }
+  }
+  if (tabId === "report") {
+    const viewer = document.getElementById("report-viewer");
+    if (viewer && !viewer.hidden && !viewer.classList.contains("hidden")) {
+      window.FtdcReportViewer?.reanimateStitch?.(viewer);
+    }
+  }
+}
+
+function readPageData() {
+  try {
+    const el = window.parent?.document?.getElementById("mdb-page-data");
+    if (!el?.textContent) return null;
+    return JSON.parse(el.textContent);
+  } catch {
+    return null;
+  }
+}
+
+function hatchetBadgeLabel(status) {
+  const map = {
+    finished: "Hatchet complete",
+    processing: "Hatchet running…",
+    failed: "Hatchet failed",
+    queued: "Hatchet queued",
+    stale: "Hatchet not enqueued",
+    not_applicable: "No logs uploaded",
+  };
+  return map[status] || status;
+}
+
+function hydrateShell(data) {
+  if (!data?.run_id) return;
+  window.RUN_ID = data.run_id;
+  window.INITIAL_LLM = data.selected_llm || "mock";
+  window.HAS_REPORT = Boolean(data.has_report);
+  window.PHASE2_HATCHET_BLOCKED = Boolean(data.phase2_hatchet_blocked);
+
+  document.getElementById("breadcrumb-run-id").textContent = data.run_id;
+  const meta = [];
+  if (data.host) meta.push("Host: " + data.host);
+  if (data.upload_time_utc) meta.push("Uploaded " + data.upload_time_utc);
+  if (data.export_tier) meta.push("Tier: " + data.export_tier);
+  document.getElementById("run-meta-line").textContent = meta.join(" · ") || data.run_id;
+
+  const badges = document.getElementById("run-badges");
+  if (data.host) badges.innerHTML += '<span class="px-2 py-1 rounded-md bg-surface-container-high text-xs">Host: ' + data.host + "</span>";
+  if (data.export_tier) badges.innerHTML += '<span class="px-2 py-1 rounded-md bg-surface-container-high text-xs">Export: ' + data.export_tier + "</span>";
+
+  const hs = document.getElementById("hatchet-status-badges");
+  if (hs && data.hatchet_status) {
+    hs.innerHTML = '<span class="px-2 py-1 rounded-full bg-surface-container-high text-xs">' + hatchetBadgeLabel(data.hatchet_status) + "</span>";
+  }
+  if (data.mongodb_log_files?.length) {
+    const list = document.getElementById("hatchet-log-list");
+    list.textContent = "Uploaded: " + data.mongodb_log_files.join(", ");
+    list.classList.remove("hidden");
+  }
+  if (data.phase2_hatchet_blocked) {
+    const alert = document.getElementById("hatchet-block-alert");
+    alert.textContent = "Phase 2 is blocked until Hatchet writes summary.json.";
+    alert.classList.remove("hidden");
+  }
+  if (data.has_mongodb_logs && (data.hatchet_status === "failed" || data.hatchet_status === "stale")) {
+    document.getElementById("hatchet-retry-btn")?.classList.remove("hidden");
+  }
+}
+
+async function populateLlmSelect(selected) {
+  const select = document.getElementById("llm-context-select");
+  if (!select) return;
+  const resp = await fetch("/simagix/runs/phase2/llm-providers");
+  if (!resp.ok) return;
+  const data = await resp.json();
+  const options = data.options || [];
+  select.innerHTML = options
+    .map((o) => '<option value="' + o.id + '"' + (o.available ? "" : " disabled") + (o.id === selected ? " selected" : "") + ">" + o.label + (o.available ? "" : " (not configured)") + "</option>")
+    .join("");
+}
+
+const pageData = readPageData();
+hydrateShell(pageData);
+populateLlmSelect(pageData?.selected_llm || "mock");
+switchTab("investigation");
+</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="/static/js/phase-rail.js?v=6"></script>
+<script src="/static/js/clarify-wizard.js?v=3"></script>
+<script src="/static/js/report-viewer.js?v=5"></script>
+<script src="/static/js/agent-chat.js?v=2"></script>
+<script src="/static/js/grafana.js?v=4"></script>
+<script src="/static/js/rca.js?v=7"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  if (!window.RUN_ID) return;
+  if (window.FtdcGrafana) window.FtdcGrafana.init(window.RUN_ID);
+  if (window.FtdcRca) window.FtdcRca.init(window.INITIAL_LLM);
+
+  const uploadForm = document.getElementById("hatchet-log-upload-form");
+  if (uploadForm) {
+    uploadForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const input = document.getElementById("hatchet-log-files");
+      const btn = document.getElementById("hatchet-upload-btn");
+      const statusEl = document.getElementById("hatchet-upload-status");
+      if (!input?.files?.length) {
+        alert("Choose at least one log file.");
+        return;
+      }
+      btn.disabled = true;
+      if (statusEl) statusEl.textContent = "Uploading log files…";
+      try {
+        const body = new FormData();
+        for (const file of input.files) body.append("files", file, file.name);
+        const resp = await fetch("/simagix/uploads/runs/" + window.RUN_ID + "/logs", { method: "POST", body });
+        if (!resp.ok) {
+          const payload = await resp.json().catch(() => ({}));
+          throw new Error(payload.detail || "Log upload failed");
+        }
+        if (statusEl) statusEl.textContent = "Upload complete — starting Hatchet…";
+        window.top.location.reload();
+      } catch (err) {
+        alert(err.message || "Upload failed");
+        if (statusEl) statusEl.textContent = err.message;
+        btn.disabled = false;
+      }
+    });
+  }
+
+  const retryBtn = document.getElementById("hatchet-retry-btn");
+  if (retryBtn) {
+    retryBtn.addEventListener("click", async () => {
+      retryBtn.disabled = true;
+      const resp = await fetch("/simagix/uploads/runs/" + window.RUN_ID + "/logs/retry", { method: "POST" });
+      if (!resp.ok) {
+        const payload = await resp.json().catch(() => ({}));
+        alert(payload.detail || "Hatchet retry failed");
+        retryBtn.disabled = false;
+        return;
+      }
+      window.top.location.reload();
+    });
+  }
+});
+</script>
+</body>
+</html>

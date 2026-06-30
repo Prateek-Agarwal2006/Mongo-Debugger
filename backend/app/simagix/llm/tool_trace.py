@@ -18,11 +18,13 @@ EVIDENCE_MCP_TOOL_NAMES = frozenset(
         "get_raw_path",
         "list_fallback_metrics",
         "get_budget_status",
-        "get_profiler_samples",
         "query_logs_around_window",
         *HATCHET_MCP_TOOL_NAMES,
     }
 )
+
+# Shipped operator test MCP tools (local-test-http / test-ping stdio).
+OPERATOR_TEST_MCP_TOOL_NAMES = frozenset({"test_ping", "test_echo"})
 
 
 @dataclass
@@ -53,6 +55,25 @@ def _coerce_args_dict(args: Any) -> dict[str, Any]:
     return {}
 
 
+def _split_operator_mcp_tool_name(name: str) -> tuple[str, str] | None:
+    """Cursor/ADK prefixed tools: `{connector_id}_{tool}` e.g. local-test-http_test_ping."""
+    for inner in OPERATOR_TEST_MCP_TOOL_NAMES:
+        marker = f"_{inner}"
+        if name.endswith(marker):
+            server_id = name[:-len(marker)]
+            if server_id:
+                return server_id, inner
+    if "_" not in name:
+        return None
+    server_id, inner = name.rsplit("_", 1)
+    if not server_id or not inner:
+        return None
+    if server_id in {"simagix-evidence", "hatchet-evidence", "graylog", "graylog-logs"}:
+        if inner in EVIDENCE_MCP_TOOL_NAMES or inner in HATCHET_MCP_TOOL_NAMES:
+            return server_id, inner
+    return None
+
+
 def resolve_tool_identity(tool_name: str, args: Any) -> tuple[str, str | None]:
     """Map Cursor SDK tool payloads to a readable name and MCP server id."""
     name = (tool_name or "").strip()
@@ -66,6 +87,14 @@ def resolve_tool_identity(tool_name: str, args: Any) -> tuple[str, str | None]:
             provider_text = str(provider) if provider else "simagix-evidence"
             return f"{provider_text}/{inner}", provider_text
         return name, None
+
+    split = _split_operator_mcp_tool_name(name)
+    if split is not None:
+        server_id, inner = split
+        return f"{server_id}/{inner}", server_id
+
+    if name in OPERATOR_TEST_MCP_TOOL_NAMES:
+        return f"operator-mcp/{name}", "operator-mcp"
 
     marker = "simagix-evidence_"
     if marker in lower:
@@ -87,7 +116,7 @@ def resolve_tool_identity(tool_name: str, args: Any) -> tuple[str, str | None]:
 def classify_tool_category(tool_name: str, args: Any = None) -> ToolTraceCategory:
     args_dict = _coerce_args_dict(args)
     inner_tool = args_dict.get("toolName") or args_dict.get("tool_name")
-    if inner_tool in EVIDENCE_MCP_TOOL_NAMES:
+    if inner_tool in EVIDENCE_MCP_TOOL_NAMES or inner_tool in OPERATOR_TEST_MCP_TOOL_NAMES:
         return "mcp"
 
     display_name, _ = resolve_tool_identity(tool_name, args)
@@ -104,8 +133,11 @@ def classify_tool_category(tool_name: str, args: Any = None) -> ToolTraceCategor
         or name.startswith("simagix-evidence/")
         or name.startswith("hatchet-evidence/")
         or name.startswith("graylog/")
+        or name.startswith("operator-mcp/")
+        or name in OPERATOR_TEST_MCP_TOOL_NAMES
         or "simagix-evidence" in args_text
         or "graylog" in args_text
+        or "local-test-http" in args_text
     ):
         return "mcp"
 
@@ -178,7 +210,7 @@ class ToolTraceCollector:
             return
 
         status = str(getattr(message, "status", "") or "")
-        if status and status != "completed":
+        if status and status not in {"completed", "error", "failed"}:
             return
 
         self._record_from_fields(

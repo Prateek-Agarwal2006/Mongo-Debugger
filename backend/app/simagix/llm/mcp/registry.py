@@ -10,7 +10,7 @@ from backend.app.simagix.llm.mcp.connectors import (
     STDIO_TEMPLATES,
     McpConnectorRecord,
 )
-from backend.app.simagix.llm.mcp.specs import McpServerSpec
+from backend.app.simagix.llm.mcp.specs import BARE_TOOL_MCP_SERVER_NAMES, McpServerSpec
 from backend.app.simagix.llm.session import Phase2Session
 
 EVIDENCE_SERVER_MODULE = "backend.app.simagix.llm.mcp.servers.evidence"
@@ -22,6 +22,19 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     HttpMcpServerConfig = None  # type: ignore[assignment,misc]
     StdioMcpServerConfig = None  # type: ignore[assignment,misc]
+
+try:
+    from google.adk.tools.mcp_tool import (
+        McpToolset,
+        StdioConnectionParams,
+        StreamableHTTPConnectionParams,
+    )
+    from mcp.client.stdio import StdioServerParameters
+except ImportError:  # pragma: no cover - optional dependency
+    McpToolset = None  # type: ignore[assignment,misc]
+    StdioConnectionParams = None  # type: ignore[assignment,misc]
+    StreamableHTTPConnectionParams = None  # type: ignore[assignment,misc]
+    StdioServerParameters = None  # type: ignore[assignment,misc]
 
 
 def _stdio_python_module(module: str, *, env: dict[str, str], cwd: str) -> McpServerSpec:
@@ -156,3 +169,34 @@ def build_user_mcp_servers(
     if not specs:
         return {}
     return to_cursor_sdk_servers(specs)
+
+
+def to_adk_mcp_toolsets(specs: list[McpServerSpec]) -> list[Any]:
+    """Build native ADK McpToolset instances from provider-neutral specs."""
+    if McpToolset is None or StdioConnectionParams is None:
+        raise RuntimeError("google-adk is not installed")
+    if StreamableHTTPConnectionParams is None or StdioServerParameters is None:
+        raise RuntimeError("google-adk MCP dependencies are not installed")
+
+    toolsets: list[Any] = []
+    for spec in specs:
+        if spec.transport == "http":
+            if not spec.url:
+                raise ValueError(f"HTTP MCP spec {spec.server_id} missing url")
+            params = StreamableHTTPConnectionParams(
+                url=spec.url,
+                headers=spec.headers or None,
+            )
+        else:
+            if not spec.command:
+                raise ValueError(f"Stdio MCP spec {spec.server_id} missing command")
+            params = StdioConnectionParams(
+                server_params=StdioServerParameters(
+                    command=spec.command,
+                    args=list(spec.args),
+                    env=spec.env or None,
+                    cwd=spec.cwd,
+                )
+            )
+        toolsets.append(McpToolset(connection_params=params))
+    return toolsets

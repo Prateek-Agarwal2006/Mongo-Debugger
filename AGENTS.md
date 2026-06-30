@@ -4,6 +4,8 @@
 
 Matt Pocock skills live in [`.agents/skills/`](.agents/skills/). Invoke in chat (e.g. `/grill-me`, `/tdd`, `/to-issues`).
 
+**Google Stitch skills** (need Stitch MCP + `.env` `STITCH_API_KEY`): `design-md`, `stitch-react-components`, `stitch-generate-design`, `enhance-prompt`, `stitch-loop`, and others under `.agents/skills/stitch-*`. Install/update: `npx skills add google-labs-code/stitch-skills --yes`.
+
 ### Issue tracker
 
 Local markdown under `.scratch/<feature-slug>/`. See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).

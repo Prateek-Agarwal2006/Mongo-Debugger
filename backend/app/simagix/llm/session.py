@@ -15,6 +15,7 @@ from backend.app.simagix.llm.llm_paths import (
     llm_session_dir,
     phase2_root_dir,
 )
+from backend.app.simagix.llm.parse_output import load_persisted_rca_report
 from backend.app.simagix.output_schema import InvestigationSummary, RCAReportDraft
 
 
@@ -163,7 +164,10 @@ class Phase2Session:
             return self.latest_report
         if not self.report_path.exists():
             return None
-        self.latest_report = RCAReportDraft.model_validate_json(self.report_path.read_text(encoding="utf-8"))
+        self.latest_report = load_persisted_rca_report(
+            self.report_path.read_text(encoding="utf-8"),
+            self.run_id,
+        )
         if self.metadata_path.exists():
             meta = json.loads(self.metadata_path.read_text(encoding="utf-8"))
             self.agent_id = meta.get("agent_id")

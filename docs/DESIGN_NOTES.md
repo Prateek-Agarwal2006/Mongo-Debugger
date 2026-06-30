@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-26 (unified `mcp/` + `providers/` layout; ADK MCP client + WorkArea parity).
+**Last aligned with codebase:** 2026-06-29 (Stitch Modern report tab; `report-viewer--stitch` dual renderer).
 
 ---
 
@@ -69,7 +69,7 @@ Three options we compared:
 
 **Managed agent — we did not build an MCP client.** Cursor SDK is the hosted agent runtime: it runs the tool loop (plan → call tool → read result → repeat), speaks MCP to our servers, and streams the run. We only implemented **MCP servers** (`mcp_evidence_server`, optional `graylog_mcp_server`) that expose tools. We did **not** write a custom MCP client, agent loop, or JSON-RPC plumbing — that would be Option C work or rolling our own “mini Managed Agents.”
 
-**`LLMProvider` abstraction** — swap Cursor vs Gemini ADK vs mock without touching evidence plumbing. Both Cursor and Gemini ADK attach tools via shared **`mcp/registry.py`** + MCP servers under **`mcp/servers/`** (ADK uses **`mcp/client.py`** as MCP client). Same `SimagixEvidenceService` underneath. Layout: **§13.18** and [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout.
+**`LLMProvider` abstraction** — swap Cursor vs Gemini ADK vs mock without touching evidence plumbing. Both Cursor and Gemini ADK attach MCP tools via shared **`mcp/registry.py`** + MCP servers under **`mcp/servers/`** (ADK uses native **`McpToolset`**). Operator skills attach provider-natively via **`skills/registry.py`**. Same `SimagixEvidenceService` underneath. Layout: **§13.18** and [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout.
 
 ---
 
@@ -79,7 +79,7 @@ Single-pass “here’s your RCA” is easy to demo and easy to distrust. We spl
 
 ```text
 Phase A — Investigation (MCP ON)
-  Read tier 1 → call tier-2 tools (+ profiler + optional Graylog) → InvestigationSummary
+  Read tier 1 → call tier-2 tools (+ optional Graylog) → InvestigationSummary
 
 Phase B — Clarify (MCP OFF)
   LLM generates up to 10 questions from gaps tools/metrics can’t answer
@@ -114,11 +114,10 @@ FTDC is **server metrics**, not application logs or query text.
 |--------|--------|------|
 | Metrics & findings | mongo-ftdc bundle | Always |
 | Metric slices | MCP `simagix-evidence` | Phase A & C |
-| Slow queries | Uploaded `db.system.profile` JSON | Phase A (`get_profiler_samples`) |
 | App/DB logs | Graylog MCP (optional) | Phase A if `GRAYLOG_*` configured |
 | Charts | **Grafana** (`simagix/grafana-ftdc`) | Human exploration on run page |
 
-**Talking point:** RCA cites **findings + metric windows + profiler + logs** where available — not a single monolithic dump.
+**Talking point:** RCA cites **findings + metric windows + logs** where available — not a single monolithic dump.
 
 ---
 
@@ -353,7 +352,7 @@ jobs/              — upload pipeline async
 `GroundingRules` is a small class with one method `as_dict()` returning:
 
 - `allowed_evidence_sources` — what citations may reference
-- `citation_format` — `finding:…`, `metric:…`, `profiler:…`, etc.
+- `citation_format` — `finding:…`, `metric:…`, `log:…`, etc.
 - `score_semantics` — mongo-ftdc 0–100 scoring rules
 - `rules` — anti-hallucination prose injected into Phase C prompt
 
@@ -415,9 +414,8 @@ Budget: `consume_tool_call("get_raw_path")` — same gated retrieval as tier-2 t
 | `get_raw_path` | Yes |
 | `list_fallback_metrics` | **No** |
 | `get_budget_status` | **No** |
-| `get_profiler_samples` | **No** — calls `load_profiler_data()` directly, bypasses evidence-service budget |
 
-So yes: MCP exposes **more tools** than the three budgeted retrieval calls. Listing metrics and reading profiler JSON are intentionally “free” (still traced in `tool_trace.json` for SDK/local/MCP activity; budget file tracks evidence retrieval caps).
+Listing metrics is intentionally “free” (still traced in `tool_trace.json` for SDK/local/MCP activity; budget file tracks evidence retrieval caps).
 
 **Cursor SDK built-ins** (`read`, `grep`, `shell`, `web`) are **not** in `budget_state.json` — they appear in **Agent Tool Activity** (`tool_trace.json`). Prompts discourage local/shell in favor of MCP.
 
@@ -457,7 +455,7 @@ A single global evidence service would mix bundles and budgets across runs.
 |------|----------------|
 | `simagix/prompt.py` | `build_tier1_evidence_block`, `build_phase2_prompt` — tier-1 findings/windows/activity text |
 | `simagix/scoring.py` | `score_semantics_prompt_lines` — 0–100 score rules inlined in tier-1 block |
-| `simagix/llm/prompts.py` | **Phase A** `build_investigate_user_message`; **Phase B** `build_clarify_user_message`; **Phase C** `build_phase2_user_message` |
+| `simagix/llm/prompts.py` | **Phase A** `build_investigate_user_message` (+ full `retrievable_metrics` list); **Phase B** `build_clarify_user_message`; **Phase C** `build_phase2_user_message` |
 | `simagix/llm/detail_requirements.py` | `DETAIL_REQUIREMENTS` — mechanistic RCA format + anti-echo rules (included in A & C) |
 | `simagix/grounding.py` | `GroundingRules.as_dict()` — embedded as JSON in Phase C prompt |
 | `simagix/evidence_service.py` | `build_phase2_llm_package()` — assembles prompt + grounding + schema + tool list (not prose itself) |
@@ -524,7 +522,7 @@ Renamed from `SimagixRCAOrchestrator` because “orchestrator” implied cogniti
 
 1. **`AgentOptions`** — `api_key`, `model` (`cursor_model`, default `composer-2.5`).
 2. **`LocalAgentOptions(cwd=…)`** — agent built-in `cwd` is **`chatbot_scratch/`** when MCP is on (Phases A/C/chatbot), **export bundle** when MCP is off (Phase B clarify). See [PHASE2_LLM.md](PHASE2_LLM.md) § Mentor Q&A — Cursor SDK agent runtime.
-3. **`SandboxOptions(enabled=False)`** — sandbox off in current code; SDK only exposes on/off (no path list in our config). When enabled, Cursor restricts built-ins internally.
+3. **`SandboxOptions(enabled=True)`** + **`auto_review=True` when MCP on** — sandbox for built-ins; auto-review so headless SDK runs can execute MCP without interactive approval prompts.
 4. **`mcp_servers`** — dict of **`StdioMcpServerConfig`**: spawn subprocesses that speak MCP over stdin/stdout:
    - `simagix-evidence` → `python -m backend.app.simagix.llm.mcp_evidence_server` with env `SIMAGIX_RUN_ID`, `SIMAGIX_WORKSPACE_ROOT`, `SIMAGIX_BUDGET_STATE_PATH`
    - `graylog` (optional) → `graylog_mcp_server` when `GRAYLOG_*` set
@@ -593,7 +591,7 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 
 ### 13.18 How Gemini ADK runs Phase 2 (parallel to §13.17)
 
-**Gemini ADK** (`providers/adk/`) runs the tool loop in-process via **Google ADK** `InMemoryRunner`, but evidence tools come from the **same MCP subprocess servers** as Cursor — bridged by **`mcp/client.py`** (`ClientSessionGroup`).
+**Gemini ADK** (`providers/adk/`) runs the tool loop in-process via **Google ADK** `InMemoryRunner`, but evidence tools come from the **same MCP subprocess servers** as Cursor — attached via native **`McpToolset`** (`to_adk_mcp_toolsets`).
 
 **Our code's job:** build MCP specs from `build_mcp_server_specs()`, open sessions in the ADK runner, configure `Agent(tools=...)`, record tool trace via `after_tool_callback`, parse final JSON — same *outputs* as Cursor, shared *tool attachment*.
 
@@ -602,30 +600,31 @@ That repeat loop is **ReAct / agent executor** — same *role* as LangGraph’s 
 | File | Role | Cursor Equivalent |
 |------|------|-------------------|
 | `providers/adk/provider.py` | `LLMProvider` — phases A/C/chatbot; parse JSON | `providers/cursor/provider.py` |
-| `providers/adk/runner.py` | MCP client + ADK runner + trace callback | Cursor SDK `Agent.create` / `send` / `wait` |
+| `providers/adk/runner.py` | Native `McpToolset` + optional `SkillToolset` + ADK runner + trace callback | Cursor SDK `Agent.create` / `send` / `wait` |
 | `mcp/servers/*.py` | `@mcp.tool()` definitions (stdio subprocess) | Same modules (SDK spawns them) |
-| `mcp/registry.py` | `build_mcp_server_specs()` for both providers | `to_cursor_sdk_servers` |
-| `mcp/client.py` | ADK-only MCP client bridge | Cursor SDK (built-in client) |
+| `mcp/registry.py` | `build_mcp_server_specs()`, `to_adk_mcp_toolsets()`, `to_cursor_sdk_servers()` | Same registry |
+| `skills/registry.py` | Operator skill catalog; Cursor copytree + ADK `SkillToolset` | `setting_sources=["project"]` + `.cursor/skills/` |
 
 Legacy import shims removed; use `providers/` and `mcp/servers/` directly.
 
 #### Setup (`providers/adk/runner.py`)
 
 1. **`build_mcp_server_specs(session, settings, enabled_mcp_ids=...)`** — built-ins + WorkArea connectors (same as Cursor).
-2. **`build_adk_tools_async(specs)`** — `ClientSessionGroup` → sync callables + `web_fetch`.
+2. **`to_adk_mcp_toolsets(specs)`** + optional **`build_adk_skill_toolset_all(workspace)`** + **`web_fetch`**.
 3. **`Agent(..., tools=..., after_tool_callback=...)`** — ADK agent.
 4. **`InMemoryRunner.run_debug(...)`** — model + tool loop (AI Studio API key).
-5. **`session.refresh_budget()`** — budget updated via MCP evidence subprocess writing `budget_state.json`.
+5. **`await toolset.close()`** in `finally` — MCP + skill toolsets.
+6. **`session.refresh_budget()`** — budget updated via MCP evidence subprocess writing `budget_state.json`.
 
 #### One agent run (conceptual)
 
 ```text
 run_adk_agent_text(..., enabled_mcp_ids=[...])
   → specs = build_mcp_server_specs(...)
-  → tools, group = build_adk_tools_async(specs)
+  → tools = [*to_adk_mcp_toolsets(specs), skill_toolset?, web_fetch]
   → Agent(..., tools=tools, after_tool_callback=trace)
   → InMemoryRunner.run_debug(...)
-  → close_mcp_session_group(group)
+  → close toolsets in finally
   → parse_investigation_summary / parse_rca_report / …
 ```
 
@@ -633,7 +632,8 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 
 | Concern | Cursor | Gemini ADK |
 |---------|--------|------------|
-| Operator registry + checkboxes | `enabled_mcp_ids` → `build_mcp_server_specs` → SDK | Same specs → `mcp/client.py` |
+| Operator registry + checkboxes | `enabled_mcp_ids` → `build_mcp_server_specs` → SDK | Same specs → `McpToolset` |
+| Operator skill catalog | `copytree` → scratch `.cursor/skills/` | `SkillToolset(all)` — no checkboxes |
 | Evidence tools | MCP `simagix-evidence` subprocess | Same subprocess via MCP client |
 | Graylog | Optional MCP server | Same |
 | External GitHub/HTTP MCP | WorkArea registry | Same |
@@ -643,13 +643,13 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 | Concern | Owner |
 |---------|--------|
 | Tool loop until done | **Google ADK** (`InMemoryRunner`) |
-| MCP protocol / subprocess lifecycle | **Us** (`mcp/client.py`) for ADK; **Cursor SDK** for Cursor |
+| MCP protocol / subprocess lifecycle | **ADK `McpToolset`** for Gemini; **Cursor SDK** for Cursor |
 | Evidence slice logic + budget | **Us** (`SimagixEvidenceService` + MCP servers) |
 | 3-phase workflow + human Q&A gate | **Us** (`service.py`) |
 | Structured output validation | **Us** (`parse_output.py`) |
 | WorkArea operator MCPs | **Both providers** via `enabled_mcp_ids` |
 
-**Interview line:** "One MCP server tree; Cursor SDK and our ADK client are two adapters. WorkArea checkboxes feed the same registry builder."
+**Interview line:** "One MCP server tree; Cursor SDK and ADK `McpToolset` are two adapters. WorkArea MCP checkboxes feed the same registry builder; Skill WorkArea attaches all skills automatically."
 
 ---
 
@@ -661,21 +661,27 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 
 | Topic | What we chose | Why | Why not the alternative | Code / config |
 |-------|---------------|-----|-------------------------|---------------|
+| **MongoDB profiler (`db.system.profile`)** | **Removed** — no upload API, MCP tool, schema field, or prompt mentions | Profiler caused Gemini hard-fails when MCP failed; out of scope vs FTDC + Hatchet logs | **Profiler upload + `get_profiler_samples`** — extra operator step; brittle when tool not registered | Profiler code deleted 2026-06-29; `parse_output.py` strips legacy `profiler_insights` |
 | **Agent tool loop** | **Cursor SDK** (and Gemini **ADK** for the `gemini` slot) runs ReAct; we implement MCP **servers** + evidence Facade only | Avoid duplicating JSON-RPC tool loop, subprocess lifecycle, and sandbox in Python; swap providers via `LLMProvider` | **LangGraph / custom ReAct in Python** — more control but high build cost; we’d re-own what Cursor/ADK already ship | `cursor_provider.py`, `gemini_adk_provider.py`, §13.16–§13.17 |
 | **Workflow shape** | Fixed **3-phase** template in `service.py` (A investigate → B clarify once → C final RCA) | Predictable ops flow, separate tool budgets, human gate only after tools run | **Open-ended chat RCA** or **dynamic supervisor** — harder to demo, budget blow-ups, unclear “done” | `service.py`, `PHASE2_*_MAX_TOOL_CALLS` |
 | **Multi-agent orchestration** | **Not built** — one reasoning brain per incident per phase | Single upload, deep RCA; tier-1 + one investigation pass usually enough | **Parallel specialist agents + verifier graph** — cost/latency; defer unless eval shows single-agent misses signals | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Multi-agent; prefer **deterministic verifier** first |
 | **Phase-to-phase memory (A→C)** | **Prompt assembly** — investigation JSON + operator answers embedded in Phase C user message; no shared agent session across phases | Each phase is a fresh SDK/ADK run with a bounded prompt; auditable artifacts on disk | **One long agent thread** across A/B/C — context creep, harder to parse structured outputs per phase | `prompts.py`, `build_phase2_user_message`, §13.17 table |
 | **Post-report chatbot memory** | **Light in-thread memory:** full transcript in `chatbot_chat.json`; prompt gets report + investigation + `summary_of_older` + last **N** messages (`PHASE2_CHATBOT_MAX_REPLAY_MESSAGES`); fold older turns via **text-only summarize** when count exceeds `PHASE2_CHATBOT_SUMMARIZE_AFTER_MESSAGES` | Operators can dig deeper after Phase C without shipping a memory product; cheap, inspectable JSON on disk | **Hindsight / Mem0 / vector DB / LangGraph checkpointer** — cross-run or semantic memory is out of scope for one FTDC incident; adds infra and retrieval quality risk | `service.py` (`load_chatbot`, `maybe_summarize_chatbot`), `chatbot_chat.json` |
 | **Cross-run / fleet memory** | **None** — each `(run_id, llm)` is isolated | RCA is per upload; conflating incidents would confuse citations | **Global memory store** — wrong trust model for forensic RCA | `phase2/llm/<slot>/`, `llm_index.json` |
-| **Web research tool** | Shared **`web_fetch`** — SSRF-safe HTTPS, size/timeout caps (`PHASE2_WEB_FETCH_*`) for Cursor + Gemini | One policy, one audit category (`web` in tool trace), operator-trustable allowlist behavior | **Gemini `GoogleSearchTool` only** — provider-specific, harder to align with Cursor; removed from ADK tool list | `web_fetch.py`, `mcp/client.py` |
+| **Web research tool** | Shared **`web_fetch`** — SSRF-safe HTTPS, size/timeout caps (`PHASE2_WEB_FETCH_*`) for Cursor + Gemini | One policy, one audit category (`web` in tool trace), operator-trustable allowlist behavior | **Gemini `GoogleSearchTool` only** — provider-specific, harder to align with Cursor; removed from ADK tool list | `web_fetch.py` |
+| **Operator skill catalog** | **Skill WorkArea** — ZIP upload by slot name; attach **entire catalog** on every tool phase; Cursor `copytree` + `setting_sources=["project"]`; ADK `SkillToolset` | Skills are playbooks, not MCP tools; provider-native attachment avoids prompt injection | **Prompt injection**; **run-page skill checkboxes** for attach-all policy | `skills/registry.py`, `/skill-workarea` |
+| **ADK MCP attachment** | Native **`McpToolset`** via `to_adk_mcp_toolsets()`; **`mcp/client.py` deleted** | ADK owns MCP lifecycle; same specs as Cursor | **Custom `ClientSessionGroup` bridge** — duplicate lifecycle glue | `mcp/registry.py`, `providers/adk/runner.py` |
 | **Operator MCP connectors** | Disk registry + **MCP WorkArea** UI; **stateless** run-page checkboxes → `enabled_mcp_ids` on Phase A/C for **both** Cursor and ADK via `build_mcp_server_specs` | Operators attach GitHub/HTTP MCPs without code changes; explicit opt-in per run; `simagix-evidence` always locked on | **Saved defaults / env-only MCP list** — hides what ran; **free-form stdio commands** — unsafe; **Cursor-only WorkArea** — ADK could not use operator MCPs | `mcp/connectors.py`, `mcp/registry.py`, `api/mcp_connectors.py`, `/mcp-workarea` |
-| **ADK in-process evidence tools (v1, superseded)** | Was **`adk_evidence_tools.py`**; **file deleted** — ADK uses `mcp/client.py` | Faster local dev before unify | **Permanent duplicate** vs `@mcp.tool` servers | `mcp/client.py`, `mcp/servers/` |
+| **ADK in-process evidence tools (v1, superseded)** | Was **`adk_evidence_tools.py`**; **file deleted** — ADK uses shared MCP servers | Faster local dev before unify | **Permanent duplicate** vs `@mcp.tool` servers | `mcp/servers/` |
 | **Provider file split (Cursor vs ADK)** | **`providers/cursor`**, **`providers/adk`**, **`providers/mock`**; shared **`mcp/`** tree | Names layers; ADK runner testable without JSON parse; one registry for all providers | **Flat llm/*.py forever** — harder navigation as providers grow | `providers/`, `mcp/`, §13.18 |
-| **Unified MCP tool surface** | **`mcp/servers/*.py`** as single `@mcp.tool` source; **`mcp/registry.py`** + **`mcp/client.py`** for ADK; Cursor SDK as client; **`adk_evidence_tools` deleted** | WorkArea + graylog + hatchet parity across providers; one place to add tools; OpenAI slot can reuse registry | **Keep ADK in-process forever** — duplicate tool surfaces; **per-provider tool modules** — drift | `mcp/`, `providers/`, [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout |
+| **Unified MCP tool surface** | **`mcp/servers/*.py`** as single `@mcp.tool` source; **`mcp/registry.py`** + native **`McpToolset`** for ADK; Cursor SDK as client; **`adk_evidence_tools` deleted** | WorkArea + graylog + hatchet parity across providers; one place to add tools; OpenAI slot can reuse registry | **Keep ADK in-process forever** — duplicate tool surfaces; **per-provider tool modules** — drift | `mcp/`, `providers/`, [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout |
 | **Agent filesystem writes** | **Writes only under** `chatbot_scratch/` per LLM slot; reads/grep/shell allowed more broadly with prompts steering toward evidence | Scratch notes and small artifacts without polluting bundle or repo | **Unrestricted write** — risk to export bundle integrity and git workspace | `session.ensure_chatbot_scratch_dir()`, `prompts.py` `SCRATCH_RULES` |
 | **LLM slots** | **`mock` / `cursor` / `gemini`** with separate `phase2/llm/<slot>/` trees | Compare providers on same run without overwriting investigation/report/trace | **Single shared phase2 folder** — switching LLM corrupted state (fixed 2026-06) | `llm_paths.py`, `test_llm_isolation.py` |
 | **UI layer** | Top-level **`frontend/`** (templates + static); backend wires routes only | Reskin or replace UI without touching Phase 2 logic | **Templates under `backend/app/`** — coupled deploy story | `frontend/`, `web/routes.py` |
 | **Phase A→B→C rail (UI)** | Client state machine in `phase-rail.js`, hydrated from `GET /phase2/status`; sticky shell **hides on scroll** while reading report/chat | Progress feedback during RCA; rail gets out of the way when reading long content | **Always-visible sticky bar** — blocks report/chat (user feedback); **server-driven SSE rail** — unnecessary for three discrete phases | `phase-rail.js`, `rca.js` `setFromApiStatus` |
+| **RCA reading surface (UI)** | Scoped **`.reading-surface`** on report + chatbot only; warm light/dark toggle (`reading-surface.js`); Source Serif report prose; amber accents inside surface | Claude-like reading without reskinning uploads/Grafana/rail; operator picks light cream or warm dark | **Global Claude reskin** — breaks Mongo brand on ops pages; **light-only** — jarring on dark chrome; **no toggle** — mentor/demo preference varies | `reading-surface.css`, `reading-surface.js`, `run_detail.html` `#reading-surface` |
+| **Modern report tab (Stitch)** | **`report-viewer--stitch`** in `run_workspace.html` iframe; `buildReportDomStitch()` + `report-viewer-stitch.css`; Classic theme keeps `rv-*` renderer | Stitch design (side nav, Lora body, confidence ring, dark log blocks) without replacing classic Bootstrap run page | **One global report CSS** — breaks classic glass/dark deck; **duplicate HTML in stitch page** — drifts from JSON renderer | `report-viewer.js`, `report-viewer-stitch.css`, `stitch/run_workspace.html` |
+| **Modern results page integration** | Bootstrap **`ResultsPage`** React component in the modern shell via `run_detail.html` body class and JSON page data blocks; custom SVG lines/sparklines for FTDC metrics | Seamless modern/classic UI transition based on theme selection; high-performance responsive charting without heavy library dependencies | **Full client-side router takeover** — breaks FastAPI routes; **Heavy charting libraries (Recharts/Chart.js)** — bundle bloat | `ResultsPage.tsx`, `run_detail.html`, `App.tsx` |
 | **Charting** | **Grafana** (external tab) for human exploration; MCP slices for agent evidence | Real FTDC dashboards from `simagix/grafana-ftdc`; patched `mongo-debugger/ftdc:local` defers FTDC load to `/grafana/dir` (no `tmp/` bootstrap) | **Embedded Chart.js / graphs API** — removed as duplicate path | §8, `grafana/service.py`, `patches/mftdc-server-deferred-load.patch` |
 | **Grafana health during FTDC decode** | **Module-level probe cache** (180s TTL) on `:5408` / `:3030`; run-page **sessionStorage** guards auto-load | FTDC API is single-threaded — probes time out mid-decode; per-request manager had empty cache so reload hid links and stacked loads | **Per-instance cache** (never shared across requests); **hide links when probe fails**; **auto-load on every page open** | `stack.py` `_HEALTH_CACHE`, `grafana.js` `_wasLoadedThisSession` / `_loadInProgress` |
 | **Citation trust (future)** | Documented preference: **deterministic verifier** on `tool_trace.json` before any **LLM auditor agent** | Highest ROI for “prove the agent looked” without second agent cost | **Verifier-only LLM** as first step — slower, still probabilistic | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Trust & cost |

@@ -160,6 +160,7 @@ def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLRes
         "run_detail.html",
         {
             "run_id": run_id,
+            "upload_time_utc": upload_time_utc_from_run_id(run_id),
             "manifest": manifest,
             "has_report": has_report,
             "report_text": report_text,
@@ -186,3 +187,8 @@ def upload_page(request: Request) -> HTMLResponse:
 @router.get("/mcp-workarea", response_class=HTMLResponse)
 def mcp_workarea(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "mcp_workarea.html", {})
+
+
+@router.get("/skill-workarea", response_class=HTMLResponse)
+def skill_workarea(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "skill_workarea.html", {})

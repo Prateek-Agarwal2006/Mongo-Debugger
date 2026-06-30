@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import os
 from datetime import datetime, timezone
 from typing import Any
 
 from backend.app.core.config import Settings
-from backend.app.simagix.llm.mcp.client import build_adk_tools_async, close_mcp_session_group
-from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs
+from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs, to_adk_mcp_toolsets
 from backend.app.simagix.llm.session import Phase2Session
+from backend.app.simagix.llm.skills.registry import build_adk_skill_toolset_all
 from backend.app.simagix.llm.tool_trace import (
     ToolTraceCollector,
     ToolTraceEntry,
@@ -17,6 +18,7 @@ from backend.app.simagix.llm.tool_trace import (
     adk_tool_trace_identity,
     record_grounding_metadata,
 )
+from backend.app.simagix.llm.web_fetch import build_web_fetch_tool
 
 try:
     from google.adk import Agent
@@ -106,6 +108,16 @@ def _extract_assistant_text(events: list[Any]) -> str:
     return "\n".join(chunks).strip()
 
 
+async def _close_toolsets(toolsets: list[Any]) -> None:
+    for toolset in toolsets:
+        close = getattr(toolset, "close", None)
+        if not callable(close):
+            continue
+        result = close()
+        if inspect.iscoroutine(result):
+            await result
+
+
 async def _run_adk_async(
     session: Phase2Session,
     user_message: str,
@@ -121,7 +133,7 @@ async def _run_adk_async(
     trace = ToolTraceCollector(session.tool_trace_path, agent_id=session.agent_id)
     trace.agent_id = f"gemini-adk:{session.run_id}"
 
-    mcp_group = None
+    closable_toolsets: list[Any] = []
     tools: list[Any] = []
     if include_tools:
         specs = build_mcp_server_specs(
@@ -129,7 +141,14 @@ async def _run_adk_async(
             settings,
             enabled_mcp_ids=enabled_mcp_ids,
         )
-        tools, mcp_group = await build_adk_tools_async(specs, settings=settings)
+        mcp_toolsets = to_adk_mcp_toolsets(specs)
+        closable_toolsets.extend(mcp_toolsets)
+        tools.extend(mcp_toolsets)
+        skill_toolset = build_adk_skill_toolset_all(session.workspace_root)
+        if skill_toolset is not None:
+            closable_toolsets.append(skill_toolset)
+            tools.append(skill_toolset)
+        tools.append(build_web_fetch_tool(settings))
 
     try:
         agent = Agent(
@@ -153,8 +172,7 @@ async def _run_adk_async(
             quiet=True,
         )
     finally:
-        if mcp_group is not None:
-            await close_mcp_session_group(mcp_group)
+        await _close_toolsets(closable_toolsets)
 
     session.agent_id = trace.agent_id
     if include_tools:

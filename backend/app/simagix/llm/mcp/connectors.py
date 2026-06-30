@@ -13,6 +13,20 @@ McpTransport = Literal["http", "stdio_template"]
 _CONNECTOR_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 STDIO_TEMPLATES: dict[str, dict[str, Any]] = {
+    "test-ping-mcp": {
+        "label": "Local test MCP (ping/echo)",
+        "description": (
+            "Shipped with Mongo Debugger — no secrets. Tools: test_ping, test_echo. "
+            "Enable on the run page to verify operator MCP wiring."
+        ),
+        "command": "uv",
+        "args": [
+            "run",
+            "python",
+            "simagix-workspace/operator/mcp_connectors/test_mcp_server.py",
+        ],
+        "required_env": [],
+    },
     "github-mcp": {
         "label": "GitHub MCP (Docker)",
         "description": "Official GitHub MCP server via ghcr.io/github/github-mcp-server",
@@ -89,11 +103,17 @@ def _validate_connector_id(connector_id: str) -> str:
     return normalized
 
 
-def _validate_https_url(url: str) -> str:
+def _validate_http_mcp_url(url: str) -> str:
     parsed = urlparse(url.strip())
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise ValueError("HTTP MCP connectors must use a valid https:// URL")
-    return url.strip()
+    if not parsed.netloc:
+        raise ValueError("HTTP MCP connectors must use a valid URL with a host")
+    if parsed.scheme == "https":
+        return url.strip()
+    if parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}:
+        return url.strip()
+    raise ValueError(
+        "HTTP MCP connectors must use https:// or local http://127.0.0.1 / http://localhost"
+    )
 
 
 def validate_connector_payload(payload: dict[str, Any]) -> McpConnectorRecord:
@@ -107,7 +127,7 @@ def validate_connector_payload(payload: dict[str, Any]) -> McpConnectorRecord:
     description = str(payload.get("description") or "").strip()
 
     if transport == "http":
-        url = _validate_https_url(str(payload.get("url") or ""))
+        url = _validate_http_mcp_url(str(payload.get("url") or ""))
         headers_raw = payload.get("headers") or {}
         if not isinstance(headers_raw, dict):
             raise ValueError("headers must be an object")

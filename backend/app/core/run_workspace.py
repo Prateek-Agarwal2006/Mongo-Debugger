@@ -33,14 +33,11 @@ class RunWorkspace:
         return self.upload_dir(run_id)
 
     def inputs_dir(self, run_id: str) -> Path:
-        """Undecoded user uploads (FTDC, logs, profiler)."""
+        """Undecoded user uploads (FTDC, logs)."""
         return self.upload_dir(run_id) / "inputs"
 
     def upload_diagnostic_dir(self, run_id: str) -> Path:
         return self.inputs_dir(run_id) / "diagnostic.data"
-
-    def profiler_dir(self, run_id: str) -> Path:
-        return self.inputs_dir(run_id) / "profiler"
 
     def mongodb_logs_dir(self, run_id: str) -> Path:
         return self.inputs_dir(run_id) / "mongodb-logs"

@@ -2,12 +2,24 @@
 
 let stdioTemplates = [];
 
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function transportFields() {
   const transport = document.getElementById("mcp-transport")?.value || "http";
   const httpFields = document.getElementById("mcp-http-fields");
   const stdioFields = document.getElementById("mcp-stdio-fields");
   if (httpFields) httpFields.hidden = transport !== "http";
   if (stdioFields) stdioFields.hidden = transport !== "stdio_template";
+}
+
+function isStitchMcpPage() {
+  return Boolean(document.getElementById("btn-tab-configured"));
 }
 
 function renderEnvFields(template) {
@@ -20,12 +32,20 @@ function renderEnvFields(template) {
     return;
   }
   help.textContent = template.description || "";
+  const stitch = isStitchMcpPage();
   for (const key of template.required_env || []) {
     const wrap = document.createElement("div");
-    wrap.className = "mb-2";
-    wrap.innerHTML = `
-      <label class="form-label" for="mcp-env-${key}">${key}</label>
+    if (stitch) {
+      wrap.innerHTML = `
+      <label class="block text-sm font-medium mb-1" for="mcp-env-${key}">${escapeHtml(key)}</label>
+      <input class="w-full text-sm font-mono border border-outline-variant rounded-lg px-3 py-2"
+        id="mcp-env-${key}" name="env-${key}" type="password" autocomplete="off" required/>`;
+    } else {
+      wrap.className = "mb-2";
+      wrap.innerHTML = `
+      <label class="form-label" for="mcp-env-${key}">${escapeHtml(key)}</label>
       <input class="form-control font-monospace" id="mcp-env-${key}" name="env-${key}" type="password" autocomplete="off" required/>`;
+    }
     container.appendChild(wrap);
   }
 }
@@ -44,6 +64,19 @@ function populateTemplateSelect(templates) {
   if (first) renderEnvFields(first);
 }
 
+async function deleteConnector(id) {
+  if (!confirm(`Delete connector "${id}"?`)) return;
+  const resp = await fetch(`/simagix/mcp-connectors/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    alert(body.detail || "Delete failed");
+    return;
+  }
+  await loadConnectors();
+}
+
 function connectorCard(connector) {
   const card = document.createElement("div");
   card.className = "border border-secondary-subtle rounded-3 p-3 d-flex flex-wrap align-items-start gap-2";
@@ -54,49 +87,110 @@ function connectorCard(connector) {
       : `template: ${connector.template_id || "?"}`;
   card.innerHTML = `
     <div class="flex-grow-1">
-      <div class="fw-semibold">${connector.name} <code class="small">${connector.id}</code></div>
-      <div class="small text-secondary">${transportLabel} — ${detail}</div>
-      ${connector.description ? `<div class="small mt-1">${connector.description}</div>` : ""}
+      <div class="fw-semibold">${escapeHtml(connector.name)} <code class="small">${escapeHtml(connector.id)}</code></div>
+      <div class="small text-secondary">${transportLabel} — ${escapeHtml(detail)}</div>
+      ${connector.description ? `<div class="small mt-1">${escapeHtml(connector.description)}</div>` : ""}
     </div>
-    <button type="button" class="btn btn-outline-danger btn-sm" data-delete-id="${connector.id}">
+    <button type="button" class="btn btn-outline-danger btn-sm" data-delete-id="${escapeHtml(connector.id)}">
       <i class="bi bi-trash me-1"></i>Delete
     </button>`;
-  card.querySelector("[data-delete-id]")?.addEventListener("click", async () => {
-    if (!confirm(`Delete connector "${connector.id}"?`)) return;
-    const resp = await fetch(`/simagix/mcp-connectors/${encodeURIComponent(connector.id)}`, {
-      method: "DELETE",
-    });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      alert(body.detail || "Delete failed");
-      return;
-    }
-    await loadConnectors();
-  });
+  card.querySelector("[data-delete-id]")?.addEventListener("click", () => deleteConnector(connector.id));
   return card;
+}
+
+function connectorTableRow(connector) {
+  const transportLabel =
+    connector.transport === "http" ? "HTTP" : "Stdio";
+  const row = document.createElement("tr");
+  row.className = "hover:bg-surface-container-low/50 transition-colors";
+  row.innerHTML = `
+    <td class="px-6 py-4 text-sm font-semibold text-on-surface">${escapeHtml(connector.name)}</td>
+    <td class="px-6 py-4 font-mono text-sm text-on-surface-variant">${escapeHtml(connector.id)}</td>
+    <td class="px-6 py-4 text-sm text-on-surface-variant">${transportLabel}</td>
+    <td class="px-6 py-4 text-right">
+      <button type="button" class="text-primary hover:text-tertiary transition-colors" data-delete-id="${escapeHtml(connector.id)}" aria-label="Delete connector">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+    </td>`;
+  row.querySelector("[data-delete-id]")?.addEventListener("click", () => deleteConnector(connector.id));
+  return row;
+}
+
+function showMcpTab(which) {
+  const configured = which === "configured";
+  const paneConfigured = document.getElementById("pane-configured");
+  const paneNew = document.getElementById("pane-new");
+  const btnConfigured = document.getElementById("btn-tab-configured");
+  const btnNew = document.getElementById("btn-tab-new");
+
+  if (paneConfigured) paneConfigured.classList.toggle("hidden", !configured);
+  if (paneNew) paneNew.classList.toggle("hidden", configured);
+
+  if (btnConfigured) {
+    btnConfigured.classList.toggle("text-tertiary", configured);
+    btnConfigured.classList.toggle("border-tertiary", configured);
+    btnConfigured.classList.toggle("border-b-2", configured);
+    btnConfigured.classList.toggle("text-on-surface-variant", !configured);
+    btnConfigured.setAttribute("aria-selected", configured ? "true" : "false");
+  }
+  if (btnNew) {
+    btnNew.classList.toggle("text-tertiary", !configured);
+    btnNew.classList.toggle("border-tertiary", !configured);
+    btnNew.classList.toggle("border-b-2", !configured);
+    btnNew.classList.toggle("text-on-surface-variant", configured);
+    btnNew.setAttribute("aria-selected", !configured ? "true" : "false");
+  }
+}
+
+function showConfiguredTab() {
+  const legacyTab = document.getElementById("tab-configured");
+  if (legacyTab && window.bootstrap?.Tab) {
+    bootstrap.Tab.getOrCreateInstance(legacyTab).show();
+    return;
+  }
+  showMcpTab("configured");
 }
 
 async function loadConnectors() {
   const list = document.getElementById("mcp-configured-list");
+  const tableBody = document.querySelector("#mcp-configured-table tbody");
   const empty = document.getElementById("mcp-configured-empty");
-  if (!list) return;
+  const table = document.getElementById("mcp-configured-table");
+  if (!list && !tableBody) return;
+
   const resp = await fetch("/simagix/mcp-connectors");
   if (!resp.ok) {
-    list.innerHTML = '<p class="text-danger small mb-0">Could not load connectors.</p>';
+    if (list) list.innerHTML = '<p class="text-danger small mb-0">Could not load connectors.</p>';
     return;
   }
   const data = await resp.json();
   stdioTemplates = data.stdio_templates || [];
   populateTemplateSelect(stdioTemplates);
-  list.innerHTML = "";
+
   const connectors = data.connectors || [];
   if (!connectors.length) {
-    if (empty) empty.hidden = false;
+    if (empty) empty.classList.remove("hidden");
+    if (table) table.classList.add("hidden");
+    if (list) list.innerHTML = "";
+    if (tableBody) tableBody.innerHTML = "";
     return;
   }
-  if (empty) empty.hidden = true;
-  for (const connector of connectors) {
-    list.appendChild(connectorCard(connector));
+
+  if (empty) empty.classList.add("hidden");
+  if (table) table.classList.remove("hidden");
+
+  if (tableBody) {
+    tableBody.innerHTML = "";
+    for (const connector of connectors) {
+      tableBody.appendChild(connectorTableRow(connector));
+    }
+  }
+
+  if (list) {
+    list.innerHTML = "";
+    for (const connector of connectors) {
+      list.appendChild(connectorCard(connector));
+    }
   }
 }
 
@@ -129,7 +223,12 @@ function initMcpWorkarea() {
   const transport = document.getElementById("mcp-transport");
   const templateSelect = document.getElementById("mcp-template");
   const refreshBtn = document.getElementById("mcp-refresh-btn");
+  const addBtn = document.getElementById("mcp-add-btn");
   const statusEl = document.getElementById("mcp-form-status");
+
+  document.getElementById("btn-tab-configured")?.addEventListener("click", () => showMcpTab("configured"));
+  document.getElementById("btn-tab-new")?.addEventListener("click", () => showMcpTab("new"));
+  addBtn?.addEventListener("click", () => showMcpTab("new"));
 
   transport?.addEventListener("change", transportFields);
   templateSelect?.addEventListener("change", () => {
@@ -154,16 +253,16 @@ function initMcpWorkarea() {
       form.reset();
       transportFields();
       await loadConnectors();
-      const tab = document.getElementById("tab-configured");
-      if (tab && window.bootstrap?.Tab) {
-        bootstrap.Tab.getOrCreateInstance(tab).show();
-      }
+      showConfiguredTab();
     } catch (err) {
       if (statusEl) statusEl.textContent = err.message || "Save failed";
     }
   });
 
   transportFields();
+  if (isStitchMcpPage()) {
+    showMcpTab("configured");
+  }
   loadConnectors();
 }
 

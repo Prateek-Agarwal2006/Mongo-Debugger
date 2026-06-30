@@ -30,7 +30,7 @@ class GeminiAdkLLMProvider(LLMProvider):
     def provider_name(self) -> str:
         return "gemini-adk"
 
-    def run_investigation(
+    def run_investigation(     #######this is  Phase A run that gives the investigation summary
         self,
         session: Phase2Session,
         user_message: str,
@@ -53,7 +53,7 @@ class GeminiAdkLLMProvider(LLMProvider):
                 f"Preview: {raw_text[:300]!r}"
             ) from exc
 
-    def generate_clarifying_questions(
+    def generate_clarifying_questions(     #######this is  Phase B run that gives the clarifying questions
         self,
         session: Phase2Session,
         user_message: str,
@@ -75,7 +75,7 @@ class GeminiAdkLLMProvider(LLMProvider):
                 f"Preview: {raw_text[:300]!r}"
             ) from exc
 
-    def run(
+    def run(     #######this is  Phase C run that gives the final RCA report
         self,
         session: Phase2Session,
         user_message: str,
@@ -107,7 +107,11 @@ class GeminiAdkLLMProvider(LLMProvider):
             raw_assistant_text=raw_text,
         )
 
-    def run_chatbot(self, session: Phase2Session, user_message: str) -> ChatbotResult:
+    def run_chatbot(     #######this is  Phase D run that gives the chatbot response
+        self,
+        session: Phase2Session,
+        user_message: str,
+    ) -> ChatbotResult:
         session.configure_budget(self.settings.phase2_chatbot_max_tool_calls, reset=True)
         raw_text = run_adk_agent_text(
             session,

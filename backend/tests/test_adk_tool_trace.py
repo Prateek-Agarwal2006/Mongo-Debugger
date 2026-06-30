@@ -51,7 +51,7 @@ def test_adk_tool_trace_identity_prefixed_evidence() -> None:
 
 
 def test_build_web_fetch_tool_callable() -> None:
-    from backend.app.simagix.llm.mcp.client import build_web_fetch_tool
+    from backend.app.simagix.llm.web_fetch import build_web_fetch_tool
 
     tool = build_web_fetch_tool()
     assert getattr(tool, "__name__", "") == "web_fetch"

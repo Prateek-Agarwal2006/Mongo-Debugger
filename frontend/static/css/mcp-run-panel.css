@@ -1,0 +1,219 @@
+/* MCP connector picker on run page (classic + Stitch) */
+
+.mcp-run-panel {
+  border: 1px solid rgba(175, 179, 172, 0.45);
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: rgba(244, 244, 239, 0.65);
+}
+
+html[data-bs-theme="dark"] .mcp-run-panel,
+.dark .mcp-run-panel {
+  background: rgba(47, 52, 46, 0.35);
+  border-color: rgba(175, 179, 172, 0.25);
+}
+
+.mcp-run-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.mcp-run-panel__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  display: block;
+}
+
+.mcp-run-panel__subtitle {
+  font-size: 0.75rem;
+  color: #655c5a;
+  margin: 0.25rem 0 0;
+  max-width: 36rem;
+  line-height: 1.45;
+}
+
+html[data-bs-theme="dark"] .mcp-run-panel__subtitle,
+.dark .mcp-run-panel__subtitle {
+  color: #afb3ac;
+}
+
+.mcp-run-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.mcp-run-panel__btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(175, 179, 172, 0.7);
+  background: #fff;
+  color: #52443f;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.mcp-run-panel__btn:hover:not(:disabled) {
+  background: #f4f4ef;
+  border-color: #c96442;
+  color: #c96442;
+}
+
+.mcp-run-panel__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+html[data-bs-theme="dark"] .mcp-run-panel__btn,
+.dark .mcp-run-panel__btn {
+  background: #2f342e;
+  color: #faf9f5;
+  border-color: rgba(175, 179, 172, 0.35);
+}
+
+.mcp-run-panel__link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(201, 100, 66, 0.45);
+  color: #c96442;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.mcp-run-panel__link:hover {
+  background: rgba(201, 100, 66, 0.08);
+  color: #a85338;
+}
+
+.mcp-run-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.mcp-run-panel__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(175, 179, 172, 0.45);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mcp-run-panel__row:hover {
+  border-color: rgba(201, 100, 66, 0.45);
+}
+
+.mcp-run-panel__row.is-checked {
+  border-color: rgba(201, 100, 66, 0.65);
+  background: rgba(252, 219, 193, 0.35);
+  box-shadow: 0 1px 0 rgba(201, 100, 66, 0.12);
+}
+
+.mcp-run-panel__row--required {
+  cursor: default;
+  opacity: 0.92;
+}
+
+html[data-bs-theme="dark"] .mcp-run-panel__row,
+.dark .mcp-run-panel__row {
+  background: rgba(47, 52, 46, 0.5);
+  border-color: rgba(175, 179, 172, 0.25);
+}
+
+html[data-bs-theme="dark"] .mcp-run-panel__row.is-checked,
+.dark .mcp-run-panel__row.is-checked {
+  background: rgba(201, 100, 66, 0.15);
+}
+
+.mcp-run-panel__row input[type="checkbox"] {
+  margin-top: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  accent-color: #c96442;
+  cursor: pointer;
+}
+
+.mcp-run-panel__row--required input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+.mcp-run-panel__row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mcp-run-panel__row-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.mcp-run-panel__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.mcp-run-panel__chip {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.45rem;
+  border-radius: 9999px;
+  background: rgba(175, 179, 172, 0.25);
+  color: #4e4542;
+}
+
+.mcp-run-panel__chip--required {
+  background: rgba(201, 100, 66, 0.18);
+  color: #8a4a32;
+}
+
+.mcp-run-panel__chip--http {
+  background: rgba(96, 61, 69, 0.12);
+  color: #603d45;
+}
+
+.mcp-run-panel__chip--stdio {
+  background: rgba(82, 68, 63, 0.12);
+  color: #52443f;
+}
+
+.mcp-run-panel__id {
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #655c5a;
+}
+
+.mcp-run-panel__empty {
+  font-size: 0.75rem;
+  color: #655c5a;
+  margin: 0;
+  padding: 0.5rem 0.25rem;
+}
+
+.mcp-run-panel__footer {
+  font-size: 0.75rem;
+  color: #655c5a;
+  margin: 0.65rem 0 0;
+  line-height: 1.45;
+}

@@ -1,20 +1,33 @@
 {% extends "base.html" %}
 {% block title %}{{ run_id }} — Run analysis (Phase 2){% endblock %}
-{% block body_class %}page-run-detail{% endblock %}
+{% block body_class %}page-run-detail mdb-modern-page{% endblock %}
+{% block page_data %}
+{
+  "page": "run_workspace",
+  "run_id": "{{ run_id }}",
+  "selected_llm": "{{ selected_llm }}",
+  "upload_time_utc": {{ upload_time_utc | tojson }},
+  "has_report": {{ has_report | tojson }},
+  "phase2_hatchet_blocked": {{ phase2_hatchet_blocked | tojson }},
+  "host": {{ manifest.get("host") | tojson }},
+  "export_tier": {{ manifest.get("export_tier") | tojson }},
+  "hatchet_status": {{ hatchet_status | tojson }},
+  "has_mongodb_logs": {{ has_mongodb_logs | tojson }},
+  "mongodb_log_files": {{ mongodb_log_files | tojson }}
+}
+{% endblock %}
 {% block head %}
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/static/css/report-viewer.css"/>
 <link rel="stylesheet" href="/static/css/clarify-chat.css"/>
-<link rel="stylesheet" href="/static/css/reading-surface.css"/>
-<script src="/static/js/reading-surface.js" defer></script>
+<link rel="stylesheet" href="/static/css/mcp-run-panel.css"/>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="/static/js/phase-rail.js?v=5" defer></script>
-<script src="/static/js/clarify-wizard.js" defer></script>
+<script src="/static/js/clarify-wizard.js?v=2" defer></script>
 <script src="/static/js/report-viewer.js" defer></script>
 <script src="/static/js/agent-chat.js?v=2" defer></script>
 <script src="/static/js/grafana.js?v=4" defer></script>
-<script src="/static/js/rca.js" defer></script>
+<script src="/static/js/rca.js?v=7" defer></script>
 {% endblock %}
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
@@ -190,28 +203,24 @@
           <button class="btn btn-success btn-glow" id="run-rca-btn" type="button">
             <i class="bi bi-play-fill me-1"></i>Run RCA
           </button>
-          <a class="btn btn-outline-secondary btn-sm" href="/docs#/simagix-phase2/upload_profiler_data_simagix_runs__run_id__phase2_profiler_post" target="_blank" rel="noopener">
-            Profiler API
-          </a>
         </div>
-        <div class="mb-3" id="mcp-run-panel">
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-            <span class="small text-secondary fw-semibold">MCP connectors for this run</span>
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="mcp-select-all" hidden>
-              Select all
-            </button>
-            <a class="btn btn-outline-success btn-sm ms-auto" href="/mcp-workarea">
-              <i class="bi bi-plug me-1"></i>Configure MCPs
-            </a>
+        <div class="mcp-run-panel mb-3" id="mcp-run-panel">
+          <div class="mcp-run-panel__header">
+            <div>
+              <span class="mcp-run-panel__title">MCP connectors for this run</span>
+              <p class="mcp-run-panel__subtitle">Optional connectors from MCP WorkArea. Checked items are sent when you Run RCA or submit clarifications.</p>
+            </div>
+            <div class="mcp-run-panel__actions">
+              <button type="button" class="mcp-run-panel__btn" id="mcp-select-all" hidden>Select all</button>
+              <button type="button" class="mcp-run-panel__btn" id="mcp-clear-all" hidden>Clear</button>
+              <a class="mcp-run-panel__link" href="/mcp-workarea">
+                <i class="bi bi-plug me-1"></i>Configure
+              </a>
+            </div>
           </div>
-          <div id="mcp-run-checkboxes" class="d-flex flex-column gap-1 small">
-            <label class="form-check mb-0">
-              <input class="form-check-input" type="checkbox" value="simagix-evidence" checked disabled/>
-              <span class="form-check-label">Simagix evidence <span class="text-secondary">(required)</span></span>
-            </label>
-            <p class="text-secondary mb-0" id="mcp-run-empty">No user MCP connectors configured. Add one in MCP WorkArea.</p>
-          </div>
-          <p class="text-secondary small mb-0 mt-2">Checked connectors apply when you click Run RCA or submit clarifications — nothing is saved between runs.</p>
+          <div id="mcp-run-checkboxes" class="mcp-run-panel__list"></div>
+          <p class="mcp-run-panel__empty mb-0" id="mcp-run-empty" hidden>No user MCP connectors configured. Add one in MCP WorkArea.</p>
+          <p class="mcp-run-panel__footer">Selections are not saved between runs.</p>
         </div>
         <pre id="investigation-summary" class="pretty-report" hidden></pre>
         <form id="clarify-form" class="mt-3" hidden>
@@ -269,22 +278,16 @@
 <section class="glass-card mt-4" id="report-section">
   <div class="card-header bg-transparent border-secondary-subtle d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h2 class="h5 mb-0"><i class="bi bi-file-earmark-medical me-2 text-success"></i>RCA Report</h2>
-    <div class="d-flex align-items-center gap-2">
-      <button type="button" class="btn btn-outline-secondary btn-sm reading-theme-toggle" id="reading-theme-toggle" aria-label="Toggle reading theme">
-        <i class="bi bi-sun-fill reading-theme-icon--light" aria-hidden="true"></i>
-        <i class="bi bi-moon-stars-fill reading-theme-icon--dark" aria-hidden="true"></i>
-      </button>
-      <span class="badge text-bg-dark border border-secondary-subtle" id="report-llm-label">LLM: {{ selected_llm }}</span>
-    </div>
+    <span class="badge text-bg-dark border border-secondary-subtle" id="report-llm-label">LLM: {{ selected_llm }}</span>
   </div>
-  <div class="card-body reading-surface" id="reading-surface" data-reading-theme="dark">
+  <div class="card-body">
     <p class="text-secondary small mb-3">Scroll sections — causal chain connects step-by-step. Chat below after Phase C.</p>
     <div id="report-viewer" class="report-viewer" {% if not has_report %}hidden{% endif %}></div>
     <p class="text-secondary mt-3 mb-0" id="no-report-msg" {% if not has_report %}hidden{% endif %}>No Phase 2 report for this LLM yet. Run RCA above.</p>
 
     <div id="agent-chat-panel" class="agent-chat-panel" {% if not has_report %}hidden{% endif %}>
       <h3 class="h6 mb-1"><i class="bi bi-chat-dots me-2 text-success"></i>Chatbot</h3>
-      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up — attach <code>.json</code>, <code>.log</code>, <code>.txt</code>, or paste profiler JSON in the message.</p>
+      <p class="agent-chat-hint text-secondary mb-2">Agentic follow-up — attach <code>.json</code>, <code>.log</code>, or <code>.txt</code> files.</p>
       <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
       <div id="agent-chat-pending-files" class="agent-chat-pending-files" hidden></div>
       <p id="agent-chat-file-error" class="agent-chat-file-error text-warning small mb-2" role="alert" hidden></p>

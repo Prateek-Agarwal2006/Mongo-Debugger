@@ -39,6 +39,19 @@ def test_validate_http_connector() -> None:
     assert record.url == "https://example.com/mcp"
 
 
+def test_validate_local_http_connector() -> None:
+    record = validate_connector_payload(
+        {
+            "id": "local-test-http",
+            "name": "Local test HTTP",
+            "transport": "http",
+            "url": "http://127.0.0.1:8765/mcp",
+            "headers": {},
+        }
+    )
+    assert record.url == "http://127.0.0.1:8765/mcp"
+
+
 def test_validate_stdio_template_requires_env() -> None:
     with pytest.raises(ValueError, match="Missing required env"):
         validate_connector_payload(
@@ -50,6 +63,20 @@ def test_validate_stdio_template_requires_env() -> None:
                 "env": {},
             }
         )
+
+
+def test_validate_test_ping_stdio_template_no_env() -> None:
+    record = validate_connector_payload(
+        {
+            "id": "local-test",
+            "name": "Local test",
+            "transport": "stdio_template",
+            "template_id": "test-ping-mcp",
+            "env": {},
+        }
+    )
+    assert record.template_id == "test-ping-mcp"
+    assert record.env == {}
 
 
 def test_registry_persists_on_disk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

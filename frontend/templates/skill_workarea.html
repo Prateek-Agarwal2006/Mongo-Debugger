@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Skill WorkArea — FTDC Analyzer{% endblock %}
+{% block body_class %}mdb-modern-page{% endblock %}
+{% block page_data %}{"page":"skill_workarea"}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-10">
+    <div class="page-hero-compact reveal-panel" data-reveal="up">
+      <h1 class="h2 mb-1 hero-title" style="font-size: 2rem;"><i class="bi bi-journal-code me-2 text-success"></i>Skill WorkArea</h1>
+      <p class="text-secondary mb-0">Upload skill packages (ZIP). Files are stored and attached as-is on every Phase A, Phase C, and chatbot run.</p>
+    </div>
+
+    <ul class="nav nav-tabs border-secondary-subtle mb-3 reveal-panel" id="skill-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-configured" data-bs-toggle="tab" data-bs-target="#pane-configured" type="button" role="tab">
+          Configured skills
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-new" data-bs-toggle="tab" data-bs-target="#pane-new" type="button" role="tab">
+          Upload new skill
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content reveal-panel" data-reveal="up">
+      <div class="tab-pane fade show active" id="pane-configured" role="tabpanel">
+        <div class="glass-card">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <span class="small text-secondary">All skills attach automatically on tool phases (no run-page checkboxes)</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="skill-refresh-btn">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+              </button>
+            </div>
+            <div id="skill-configured-list" class="d-flex flex-column gap-2"></div>
+            <p class="text-secondary small mb-0 mt-3" id="skill-configured-empty" hidden>No skills uploaded yet. Use the Upload new skill tab.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="pane-new" role="tabpanel">
+        <div class="glass-card">
+          <div class="card-body">
+            <form id="skill-upload-form" class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" for="skill-slot-name">Slot name</label>
+                <input class="form-control" id="skill-slot-name" name="slot_name" required pattern="[a-z0-9][a-z0-9_-]{0,63}" placeholder="mongo-rca-playbook"/>
+                <div class="form-text">Lowercase letters, digits, hyphen, underscore (1–64 chars).</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="skill-archive">Skill ZIP</label>
+                <input class="form-control" id="skill-archive" name="archive" type="file" accept=".zip,application/zip" required/>
+                <div class="form-text">ZIP must contain SKILL.md (stored unchanged).</div>
+              </div>
+              <div class="col-12">
+                <button type="submit" class="btn btn-success btn-glow">
+                  <i class="bi bi-cloud-upload me-1"></i>Upload skill
+                </button>
+                <span class="text-secondary small ms-2" id="skill-form-status" role="status"></span>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/skill-workarea.js" defer></script>
+{% endblock %}

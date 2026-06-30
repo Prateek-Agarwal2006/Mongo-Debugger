@@ -26,11 +26,11 @@ from backend.app.simagix.llm.service import (
 from backend.app.simagix.llm.session import phase2_session_store
 from backend.app.simagix.llm.tool_trace import load_tool_trace
 from backend.app.simagix.output_schema import ClarifyingAnswers
-from backend.app.simagix.profiler import load_profiler_data, save_profiler_data
 from backend.app.simagix.report_html import render_report_html
 from backend.app.simagix.tool_usage import resolve_tool_usage
 from backend.app.simagix.anomaly_correlation import build_correlation_package
 from backend.app.simagix.hatchet_readiness import HatchetNotReadyError
+from backend.app.simagix.llm.providers.adk.gemini_errors import http_exception_for_gemini_api_error
 
 ReportFormat = Literal["json", "pretty"]
 
@@ -126,6 +126,11 @@ def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        gemini_exc = http_exception_for_gemini_api_error(exc)
+        if gemini_exc:
+            raise gemini_exc from exc
+        raise
 
 
 def _tool_trace_payload(session) -> dict[str, object]:
@@ -216,6 +221,11 @@ def run_phase2_clarify(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        gemini_exc = http_exception_for_gemini_api_error(exc)
+        if gemini_exc:
+            raise gemini_exc from exc
+        raise
 
 
 @router.get("/{run_id}/phase2/reports/latest")
@@ -274,17 +284,6 @@ def get_anomaly_correlation(run_id: str) -> dict[str, object]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     tier1 = session.evidence.load_tier1()
     return build_correlation_package(tier1.executive_context)
-
-
-@router.post("/{run_id}/phase2/profiler")
-def upload_profiler_data(run_id: str, body: list[dict[str, object]]) -> dict[str, object]:
-    path = save_profiler_data(get_run_workspace().root, run_id, body)
-    return {"run_id": run_id, "path": str(path), "sample_count": len(body)}
-
-
-@router.get("/{run_id}/phase2/profiler")
-def get_profiler_data(run_id: str, limit: int = 50) -> dict[str, object]:
-    return load_profiler_data(get_run_workspace().root, run_id, limit=limit)
 
 
 @router.get("/{run_id}/phase2/chatbot")
@@ -348,6 +347,11 @@ def post_chatbot(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        gemini_exc = http_exception_for_gemini_api_error(exc)
+        if gemini_exc:
+            raise gemini_exc from exc
+        raise
 
 
 @router.get("/{run_id}/phase2/reports/latest/view", response_class=HTMLResponse)

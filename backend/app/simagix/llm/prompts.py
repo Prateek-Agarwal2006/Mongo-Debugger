@@ -45,6 +45,17 @@ def _hatchet_mcp_guidance(package: dict[str, Any]) -> str:
     )
 
 
+def _format_retrievable_metrics(metrics: list[str]) -> str:
+    if not metrics:
+        return ""
+    lines = "\n".join(f"- {name}" for name in metrics)
+    return (
+        f"\n\nRetrievable metrics ({len(metrics)} total — use get_metric_window for slices):\n"
+        f"{lines}\n"
+        "Assessment highlights above are mongo-ftdc priorities, not the full set.\n"
+    )
+
+
 def _hatchet_evidence_suffix(package: dict[str, Any]) -> str:
     block = package.get("hatchet_evidence_block")
     if not block:
@@ -56,15 +67,16 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
     context = package.get("context", {})
     available_tools = package.get("available_tools", [])
     tools_text = ", ".join(available_tools)
+    retrievable_metrics = context.get("retrievable_metrics", [])
 
     schema = InvestigationSummary.model_json_schema()
 
     return (
         "You are a MongoDB RCA analyst in INVESTIGATION mode (not final RCA).\n"
         f"{SCRATCH_RULES}"
-        "Use simagix-evidence MCP tools for metric slices, profiler samples, and logs.\n"
-        "Tier-1 context in this prompt is sufficient for findings; call MCP for tier-2 proof.\n"
-        "You MUST call get_profiler_samples to check for uploaded db.system.profile data.\n"
+        "Use simagix-evidence MCP tools for metric slices and logs when available.\n"
+        "Tier-1 summarizes mongo-ftdc findings; call MCP (get_metric_window, list_fallback_metrics) "
+        "for tier-2 proof on any retrievable metric listed below.\n"
         "If Graylog MCP is available, query logs around the primary anomaly window.\n"
         f"{_hatchet_mcp_guidance(package)}"
         f"{WEB_SEARCH_INVESTIGATION}"
@@ -83,6 +95,7 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
         "Output InvestigationSummary only.\n\n"
         "--- Tier-1 analyzed evidence ---\n"
         f"{build_tier1_evidence_block(context)}"
+        f"{_format_retrievable_metrics(retrievable_metrics)}"
         f"{_hatchet_evidence_suffix(package)}"
     )
 
@@ -121,7 +134,7 @@ def build_clarify_user_message(
         "You have tier-1 FTDC analysis AND a completed tier-2 investigation summary below.\n"
         "No MCP tools — do not request metric slices the investigation already retrieved.\n"
         "Ask ONLY for operational context that metrics and logs cannot answer "
-        "(deployments, maintenance, topology, RAM/cache config, profiler upload if unavailable, etc.).\n"
+        "(deployments, maintenance, topology, RAM/cache config, etc.).\n"
         f"Return at most {max_questions} questions. If investigation is sufficient, return questions: [].\n"
         "Prefer questions from open_questions_for_operator when still unresolved.\n"
         "Use stable snake_case ids (e.g. repl_maintenance, wt_cache_sizing).\n\n"
@@ -153,9 +166,9 @@ def build_phase2_user_message(
 
     tier1_insufficient = len(findings) == 0
     fallback_guidance = (
-        "Tier-1 findings are empty or insufficient. You MUST call the simagix-evidence "
-        "fallback tools (get_metric_window, get_normalized_series, get_raw_path, "
-        "list_fallback_metrics, get_profiler_samples) to gather proof before concluding."
+        "Tier-1 findings are empty or insufficient. Call simagix-evidence fallback tools when available "
+        "(get_metric_window, get_normalized_series, get_raw_path, list_fallback_metrics) "
+        "to gather proof before concluding; skip tools not registered on this run.\n"
         if tier1_insufficient
         else (
             "Build on the investigation summary below. Call simagix-evidence tools only "
@@ -183,17 +196,17 @@ def build_phase2_user_message(
         )
         investigation_block = (
             "\n--- Prior tier-2 investigation (use as evidence; cite metric_insights, "
-            "profiler_insights, log_insights, and web_insights) ---\n"
+            "log_insights, and web_insights) ---\n"
             f"{json.dumps(inv_payload, indent=2)}\n"
         )
 
     return (
         "You are a MongoDB RCA analyst operating in READ-ONLY analysis mode.\n"
         f"{SCRATCH_RULES}"
-        "Use simagix-evidence MCP tools for supplemental metric/profiler retrieval.\n"
+        "Use simagix-evidence MCP tools for supplemental metric retrieval.\n"
         f"{_hatchet_mcp_guidance(package)}"
-        "Cite profiler samples, log insights, operator answers, and web sources when relevant.\n"
-        "Every causal claim MUST cite evidence (finding, anomaly window, metric slice, profiler, log, operator, or web).\n"
+        "Cite log insights, operator answers, and web sources when relevant.\n"
+        "Every causal claim MUST cite evidence (finding, anomaly window, metric slice, log, operator, or web).\n"
         f"{DETAIL_REQUIREMENTS}"
         f"{fallback_guidance}\n"
         f"{WEB_SEARCH_FINAL_RCA}\n"
@@ -230,7 +243,7 @@ def build_chatbot_summarize_prompt(
         lines.append(f"{role}: {content}")
     return (
         "Compress the chat history below into short factual prose. "
-        "Keep topics asked, conclusions, profiler uploads mentioned, and open questions. "
+        "Keep topics asked, conclusions, and open questions. "
         "Do not use tools. Reply with plain text only.\n\n"
         + "\n".join(lines)
     )

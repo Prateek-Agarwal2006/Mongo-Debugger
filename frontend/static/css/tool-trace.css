@@ -1,0 +1,340 @@
+/* Agent tool activity — Stitch Modern workspace */
+
+.tool-trace-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(700px, 80vh);
+  min-height: 320px;
+  overflow: hidden;
+  gap: 0;
+}
+
+.tool-trace-header {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(210, 195, 191, 0.45);
+}
+
+.tool-trace-header__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1b1c1a;
+  margin: 0;
+}
+
+.tool-trace-header__title .material-symbols-outlined {
+  color: #c96442;
+  font-size: 1.35rem;
+}
+
+.tool-trace-header__hint {
+  font-size: 0.75rem;
+  color: #4e4542;
+  margin: 0.25rem 0 0;
+  max-width: 36rem;
+}
+
+.tool-trace-summary-wrap {
+  flex-shrink: 0;
+  padding: 0.75rem 1.25rem;
+  background: rgba(244, 244, 239, 0.65);
+  border-bottom: 1px solid rgba(210, 195, 191, 0.35);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.tool-trace-summary-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: min-content;
+}
+
+.tool-trace-summary-chips button.tool-trace-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  line-height: 1.2;
+  font-family: inherit;
+}
+
+.tool-trace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(210, 195, 191, 0.55);
+  color: #4e4542;
+}
+
+.tool-trace-chip--filter {
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.tool-trace-chip--filter:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.tool-trace-chip--filter.is-active {
+  box-shadow: 0 0 0 2px rgba(201, 100, 66, 0.35);
+  transform: translateY(-1px);
+}
+
+.tool-trace-chip strong {
+  color: inherit;
+  font-weight: 800;
+}
+
+.tool-trace-chip--total {
+  border-color: rgba(201, 100, 66, 0.45);
+  background: rgba(201, 100, 66, 0.08);
+  color: #8b4a2f;
+}
+
+.tool-trace-chip--total strong {
+  color: #6b3a24;
+}
+
+.tool-trace-chip--mcp {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #0369a1;
+}
+
+.tool-trace-chip--web {
+  background: rgba(167, 139, 250, 0.14);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #6d28d9;
+}
+
+.tool-trace-chip--local {
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #15803d;
+}
+
+.tool-trace-chip--shell {
+  background: rgba(251, 146, 60, 0.14);
+  border-color: rgba(249, 115, 22, 0.35);
+  color: #c2410c;
+}
+
+.tool-trace-scroll-hint {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 1.25rem 0;
+  font-size: 0.68rem;
+  color: #4e4542;
+  opacity: 0.85;
+}
+
+.tool-trace-scroll-hint .material-symbols-outlined {
+  font-size: 0.9rem;
+}
+
+.tool-trace-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 0.5rem 1rem 1rem;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: auto;
+  cursor: grab;
+  touch-action: pan-x pan-y;
+}
+
+.tool-trace-scroll--dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.tool-trace-scroll--dragging .tool-trace-row {
+  pointer-events: none;
+}
+
+.tool-trace-table--stitch {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.45rem;
+  font-size: 0.8rem;
+  table-layout: auto;
+}
+
+.tool-trace-table--stitch thead th {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #4e4542;
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+}
+
+.tool-trace-table--stitch thead th:nth-child(1) { min-width: 4.5rem; }
+.tool-trace-table--stitch thead th:nth-child(2) { min-width: 5.5rem; }
+.tool-trace-table--stitch thead th:nth-child(3) { min-width: 10rem; }
+.tool-trace-table--stitch thead th:nth-child(4) { min-width: 5rem; }
+.tool-trace-table--stitch thead th:nth-child(5) { min-width: 28rem; }
+
+.tool-trace-table--stitch tbody tr.tool-trace-row {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(210, 195, 191, 0.45);
+  border-radius: 0.65rem;
+  position: relative;
+  z-index: 0;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.tool-trace-table--stitch tbody tr.tool-trace-row td {
+  padding: 0.7rem 0.75rem;
+  vertical-align: middle;
+  border: none;
+}
+
+.tool-trace-table--stitch tbody tr.tool-trace-row td:first-child {
+  border-radius: 0.65rem 0 0 0.65rem;
+}
+
+.tool-trace-table--stitch tbody tr.tool-trace-row td:last-child {
+  border-radius: 0 0.65rem 0.65rem 0;
+}
+
+.tool-trace-table--stitch tbody tr.tool-trace-row:hover {
+  z-index: 3;
+  transform: translateY(-3px) scale(1.012);
+  background: #fff;
+  border-color: rgba(201, 100, 66, 0.42);
+  box-shadow:
+    0 10px 28px rgba(201, 100, 66, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.tool-trace-table--stitch tbody tr.tool-trace-empty td {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #4e4542;
+  font-size: 0.85rem;
+  background: transparent;
+  border: none;
+}
+
+.tool-trace-table--stitch .trace-tool-name {
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #1b1c1a;
+}
+
+.tool-trace-table--stitch .trace-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.tool-trace-table--stitch .trace-status--ok {
+  color: #15803d;
+}
+
+.tool-trace-table--stitch .trace-status--error {
+  color: #b91c1c;
+}
+
+.tool-trace-table--stitch .trace-args {
+  min-width: 28rem;
+  max-width: none;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: #4e4542;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+}
+
+.tool-trace-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.tool-trace-badge--phase {
+  min-width: 1.5rem;
+  background: rgba(201, 100, 66, 0.12);
+  border-color: rgba(201, 100, 66, 0.35);
+  color: #8b4a2f;
+}
+
+.tool-trace-badge--cat-mcp {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #0369a1;
+}
+
+.tool-trace-badge--cat-web {
+  background: rgba(167, 139, 250, 0.14);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #6d28d9;
+}
+
+.tool-trace-badge--cat-local {
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #15803d;
+}
+
+.tool-trace-badge--cat-shell {
+  background: rgba(251, 146, 60, 0.14);
+  border-color: rgba(249, 115, 22, 0.35);
+  color: #c2410c;
+}
+
+.tool-trace-badge--cat-default {
+  background: rgba(228, 228, 225, 0.9);
+  border-color: rgba(210, 195, 191, 0.55);
+  color: #4e4542;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-trace-table--stitch tbody tr.tool-trace-row {
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .tool-trace-table--stitch tbody tr.tool-trace-row:hover {
+    transform: none;
+  }
+}

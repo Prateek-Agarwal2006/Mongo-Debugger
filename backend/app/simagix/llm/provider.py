@@ -27,7 +27,7 @@ class LLMProvider(ABC):
     """Provider seam for Phase 2 agentic RCA."""
 
     @abstractmethod
-    def run(
+    def run(       #######this is  Phase C run that gives the final RCA report
         self,
         session: Phase2Session,
         user_message: str,
@@ -42,7 +42,7 @@ class LLMProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run_investigation(
+    def run_investigation(     #######this is  Phase A run that gives the investigation summary
         self,
         session: Phase2Session,
         user_message: str,
@@ -52,7 +52,7 @@ class LLMProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def generate_clarifying_questions(
+    def generate_clarifying_questions(     #######this is  Phase B run that gives the clarifying questions
         self,
         session: Phase2Session,
         user_message: str,
@@ -62,7 +62,11 @@ class LLMProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run_chatbot(self, session: Phase2Session, user_message: str) -> ChatbotResult:
+    def run_chatbot(     #######this is  Phase D run that gives the chatbot response
+        self,
+        session: Phase2Session,
+        user_message: str,
+    ) -> ChatbotResult:
         raise NotImplementedError
 
     @abstractmethod

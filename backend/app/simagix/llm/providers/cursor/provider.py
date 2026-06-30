@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import sys
 import time
+from pathlib import Path
 from typing import Any, Literal
 
 from backend.app.core.config import Settings, get_settings
 from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs, to_cursor_sdk_servers
+from backend.app.simagix.llm.skills.registry import copy_all_to_cursor_scratch, list_skill_dirs
 from backend.app.simagix.llm.parse_output import (
     parse_clarifying_questions,
     parse_investigation_summary,
@@ -78,8 +80,15 @@ class CursorLLMProvider(LLMProvider):
         bundle_cwd = str(session.evidence.bundle_dir)
         scratch_cwd = str(session.ensure_chatbot_scratch_dir())
         agent_cwd = scratch_cwd if include_mcp else bundle_cwd
-        sandbox = SandboxOptions(enabled=False)
+        # ponytail: sandbox on for built-ins; auto_review on when MCP attached so headless SDK can approve MCP calls
+        sandbox = SandboxOptions(enabled=True)
+        auto_review = include_mcp
         custom_tools = {}
+        setting_sources: list[str] = []
+        if include_mcp:
+            if list_skill_dirs(session.workspace_root):
+                copy_all_to_cursor_scratch(session.workspace_root, Path(scratch_cwd))
+                setting_sources = ["project"]
         if include_mcp and trace is not None and phase is not None:
             custom_tools = build_cursor_sdk_web_tools(trace, phase, settings=self.settings)
         return AgentOptions(
@@ -87,8 +96,9 @@ class CursorLLMProvider(LLMProvider):
             model=self.settings.cursor_model,
             local=LocalAgentOptions(
                 cwd=agent_cwd,
-                setting_sources=[],
+                setting_sources=setting_sources,
                 sandbox_options=sandbox,
+                auto_review=auto_review,
                 custom_tools=custom_tools or None,
             ),
             mcp_servers=self._mcp_config(session, enabled_mcp_ids=enabled_mcp_ids)
@@ -228,7 +238,7 @@ class CursorLLMProvider(LLMProvider):
             lines.append(f"{role}: {content}")
         prompt = (
             "Compress the chat history below into short factual prose. "
-            "Keep topics asked, conclusions, profiler uploads mentioned, and open questions. "
+            "Keep topics asked, conclusions, and open questions. "
             "Do not use tools. Reply with plain text only.\n\n"
             + "\n".join(lines)
         )

@@ -1,0 +1,537 @@
+/* RCA report — Stitch / Claude-like reading surface (Modern workspace) */
+
+.report-viewer--stitch {
+  display: block;
+}
+
+.report-viewer--stitch .report-stitch-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .report-viewer--stitch .report-stitch-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 10fr);
+  }
+}
+
+.report-stitch-nav {
+  position: sticky;
+  top: 5.5rem;
+  padding-top: 0.5rem;
+}
+
+.report-stitch-nav a {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #807571;
+  padding: 0.15rem 0;
+  transition: color 0.15s ease;
+}
+
+.report-stitch-nav a:hover {
+  color: #2f342e;
+}
+
+.report-stitch-nav a.is-active {
+  color: #c96442;
+}
+
+.report-stitch-nav a.is-active .report-stitch-nav-dot {
+  background: #c96442;
+}
+
+.report-stitch-nav-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.report-stitch-document {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(210, 195, 191, 0.6);
+  border-radius: 0.75rem;
+  padding: 2rem;
+  min-height: 500px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+@media (min-width: 1024px) {
+  .report-stitch-document {
+    padding: 3rem;
+  }
+}
+
+.report-viewer--stitch .report-body {
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #2f342e;
+}
+
+.report-section {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.report-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.report-stitch-hero {
+  padding-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid rgba(227, 226, 223, 0.8);
+}
+
+.report-stitch-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c96442;
+  margin-bottom: 0.5rem;
+}
+
+.report-stitch-title {
+  font-family: "Public Sans", sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #2f342e;
+  margin: 0 0 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .report-stitch-title {
+    font-size: 1.125rem;
+  }
+}
+
+.report-stitch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: #4e4542;
+}
+
+.report-stitch-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.report-stitch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.report-stitch-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #f4f4f0;
+  border: 1px solid rgba(210, 195, 191, 0.55);
+  color: #4e4542;
+}
+
+.report-stitch-confidence {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.report-stitch-confidence-ring {
+  position: relative;
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.report-stitch-confidence-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.report-stitch-confidence-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #c96442;
+}
+
+.report-stitch-confidence-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4e4542;
+  margin-top: 0.35rem;
+}
+
+.report-stitch-section-title {
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2f342e;
+  margin-bottom: 0.75rem;
+}
+
+.report-stitch-section {
+  margin-bottom: 3rem;
+}
+
+.report-stitch-causal-box {
+  background: rgba(250, 249, 245, 0.8);
+  border: 1px solid rgba(210, 195, 191, 0.55);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  position: relative;
+}
+
+.report-stitch-causal-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.report-stitch-causal-step + .report-stitch-causal-step {
+  margin-top: 1.5rem;
+}
+
+.report-stitch-causal-num {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #e9e8e4;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #2f342e;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.report-stitch-causal-step.is-impact .report-stitch-causal-num {
+  background: rgba(186, 26, 26, 0.1);
+  color: #ba1a1a;
+}
+
+.report-stitch-causal-step h4 {
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+  color: #2f342e;
+}
+
+.report-stitch-causal-step .report-stitch-list {
+  margin-top: 0.15rem;
+}
+
+.report-stitch-causal-step.is-impact h4 {
+  color: #ba1a1a;
+}
+
+.report-stitch-causal-line {
+  position: absolute;
+  left: 31px;
+  top: 2.5rem;
+  bottom: 2.5rem;
+  width: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #d2c3bf 0,
+    #d2c3bf 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  z-index: 0;
+}
+
+.report-stitch-timeline {
+  padding-left: 0.5rem;
+  border-left: 2px solid #e3e2df;
+  margin-left: 0.5rem;
+}
+
+.report-stitch-timeline-item {
+  position: relative;
+  padding-left: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.report-stitch-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.report-stitch-timeline-dot {
+  position: absolute;
+  left: -7px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #e9e8e4;
+  border: 2px solid #c96442;
+}
+
+.report-stitch-timeline-item.is-alert .report-stitch-timeline-dot {
+  background: #ba1a1a;
+  border-color: #fff;
+}
+
+.report-stitch-timeline-time {
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: #c96442;
+  margin-bottom: 0.25rem;
+}
+
+.report-stitch-timeline-item.is-alert .report-stitch-timeline-time {
+  color: #ba1a1a;
+}
+
+.report-stitch-finding-card {
+  background: #f4f4f0;
+  border: 1px solid rgba(210, 195, 191, 0.5);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+}
+
+.report-stitch-finding-card + .report-stitch-finding-card {
+  margin-top: 0.75rem;
+}
+
+.report-stitch-finding-card h4 {
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #2f342e;
+}
+
+.report-stitch-evidence-block {
+  border: 1px solid rgba(210, 195, 191, 0.6);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #1e1e1e;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.report-stitch-evidence-header {
+  background: #2d2d2d;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #404040;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: #a3a3a3;
+}
+
+.report-stitch-evidence-body {
+  padding: 1rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: #d4d4d4;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.report-stitch-evidence-card + .report-stitch-evidence-card {
+  margin-top: 0.75rem;
+}
+
+.report-stitch-fixes {
+  border-left: 2px solid #c96442;
+  padding-left: 1rem;
+}
+
+.report-stitch-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #2f342e;
+  list-style: disc;
+  list-style-position: outside;
+}
+
+.report-stitch-list--ordered {
+  list-style-type: decimal;
+}
+
+.report-stitch-list li {
+  margin-bottom: 0.4rem;
+  display: list-item;
+}
+
+.report-stitch-list li:last-child {
+  margin-bottom: 0;
+}
+
+.report-stitch-p {
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #2f342e;
+  margin: 0;
+}
+
+.report-stitch-labelled-block .report-stitch-p {
+  color: #4e4542;
+}
+
+.report-stitch-causal-step .report-stitch-p {
+  color: #4e4542;
+}
+
+.report-stitch-labelled-block {
+  margin-bottom: 0.65rem;
+}
+
+.report-stitch-labelled-block:last-child {
+  margin-bottom: 0;
+}
+
+.report-stitch-labelled-heading {
+  display: block;
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #2f342e;
+  margin-bottom: 0.35rem;
+}
+
+.report-stitch-finding-metrics .report-stitch-labelled-heading {
+  display: inline;
+  margin-bottom: 0;
+  margin-right: 0.35rem;
+}
+
+.report-stitch-finding-window {
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: #4e4542;
+  margin: 0 0 0.65rem;
+}
+
+.report-stitch-finding-metrics {
+  font-size: 0.8125rem;
+  color: #4e4542;
+  margin: 0.65rem 0 0;
+}
+
+.report-stitch-timeline-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.report-stitch-metric-tag {
+  font-size: 0.6875rem;
+  font-family: ui-monospace, monospace;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  background: #f4f4f0;
+  border: 1px solid rgba(210, 195, 191, 0.55);
+  color: #4e4542;
+}
+
+.report-stitch-link {
+  color: #c96442;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.report-stitch-link:hover {
+  color: #a85338;
+}
+
+.report-stitch-ruled-list li {
+  color: #4e4542;
+  text-decoration: line-through;
+}
+
+.report-stitch-evidence-values {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.report-stitch-step-list,
+.report-stitch-timeline-list {
+  padding-left: 1rem;
+  color: #4e4542;
+}
+
+.report-stitch-empty {
+  font-size: 0.875rem;
+  color: #4e4542;
+  margin: 0;
+}
+
+.report-stitch-ruled-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .report-stitch-ruled-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.report-stitch-ruled-card {
+  border: 1px solid rgba(210, 195, 191, 0.45);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #faf9f5;
+  opacity: 0.9;
+}
+
+.report-stitch-ruled-card h4 {
+  font-family: "Public Sans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+  color: #4e4542;
+  text-decoration: line-through;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-section {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

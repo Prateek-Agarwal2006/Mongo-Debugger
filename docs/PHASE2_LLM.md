@@ -2,9 +2,9 @@
 
 Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc evidence pipeline.
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-06-29
 
-**Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry/client + 3-phase RCA flow + live Graylog client).
+**Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry + Skill WorkArea + 3-phase RCA flow + live Graylog client).
 
 ## Components
 
@@ -18,11 +18,13 @@ Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc e
 | Mock provider         | `providers/mock.py`                              | Complete |
 | Shared MCP layer      | `backend/app/simagix/llm/mcp/`                   | Complete |
 | MCP servers           | `mcp/servers/{evidence,graylog,hatchet}.py`      | Complete |
-| MCP registry + client | `mcp/registry.py`, `mcp/client.py`             | Complete |
+| MCP registry | `mcp/registry.py` (`to_cursor_sdk_servers`, `to_adk_mcp_toolsets`) | Complete |
+| Skill catalog | `skills/registry.py`, `/skill-workarea` | Complete |
 | Phase 2 orchestration | `backend/app/simagix/llm/service.py`             | Complete |
 | Web fetch (shared)    | `backend/app/simagix/llm/web_fetch.py`           | Complete |
 | Post-report chatbot   | `service.py` + `/phase2/chatbot` API             | Complete |
 | Operator MCP registry | `mcp/connectors.py`, `/mcp-workarea`, run checkboxes | Complete |
+| Operator skill catalog | `skills/registry.py`, `/skill-workarea`, attach-all | Complete |
 
 ## LLM providers
 
@@ -31,7 +33,7 @@ Set `LLM_PROVIDER` in `.env` (see `.env.example`):
 | Value | Provider | Requirements |
 |-------|----------|--------------|
 | `cursor` (default) | `CursorLLMProvider` | `CURSOR_API_KEY` — SDK runs tool loop + stdio MCP |
-| `gemini` | `GeminiAdkLLMProvider` | `GOOGLE_API_KEY` from [AI Studio](https://aistudio.google.com/apikey) — ADK `InMemoryRunner` + shared MCP client (`mcp/client.py`) |
+| `gemini` | `GeminiAdkLLMProvider` | `GOOGLE_API_KEY` from [AI Studio](https://aistudio.google.com/apikey) — ADK `InMemoryRunner` + native `McpToolset` / `SkillToolset` |
 | `mock` | `MockLLMProvider` | None — deterministic, reads real bundle |
 
 `get_llm_provider()` also falls back to mock when `LLM_PROVIDER=cursor` and no `CURSOR_API_KEY`. Pass `llm=mock` in API bodies or use `{"llm":"mock"}` on `POST .../phase2/run`.
@@ -70,9 +72,9 @@ GET /phase2/status?llm=mock
 ## Design rules
 
 1. **Start from tier_1 analyzed evidence.** Findings are authoritative.
-2. **Investigate before asking.** Tier-2 MCP (+ Graylog + profiler) runs before clarifying questions.
+2. **Investigate before asking.** Tier-2 MCP (+ Graylog when configured) runs before clarifying questions.
 3. **Ask user once.** Up to 10 LLM-generated questions in a single block.
-4. **Cite everything.** Final RCA cites findings, metric slices, profiler, logs, operator answers, and web sources.
+4. **Cite everything.** Final RCA cites findings, metric slices, logs, operator answers, and web sources.
 5. **Web search is explicit.** The Cursor SDK does not search the internet unless the prompt says so. Phase A and Phase C prompts include *search the web* instructions; results land in `web_insights` (investigation) and `evidence_citations` / `reference_urls` (final RCA).
 6. **Tool trace is ground truth.** Every SDK `tool_call` during investigation and final RCA is persisted to `phase2/llm/{llm}/tool_trace.json` and shown in the run page **Agent Tool Activity** panel. Provider-specific adapters normalize into one `ToolTraceEntry` schema (see below). A Web count of 0 means the harness did not invoke web/fetch tools.
 7. **Evidence-first mechanisms.** Prompt `EXAMPLES` are non-authoritative placeholders; `EVIDENCE_RULES` forbid keyword-only inference and copying example wording. Mock provider uses `[mock]` stubs for why/mechanism fields.
@@ -95,6 +97,8 @@ GET /phase2/status?llm=mock
 
 Do not rewrite mongo-ftdc `executive_context.json`; omit the Hatchet section when no logs were uploaded.
 
+13. **Phase A retrievable metric catalog.** After tier-1 findings/windows/highlights, the investigation prompt lists **all** unique metric names from `fallback_retrieval_index.json` (`retrievable_metrics` in prompt context — same set as MCP `list_fallback_metrics`). Clarify and final RCA prompts omit the full list to save tokens; investigation text notes highlights are priorities, not the full set.
+
 **Deferred (not in this iteration):** curated runbook MCP / MCP resources from project PDFs — see [PROJECT_STATUS.md](PROJECT_STATUS.md) future enhancements.
 
 ## Operator MCP connectors (MCP WorkArea)
@@ -115,9 +119,26 @@ Operators configure optional MCPs at **`GET /mcp-workarea`** (also linked from h
 - `POST /phase2/run` → `enabled_mcp_ids` for **Phase A** (investigation)
 - `POST /phase2/clarify` → `enabled_mcp_ids` for **Phase C** (final RCA — uses **current** checkbox state)
 
-`build_mcp_server_specs()` always includes built-ins (`simagix-evidence`, optional `graylog`, optional `hatchet-evidence`) and merges selected user ids from the WorkArea registry. **Cursor** passes specs to the SDK via `to_cursor_sdk_servers()`; **Gemini ADK** opens the same specs with `mcp/client.py` (`ClientSessionGroup`). Mock accepts the field but ignores it.
+`build_mcp_server_specs()` always includes built-ins (`simagix-evidence`, optional `graylog`, optional `hatchet-evidence`) and merges selected user ids from the WorkArea registry. **Cursor** passes specs to the SDK via `to_cursor_sdk_servers()`; **Gemini ADK** uses native `McpToolset` via `to_adk_mcp_toolsets()`. All operator skills attach automatically via provider-native paths (see Skill WorkArea). Mock accepts MCP fields but ignores them.
 
-**Not in this slice:** saved default selection, playbooks/skills, free-form stdio commands (templates only).
+**Not in this slice:** saved default selection, free-form stdio commands (templates only).
+
+## Operator skill catalog (Skill WorkArea)
+
+Operators upload skill packages at **`GET /skill-workarea`**. Each upload is a **slot name** + **ZIP** stored pass-through under:
+
+`{DATA_ROOT}/simagix-workspace/operator/skills/{slot_name}/`
+
+| Concern | MCP WorkArea | Skill WorkArea |
+|---------|--------------|----------------|
+| Configure | Form → `registry.json` | ZIP upload → directory tree |
+| Per-run selection | Checkboxes → `enabled_mcp_ids` | **None** — entire catalog attaches on every tool phase |
+| Cursor wiring | `AgentOptions.mcp_servers` | `copytree` → `{scratch}/.cursor/skills/` + `setting_sources=["project"]` |
+| ADK wiring | `McpToolset` per spec | `SkillToolset(load_skill_from_dir × all)` |
+
+**REST:** `GET/POST/DELETE /simagix/skills` — see [RCA_BACKEND.md](RCA_BACKEND.md).
+
+**Phases with skills:** Phase A, Phase C, chatbot (`include_tools=True`). Clarify unchanged. Mock ignores skills.
 
 ## Unified MCP layout (implemented 2026-06-26)
 
@@ -126,9 +147,10 @@ backend/app/simagix/llm/
 ├── mcp/
 │   ├── specs.py          # McpServerSpec, bare-tool server names
 │   ├── connectors.py     # WorkArea registry (registry.json)
-│   ├── registry.py       # build_mcp_server_specs() — one builder for all providers
-│   ├── client.py         # ClientSessionGroup → ADK callables + web_fetch
+│   ├── registry.py       # build_mcp_server_specs(), to_cursor_sdk_servers(), to_adk_mcp_toolsets()
 │   └── servers/          # @mcp.tool() source of truth (evidence, graylog, hatchet)
+├── skills/
+│   └── registry.py       # operator skill catalog; Cursor copytree + ADK SkillToolset
 ├── providers/
 │   ├── cursor/provider.py
 │   ├── adk/{provider,runner}.py
@@ -140,9 +162,9 @@ Both Cursor and ADK call `build_mcp_server_specs(session, settings, enabled_mcp_
 
 ## Mentor Q&A — Cursor vs Gemini ADK layout, MCP client, and WorkArea (v1)
 
-> **Implementation note (2026-06-26):** The unified layout above is now implemented on branch `feat/unified-mcp-providers`. ADK uses `mcp/client.py` instead of in-process `AdkEvidenceTools`; WorkArea `enabled_mcp_ids` applies to both providers. The Q&A below captures the pre-unify design walkthrough; keep it for interview context on *why* the split existed before consolidation.
+> **Implementation note (2026-06-26):** Unified MCP is implemented: both providers use `build_mcp_server_specs()` + `enabled_mcp_ids`. ADK attaches tools via native **`McpToolset`** (`to_adk_mcp_toolsets()` in `mcp/registry.py`); the custom `mcp/client.py` bridge was removed. Operator skills upload via **`/skill-workarea`** and attach provider-natively (Cursor: `copytree` + `setting_sources=["project"]`; ADK: `SkillToolset`). The Q&A below captures the *pre-unify* design walkthrough — keep for interview context on why the split existed before consolidation.
 
-Captured from design walkthrough (2026-06-26). Code pointers (current): `providers/cursor/provider.py`, `providers/adk/`, `mcp/registry.py`, `mcp/client.py`, `mcp/servers/evidence.py`, `mcp/connectors.py`, `session.py` (`mcp_server_env()`).
+Captured from design walkthrough (2026-06-26). Code pointers (current): `providers/cursor/provider.py`, `providers/adk/runner.py`, `mcp/registry.py`, `skills/registry.py`, `mcp/servers/evidence.py`, `mcp/connectors.py`, `session.py` (`mcp_server_env()`).
 
 ---
 
@@ -263,13 +285,15 @@ ADK isn’t more complex overall — the responsibility is just **named explicit
 | ADK → in-process `AdkEvidenceTools` | ADK native API is `Agent(tools=[callables])`; no MCP client in repo | Faster calls (no subprocess JSON-RPC); simpler local dev for Gemini slot | **Duplicate tool surface** vs `mcp_evidence_server`; **WorkArea ignored** on Gemini |
 | Split ADK into provider / runner / tools | Match Cursor’s hidden layers with testable seams | Thin provider; runner testable without parse; tools diffable vs MCP | **One fat ADK file** — harder to review and test |
 
-**Future (documented intent, not implemented):** unify on **MCP servers as single tool source** + shared `mcp/client.py` for ADK (and OpenAI); Cursor keeps using SDK as client. See [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18 and §14 row **Unified MCP tool surface (future)**.
+**Superseded (2026-06-26):** MCP unification is implemented — ADK uses native **`McpToolset`** (not a custom client bridge). See [DESIGN_NOTES.md](DESIGN_NOTES.md) §13.18 and §14 row **ADK MCP attachment**.
 
 ---
 
 ### Q: Does ADK use WorkArea / `enabled_mcp_ids` like Cursor?
 
-**A:** **It doesn’t — not in v1.** MCP WorkArea is wired for **Cursor only**. With **Gemini ADK** selected, operator connectors from WorkArea have **no effect** on the agent.
+> **Superseded (2026-06-26):** ADK now passes `enabled_mcp_ids` into `run_adk_agent_text()` and attaches the same MCP specs via native **`McpToolset`**. The answer below describes **pre-unify v1** only.
+
+**A (historical v1):** **It doesn’t — not in v1.** MCP WorkArea is wired for **Cursor only**. With **Gemini ADK** selected, operator connectors from WorkArea have **no effect** on the agent.
 
 #### What actually happens today
 
@@ -309,7 +333,7 @@ tools = build_adk_agent_tools(session.evidence) if include_tools else []
 
 And `build_adk_agent_tools` is only what’s in `adk_evidence_tools.py`:
 
-- Metric / raw / profiler / budget tools
+- Metric / raw / budget tools
 - `web_fetch`
 - Hatchet tools if `hatchet.db` exists
 
@@ -378,7 +402,7 @@ Checking boxes on the run page while **LLM = Gemini** still POSTs `enabled_mcp_i
 
 **In-process (no client):** `AdkEvidenceTools` → `SimagixEvidenceService` — what ADK uses today for core evidence.
 
-**External MCP (client required):** GitHub MCP, HTTP WorkArea connectors — same servers Cursor spawns; ADK would need `mcp/client.py` to `tools/list` + `tools/call` and wrap results as ADK callables.
+**External MCP (now via native ADK):** GitHub MCP, HTTP WorkArea connectors — same specs Cursor spawns; ADK attaches them via **`McpToolset`** in `to_adk_mcp_toolsets()` (no custom client bridge).
 
 If you build that client, you **replace** `adk_evidence_tools` for those tools by connecting to **`mcp_evidence_server`** (same `@mcp.tool` server Cursor uses), not by running `adk_evidence_tools` *through* MCP. One tool definition path; client vs direct-call is the adapter choice.
 
@@ -386,14 +410,14 @@ If you build that client, you **replace** `adk_evidence_tools` for those tools b
 registry.json + enabled_mcp_ids
             │
             ▼
-     mcp/registry.py  (future: one builder)
+     mcp/registry.py  (build_mcp_server_specs)
             │
      ┌──────┴──────┐
      ▼             ▼
-Cursor SDK    mcp/client.py (future)
-(built-in         │
- client)          ▼
-     │       ADK Agent(tools=wrapped)
+to_cursor_sdk   to_adk_mcp_toolsets
+_servers()           │
+     │               ▼
+     │         ADK Agent(tools=[McpToolset…])
      └───────┬───────┘
              ▼
     MCP servers (stdio / HTTP)
@@ -656,7 +680,8 @@ One fresh `AgentOptions` per phase run (investigation / clarify / final / chatbo
 |-------|-----------|---------|
 | `cwd` | `chatbot_scratch/` (MCP on) or bundle (MCP off) | Working directory for SDK **built-ins** |
 | `setting_sources` | `[]` | Don’t load Cursor IDE settings from disk |
-| `sandbox_options` | `SandboxOptions(enabled=False)` | Sandbox off in current code |
+| `sandbox_options` | `SandboxOptions(enabled=True)` | Sandbox on — built-ins restricted by Cursor SDK |
+| `auto_review` | `True` when MCP on | Smart Auto Review — headless SDK can approve MCP without interactive prompt |
 | `custom_tools` | `web_fetch` via `build_cursor_sdk_web_tools(...)` | In-process SDK tools we define |
 
 **One-line summary:** `AgentOptions` = “Create a Cursor agent with this model, these MCP servers, and these local settings.” `LocalAgentOptions` = “On this machine, use this working directory, sandbox policy, and custom tools when the agent needs local execution.” In Mongo Debugger, MCP carries evidence retrieval; `LocalAgentOptions` mainly sets cwd + `web_fetch`, while the cloud model drives the tool loop.
@@ -718,10 +743,10 @@ From DESIGN_NOTES:
 
 **A:** The Cursor SDK runs **built-in local tools** (`read`, `grep`, `shell`, etc.) inside a **restricted environment** — limited filesystem and network access.
 
-**Right now the code has sandbox off:**
+**Right now the code has sandbox on:**
 
 ```python
-sandbox = SandboxOptions(enabled=False)
+sandbox = SandboxOptions(enabled=True)
 ```
 
 #### What sandbox affects (and what it doesn’t)
@@ -755,17 +780,17 @@ Model: "read /some/path/file.json"
 
 | Phase | MCP | Agent `cwd` | Docs / history suggest |
 |-------|-----|-------------|------------------------|
-| Investigation / Final / Chatbot | ON | `chatbot_scratch/` | **Sandbox OFF** (current) |
+| Investigation / Final / Chatbot | ON | `chatbot_scratch/` | **Sandbox ON** (current) |
 | Clarify (Phase B) | OFF | export bundle | **Sandbox ON** was considered for clarify-only |
 
-**Current code:** `SandboxOptions(enabled=False)` for **all** phases.
+**Current code:** `SandboxOptions(enabled=True)` for **all** phases.
 
 #### History
 
 ```text
 2026-06-11: sandbox ON  → safety for built-ins (no MCP-only switch in SDK)
 2026-06-14: sandbox OFF when MCP ON → MCP + cwd fixes; local reads needed across workspace paths
-Today:     sandbox OFF always in cursor_provider.py
+Today:     sandbox ON always in cursor_provider.py
 ```
 
 **One-line summary:** Sandbox ON locks down **built-in** tools. Sandbox OFF = more freedom for local reads + MCP together. MCP evidence tools don’t depend on sandbox either way.
@@ -787,7 +812,7 @@ if include_mcp:
     agent_cwd = scratch_cwd
 else:
     agent_cwd = bundle_cwd
-sandbox = SandboxOptions(enabled=False)
+sandbox = SandboxOptions(enabled=True)
 ...
     local=LocalAgentOptions(
         cwd=agent_cwd,
@@ -800,7 +825,7 @@ sandbox = SandboxOptions(enabled=False)
 | Setting | Where | What it does |
 |---------|--------|----------------|
 | **`cwd`** | `LocalAgentOptions.cwd` | Default working directory for SDK **built-ins** |
-| **`sandbox_options`** | `SandboxOptions(enabled=False)` | Only on/off — **no path field** in our code or the SDK type |
+| **`sandbox_options`** | `SandboxOptions(enabled=True)` | Only on/off — **no path field** in our code or the SDK type |
 
 **Actual paths on disk**
 
@@ -890,14 +915,14 @@ MCP server reads evidence via `RunWorkspace` + `SIMAGIX_RUN_ID`, e.g. bundle und
 
 ### Q: `why does off has different cwd`
 
-**A:** The different `cwd` is **not** because sandbox is off. In code, **`sandbox` is always off** and **`cwd` switches on `include_mcp`**, not on `SandboxOptions`:
+**A:** The different `cwd` is **not** because sandbox is on/off. In code, **`sandbox` is on** and **`cwd` switches on `include_mcp`**, not on `SandboxOptions`:
 
 ```python
 if include_mcp:
     agent_cwd = scratch_cwd
 else:
     agent_cwd = bundle_cwd
-sandbox = SandboxOptions(enabled=False)
+sandbox = SandboxOptions(enabled=True)
 ```
 
 Two separate questions:
@@ -934,7 +959,7 @@ Prompts also say clarify should **not** re-fetch metrics — it uses the investi
 
 `SandboxOptions(enabled=False)` does **not** change `cwd`. It only controls whether Cursor **locks down** built-in tools (when `True`).
 
-**Current code:** sandbox always off; `cwd` still flips with `include_mcp`.
+**Current code:** sandbox on; `cwd` still flips with `include_mcp`.
 
 Docs/CHANGELOG sometimes mention both together because of an **older intended setup**:
 
@@ -976,7 +1001,7 @@ So: **MCP runs from project root; agent local tools default to scratch** — the
 
 ## MCP tools
 
-**simagix-evidence:** `get_metric_window`, `get_normalized_series`, `get_raw_path`, `list_fallback_metrics`, `get_budget_status`, `get_profiler_samples`
+**simagix-evidence:** `get_metric_window`, `get_normalized_series`, `get_raw_path`, `list_fallback_metrics`, `get_budget_status`
 
 **Hatchet MCP tools (v2):** `get_hatchet_slow_ops`, `get_hatchet_log_examples`, `get_hatchet_audit`, `get_hatchet_connection_timeline` — registered when `phase1/hatchet/summary.json` and `hatchet.db` exist. Server id: `hatchet-evidence` (Cursor MCP) / ADK function tools (Gemini). Shares retrieval budget with simagix-evidence. v1 `summary.json` remains tier 1; these tools are tier 2.
 
@@ -1033,11 +1058,6 @@ curl "http://localhost:8000/simagix/runs/<run-id>/phase2/tool-trace?llm=mock"
 
 # Latest report
 curl "http://localhost:8000/simagix/runs/<run-id>/phase2/reports/latest?llm=mock&format=pretty"
-
-# Profiler upload (optional, before RCA)
-curl -X POST "http://localhost:8000/simagix/runs/<run-id>/phase2/profiler" \
-  -H 'Content-Type: application/json' \
-  -d '[{"op":"query","millis":120,"ns":"db.coll"}]'
 
 # Post-report chatbot (requires latest_report.json)
 curl "http://localhost:8000/simagix/runs/<run-id>/phase2/chatbot?llm=mock"
@@ -1099,4 +1119,4 @@ Implementation: `backend/app/simagix/llm/tool_trace.py`, `frontend/static/js/rca
 
 ## Grounding alignment
 
-`GroundingRules` (`backend/app/simagix/grounding.py`) whitelists `investigation_summary`, `profiler_insights`, `log_insights`, `operator_clarifications`, `finding.suggestion`, and `web_search`. Phase-specific prompts use `build_tier1_evidence_block()` for tier-1 content; only Phase C appends the RCAReportDraft footer via `build_phase2_prompt()`.
+`GroundingRules` (`backend/app/simagix/grounding.py`) whitelists `investigation_summary`, `log_insights`, `operator_clarifications`, `finding.suggestion`, and `web_search`. Phase-specific prompts use `build_tier1_evidence_block()` for tier-1 content; only Phase C appends the RCAReportDraft footer via `build_phase2_prompt()`.

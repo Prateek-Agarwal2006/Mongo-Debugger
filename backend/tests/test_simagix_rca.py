@@ -45,7 +45,6 @@ def test_grounding_allowed_sources_include_web_and_investigation() -> None:
     for key in (
         "finding.suggestion",
         "investigation_summary",
-        "profiler_insights",
         "log_insights",
         "operator_clarifications",
         "web_search",
@@ -84,6 +83,26 @@ def test_tier1_evidence_block_includes_suggestion(run_id: str) -> None:
     findings = context.get("findings", [])
     if findings and findings[0].get("suggestion"):
         assert findings[0]["suggestion"] in block
+
+
+def test_prompt_context_includes_all_retrievable_metrics(run_id: str) -> None:
+    from backend.app.simagix.llm.prompts import build_investigate_user_message
+
+    bundle_dir = fixture_exports_dir()
+    loader = SimagixBundleLoader(bundle_dir)
+    context = loader.assemble_prompt_context(run_id)
+    service = SimagixEvidenceService(WORKSPACE_ROOT, run_id)
+    mcp_names = service.list_fallback_metrics()
+
+    assert "retrievable_metrics" in context
+    assert context["retrievable_metrics"] == mcp_names
+    assert len(context["retrievable_metrics"]) > 0
+
+    package = service.build_phase2_llm_package()
+    investigate_msg = build_investigate_user_message(package)
+    assert "Retrievable metrics" in investigate_msg
+    assert context["retrievable_metrics"][0] in investigate_msg
+    assert "Assessment highlights above are mongo-ftdc priorities" in investigate_msg
 
 
 def test_output_schema_shape() -> None:

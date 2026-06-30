@@ -19,7 +19,6 @@ class GroundingRules:
                 "assessment_highlights",
                 "fallback_tool_results",
                 "investigation_summary",
-                "profiler_insights",
                 "log_insights",
                 "operator_clarifications",
                 "web_search",
@@ -28,7 +27,6 @@ class GroundingRules:
                 "finding": "finding:{name}",
                 "metric": "metric:{metric}@{from}->{to}",
                 "anomaly": "anomaly:{metric} peak={peak} from={from}",
-                "profiler": "profiler:{reference}",
                 "log": "log:{reference}",
                 "operator": "operator:{question_id}",
                 "suggestion": "suggestion:finding:{name}",
@@ -38,8 +36,8 @@ class GroundingRules:
             "rules": [
                 "Start from tier_1 analyzed mongo-ftdc findings; do not rediscover health issues from raw metrics.",
                 "Simagix scores 0-100 only: lower is worse. Score 101 means not assessed (N/A) — never interpret 101 as healthy.",
-                "Every root-cause claim must cite at least one finding, anomaly window, fallback metric slice, profiler, log, or operator clarification.",
-                "safe_fixes may use finding.suggestion, cited metric/profiler/log evidence, or web sources the agent actually fetched.",
+                "Every root-cause claim must cite at least one finding, anomaly window, fallback metric slice, log, or operator clarification.",
+                "safe_fixes may use finding.suggestion, cited metric/log evidence, or web sources the agent actually fetched.",
                 "Label web-based fixes as recommended actions when not confirmed by tier-1 incident evidence.",
                 "Do not invent namespaces, queries, hostnames, or fixes beyond cited evidence and fetched web sources.",
                 "If evidence is insufficient, say so and request a specific fallback tool call or web search.",
@@ -47,7 +45,7 @@ class GroundingRules:
                 "Never report only that a metric changed (e.g. 'tickets dropped'); always explain the MongoDB mechanism "
                 "(cache eviction, I/O wait, admission control, replication apply, etc.) in finding_analyses, "
                 "incident_timeline, mechanism_summary, and causal_chain.",
-                "Mechanism claims must be evidence-backed (metric slice, anomaly window, profiler, log, or operator "
+                "Mechanism claims must be evidence-backed (metric slice, anomaly window, log, or operator "
                 "answer) — never infer from finding name keywords alone.",
                 "Prompt examples illustrate format only; they are not evidence and must not be copied verbatim.",
             ],

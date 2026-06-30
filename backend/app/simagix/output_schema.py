@@ -12,7 +12,6 @@ class EvidenceCitation(BaseModel):
         "assessment",
         "metric_slice",
         "raw_path",
-        "profiler",
         "log",
         "operator",
         "web",
@@ -84,6 +83,5 @@ class InvestigationSummary(BaseModel):
     tool_calls_made: list[str] = Field(default_factory=list)
     metric_insights: list[str] = Field(default_factory=list)
     log_insights: list[str] = Field(default_factory=list)
-    profiler_insights: list[str] = Field(default_factory=list)
     web_insights: list[str] = Field(default_factory=list)
     open_questions_for_operator: list[str] = Field(default_factory=list)
