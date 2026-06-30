@@ -32,8 +32,12 @@ def _make_skill_zip(*, root_prefix: str = "") -> bytes:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
+    from backend.app.core.config import get_settings
+
     monkeypatch.setenv("DATA_ROOT", str(tmp_path))
-    return TestClient(create_app())
+    get_settings.cache_clear()
+    yield TestClient(create_app())
+    get_settings.cache_clear()
 
 
 def test_validate_slot_name_rejects_invalid() -> None:
