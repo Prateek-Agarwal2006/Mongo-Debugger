@@ -680,7 +680,7 @@ One fresh `AgentOptions` per phase run (investigation / clarify / final / chatbo
 |-------|-----------|---------|
 | `cwd` | `chatbot_scratch/` (MCP on) or bundle (MCP off) | Working directory for SDK **built-ins** |
 | `setting_sources` | `[]` | Don’t load Cursor IDE settings from disk |
-| `sandbox_options` | `SandboxOptions(enabled=True)` | Sandbox on — built-ins restricted by Cursor SDK |
+| `sandbox_options` | `SandboxOptions(enabled=not include_mcp)` | Sandbox **off** when MCP on (investigation, final RCA, chatbot); **on** for clarify |
 | `auto_review` | `True` when MCP on | Smart Auto Review — headless SDK can approve MCP without interactive prompt |
 | `custom_tools` | `web_fetch` via `build_cursor_sdk_web_tools(...)` | In-process SDK tools we define |
 

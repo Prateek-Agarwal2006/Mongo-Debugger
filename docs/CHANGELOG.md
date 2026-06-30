@@ -3,9 +3,19 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-06-30
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-06-30 — Cursor sandbox off when MCP on
+
+**What:** Phase 2 Cursor runs with MCP use `SandboxOptions(enabled=False)`; clarify-only phases keep sandbox on.
+
+**How:** `providers/cursor/provider.py` — `enabled=not include_mcp`; `auto_review=True` unchanged when MCP attached.
+
+**Why:** Sandbox + headless uvicorn blocked MCP tool calls and bundle-path reads; operators need MCP evidence retrieval to succeed.
 
 ---
 

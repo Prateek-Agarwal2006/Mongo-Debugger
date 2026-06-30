@@ -80,8 +80,8 @@ class CursorLLMProvider(LLMProvider):
         bundle_cwd = str(session.evidence.bundle_dir)
         scratch_cwd = str(session.ensure_chatbot_scratch_dir())
         agent_cwd = scratch_cwd if include_mcp else bundle_cwd
-        # ponytail: sandbox on for built-ins; auto_review on when MCP attached so headless SDK can approve MCP calls
-        sandbox = SandboxOptions(enabled=True)
+        # ponytail: sandbox off when MCP on — headless runs need bundle reads + MCP without cursorsandbox rejection
+        sandbox = SandboxOptions(enabled=not include_mcp)
         auto_review = include_mcp
         custom_tools = {}
         setting_sources: list[str] = []

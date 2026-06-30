@@ -522,7 +522,7 @@ Renamed from `SimagixRCAOrchestrator` because “orchestrator” implied cogniti
 
 1. **`AgentOptions`** — `api_key`, `model` (`cursor_model`, default `composer-2.5`).
 2. **`LocalAgentOptions(cwd=…)`** — agent built-in `cwd` is **`chatbot_scratch/`** when MCP is on (Phases A/C/chatbot), **export bundle** when MCP is off (Phase B clarify). See [PHASE2_LLM.md](PHASE2_LLM.md) § Mentor Q&A — Cursor SDK agent runtime.
-3. **`SandboxOptions(enabled=True)`** + **`auto_review=True` when MCP on** — sandbox for built-ins; auto-review so headless SDK runs can execute MCP without interactive approval prompts.
+3. **`SandboxOptions(enabled=not include_mcp)`** + **`auto_review=True` when MCP on** — sandbox off for MCP phases so headless runs can read bundle paths and execute MCP; sandbox on for clarify-only.
 4. **`mcp_servers`** — dict of **`StdioMcpServerConfig`**: spawn subprocesses that speak MCP over stdin/stdout:
    - `simagix-evidence` → `python -m backend.app.simagix.llm.mcp_evidence_server` with env `SIMAGIX_RUN_ID`, `SIMAGIX_WORKSPACE_ROOT`, `SIMAGIX_BUDGET_STATE_PATH`
    - `graylog` (optional) → `graylog_mcp_server` when `GRAYLOG_*` set
