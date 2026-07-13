@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MongoRCA Pro - Analysis Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-container": "#5e4e49",
+                        "on-surface": "#2f342e",
+                        "surface-container-low": "#f4f4ef",
+                        "secondary": "#665d5b",
+                        "on-tertiary-container": "#66434b",
+                        "surface-variant": "#e0e4dc",
+                        "tertiary-dim": "#6e4951",
+                        "primary": "#6b5b56",
+                        "inverse-primary": "#fee6df",
+                        "surface-bright": "#faf9f5",
+                        "surface-container-high": "#e6e9e2",
+                        "on-error-container": "#752121",
+                        "on-secondary-fixed-variant": "#625a57",
+                        "error-container": "#fe8983",
+                        "on-tertiary-fixed": "#513038",
+                        "primary-fixed-dim": "#e6d0c9",
+                        "background": "#faf9f5",
+                        "surface-container": "#edeee8",
+                        "surface": "#faf9f5",
+                        "secondary-container": "#ede0dc",
+                        "on-background": "#2f342e",
+                        "primary-dim": "#5f4f4a",
+                        "tertiary-fixed": "#ffcdd7",
+                        "tertiary-container": "#ffcdd7",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#453e3b",
+                        "on-error": "#fff7f6",
+                        "tertiary-fixed-dim": "#f0c0c9",
+                        "outline": "#787c75",
+                        "primary-fixed": "#f5ded7",
+                        "on-secondary": "#fff7f5",
+                        "primary-container": "#f5ded7",
+                        "surface-dim": "#d7dcd2",
+                        "on-surface-variant": "#5c605a",
+                        "secondary-fixed": "#ede0dc",
+                        "error-dim": "#4e0309",
+                        "error": "#9f403d",
+                        "secondary-fixed-dim": "#ded2ce",
+                        "secondary-dim": "#5a514f",
+                        "outline-variant": "#afb3ac",
+                        "inverse-on-surface": "#9d9d9a",
+                        "on-tertiary": "#fff7f7",
+                        "tertiary": "#7b555d",
+                        "on-tertiary-fixed-variant": "#714c54",
+                        "on-primary-fixed": "#4b3c37",
+                        "surface-container-highest": "#e0e4dc",
+                        "on-secondary-container": "#58504d",
+                        "on-primary-fixed-variant": "#685853",
+                        "inverse-surface": "#0d0f0d",
+                        "surface-tint": "#6b5b56",
+                        "on-primary": "#fff6f3",
+                        "accent-terracotta": "#C96442"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans"],
+                        "display": ["Public Sans"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; background-color: #faf9f5; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .code-block { background-color: #0d0f0d; color: #e0e4dc; }
+        .accent-border-left { border-left: 4px solid #C96442; }
+        .glass-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); }
+        .status-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- TopNavBar -->
+<header class="sticky top-0 w-full z-50 flex items-center justify-between px-6 py-3 bg-surface-container-high dark:bg-surface-container shadow-sm">
+<div class="flex items-center gap-8">
+<div class="text-xl font-headline font-black text-on-surface dark:text-surface-bright">MongoRCA Pro</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="font-body text-label-md text-on-surface-variant dark:text-outline-variant hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="font-body text-label-md text-primary dark:text-primary-fixed border-b-2 border-primary dark:border-primary-fixed pb-1 transition-colors" href="#">Incidents</a>
+<a class="font-body text-label-md text-on-surface-variant dark:text-outline-variant hover:text-primary transition-colors" href="#">Clusters</a>
+<a class="font-body text-label-md text-on-surface-variant dark:text-outline-variant hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2">search</span>
+<input class="pl-10 pr-4 py-2 rounded-full bg-surface-container-low border-none text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search incidents..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-variant p-2 rounded-full transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-variant p-2 rounded-full transition-colors">help_outline</button>
+<div class="w-8 h-8 rounded-full bg-secondary overflow-hidden">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a software engineer in a clean, modern office setting with soft, natural lighting. The subject is wearing a neutral-toned sweater. The overall aesthetic is professional, minimalist, and aligned with a high-end tech workspace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGPt_N2dpo-OM_OmPUWpmWTAtraKFkLuj5b2uYVHI8xq92gPS9U7Qs3zSICfgiDiK8PAcSjQdXLcUfXCDlr8C-NINv3TyJvBviKkzXmlcQa4GxEETdewHjwgN1Fg-Ps88aSbJjjMaMOMaWZA5GuSues_Bpygnn8mMB-OcvPwEiNaTA1eO1djyBvSv6R0Pyh5Lwmeh4AnXFSMeiSBAOeuGzNfTYDKUuckRQHZ4c2HFGYn8Dsh_zImcs02tb9Dh247UR1bsT7QiTLxpr"/>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-6 py-8">
+<!-- Breadcrumb -->
+<nav class="flex text-xs font-medium text-on-surface-variant mb-4 uppercase tracking-wider">
+<span>Home</span>
+<span class="mx-2 text-outline-variant">/</span>
+<span>Uploads</span>
+<span class="mx-2 text-outline-variant">/</span>
+<span class="text-accent-terracotta">Analysis Results</span>
+</nav>
+<!-- Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+<div class="flex flex-col md:flex-row md:items-center gap-4">
+<h1 class="text-4xl font-black font-headline tracking-tight text-on-surface">Analysis Results</h1>
+<div class="flex items-center gap-2">
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-md font-mono text-sm border border-outline-variant">run-ftdc-2024-06-a1b2</span>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold uppercase tracking-widest">
+<span class="w-2 h-2 bg-green-500 rounded-full status-pulse"></span>
+                        Complete
+                    </span>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface-variant rounded-lg font-bold hover:bg-surface-variant transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg">download</span>
+                    Export PDF
+                </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-accent-terracotta text-white rounded-lg font-bold shadow-lg shadow-accent-terracotta/20 hover:brightness-110 transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg">refresh</span>
+                    Rerun Analysis
+                </button>
+</div>
+</div>
+<!-- Summary Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Total Tickets</p>
+<div class="flex items-baseline gap-2">
+<h3 class="text-3xl font-black text-on-surface">4,282</h3>
+<span class="text-green-600 text-xs font-bold">↑ 12%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Peak Read Tickets</p>
+<div class="flex items-baseline gap-2">
+<h3 class="text-3xl font-black text-on-surface">124</h3>
+<span class="text-on-surface-variant text-xs font-medium">at 04:12 PM</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Peak Write Tickets</p>
+<div class="flex items-baseline gap-2">
+<h3 class="text-3xl font-black text-on-surface">86</h3>
+<span class="text-accent-terracotta text-xs font-bold">Alert Level</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Cache Hit Ratio</p>
+<div class="flex items-baseline gap-2">
+<h3 class="text-3xl font-black text-on-surface">98.4%</h3>
+<span class="text-green-600 text-xs font-bold">Healthy</span>
+</div>
+</div>
+</div>
+<!-- FTDC Chart Section -->
+<section class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm p-8 mb-8">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="text-xl font-bold text-on-surface">FTDC Metrics</h2>
+<p class="text-sm text-on-surface-variant">Ticket activity visualization (24-hour window)</p>
+</div>
+<div class="flex gap-2 bg-surface-container p-1 rounded-lg">
+<button class="px-3 py-1 bg-surface-container-lowest shadow-sm rounded-md text-xs font-bold text-on-surface">Reads</button>
+<button class="px-3 py-1 text-xs font-bold text-on-surface-variant hover:text-on-surface">Writes</button>
+<button class="px-3 py-1 text-xs font-bold text-on-surface-variant hover:text-on-surface">Queued</button>
+</div>
+</div>
+<div class="h-[300px] w-full relative flex flex-col justify-between">
+<!-- Simple custom CSS-based chart placeholder -->
+<div class="absolute inset-0 flex items-end justify-between px-2 gap-1 overflow-hidden pointer-events-none">
+<div class="flex-1 bg-accent-terracotta/10 rounded-t h-[40%]" style="animation: heightGrow 1s ease-out 0.1s both"></div>
+<div class="flex-1 bg-accent-terracotta/20 rounded-t h-[55%]" style="animation: heightGrow 1s ease-out 0.2s both"></div>
+<div class="flex-1 bg-accent-terracotta/15 rounded-t h-[45%]" style="animation: heightGrow 1s ease-out 0.3s both"></div>
+<div class="flex-1 bg-accent-terracotta/30 rounded-t h-[70%]" style="animation: heightGrow 1s ease-out 0.4s both"></div>
+<div class="flex-1 bg-accent-terracotta/40 rounded-t h-[85%]" style="animation: heightGrow 1s ease-out 0.5s both"></div>
+<div class="flex-1 bg-accent-terracotta/35 rounded-t h-[60%]" style="animation: heightGrow 1s ease-out 0.6s both"></div>
+<div class="flex-1 bg-accent-terracotta/25 rounded-t h-[50%]" style="animation: heightGrow 1s ease-out 0.7s both"></div>
+<div class="flex-1 bg-accent-terracotta/10 rounded-t h-[30%]" style="animation: heightGrow 1s ease-out 0.8s both"></div>
+<div class="flex-1 bg-accent-terracotta/15 rounded-t h-[40%]" style="animation: heightGrow 1s ease-out 0.9s both"></div>
+</div>
+<div class="absolute inset-0 border-b border-l border-outline-variant/30 flex flex-col justify-between py-2">
+<div class="border-t border-dashed border-outline-variant/20 w-full"></div>
+<div class="border-t border-dashed border-outline-variant/20 w-full"></div>
+<div class="border-t border-dashed border-outline-variant/20 w-full"></div>
+<div class="border-t border-dashed border-outline-variant/20 w-full"></div>
+</div>
+<div class="flex justify-between text-[10px] font-bold text-on-surface-variant/50 pt-4 px-2">
+<span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>23:59</span>
+</div>
+</div>
+</section>
+<!-- Analysis View: Two Columns -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+<!-- Left: RCA & Actions -->
+<div class="space-y-8">
+<section class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm p-8 accent-border-left">
+<h2 class="text-xl font-bold text-on-surface mb-4">Root Cause Analysis</h2>
+<p class="text-on-surface-variant leading-relaxed mb-6">
+                        The analysis indicates significant <span class="text-accent-terracotta font-semibold">cache eviction pressure</span> occurring during the peak write period. The WiredTiger storage engine was unable to evict pages fast enough to keep up with the incoming request volume, leading to ticket exhaustion and elevated latency for application-level queries.
+                    </p>
+<div class="bg-surface-container-low p-4 rounded-lg flex items-start gap-4">
+<span class="material-symbols-outlined text-accent-terracotta mt-1">lightbulb</span>
+<div>
+<p class="font-bold text-sm text-on-surface">Primary Trigger Identified</p>
+<p class="text-sm text-on-surface-variant">Oplog application speed lagging behind primary write ops during large batch insert at 16:15 UTC.</p>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm p-8">
+<h2 class="text-xl font-bold text-on-surface mb-4">Recommended Actions</h2>
+<ul class="space-y-4">
+<li class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-accent-terracotta/10 text-accent-terracotta flex items-center justify-center shrink-0 group-hover:bg-accent-terracotta group-hover:text-white transition-colors">
+<span class="text-xs font-bold">1</span>
+</div>
+<span class="text-on-surface font-medium">Scale Oplog size to prevent frequent truncation</span>
+</li>
+<li class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-accent-terracotta/10 text-accent-terracotta flex items-center justify-center shrink-0 group-hover:bg-accent-terracotta group-hover:text-white transition-colors">
+<span class="text-xs font-bold">2</span>
+</div>
+<span class="text-on-surface font-medium">Tune WiredTiger cache eviction thread count</span>
+</li>
+<li class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-accent-terracotta/10 text-accent-terracotta flex items-center justify-center shrink-0 group-hover:bg-accent-terracotta group-hover:text-white transition-colors">
+<span class="text-xs font-bold">3</span>
+</div>
+<span class="text-on-surface font-medium">Monitor slow queries with high memory footprint</span>
+</li>
+</ul>
+</section>
+</div>
+<!-- Right: Evidence Log Snippet -->
+<section class="bg-inverse-surface rounded-2xl shadow-xl overflow-hidden flex flex-col h-full min-h-[500px]">
+<div class="bg-on-surface-variant/20 px-6 py-4 flex items-center justify-between border-b border-outline-variant/10">
+<div class="flex items-center gap-2">
+<div class="flex gap-1.5 mr-4">
+<div class="w-3 h-3 rounded-full bg-red-400"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+<div class="w-3 h-3 rounded-full bg-green-400"></div>
+</div>
+<h2 class="text-sm font-bold text-surface-bright uppercase tracking-widest">Evidence Log Snippet</h2>
+</div>
+<span class="text-[10px] font-mono text-outline-variant">logs_prod_db_01.json</span>
+</div>
+<div class="p-6 font-mono text-xs overflow-y-auto leading-relaxed flex-grow">
+<div class="space-y-4">
+<div class="text-outline-variant">
+<span class="text-blue-400">[2024-06-15T16:12:01.442+0000]</span> <span class="text-green-400">"W"</span> [STORAGE] {"s":"W", "c":"STORAGE", "id":22430, "ctx":"conn3241", "msg":"WiredTiger cache is full, eviction threads are struggling"}
+                        </div>
+<div class="text-outline-variant">
+<span class="text-blue-400">[2024-06-15T16:13:45.120+0000]</span> <span class="text-yellow-400">"I"</span> [COMMAND] {"s":"I", "c":"COMMAND", "id":51803, "ctx":"conn412", "msg":"Slow query detected", "attr":{"durationMillis":4200, "planSummary":"IXSCAN { _id: 1 }"}}
+                        </div>
+<div class="text-red-400 bg-red-400/10 p-2 -mx-2 rounded">
+<span class="text-blue-400">[2024-06-15T16:15:22.001+0000]</span> <span class="text-red-400">"E"</span> [STORAGE] {"s":"E", "c":"STORAGE", "id":22431, "ctx":"wt-evict", "msg":"Critical: Cache eviction pressure at 95.4%, blocking write tickets"}
+                        </div>
+<div class="text-outline-variant">
+<span class="text-blue-400">[2024-06-15T16:16:10.998+0000]</span> <span class="text-green-400">"W"</span> [STORAGE] {"s":"W", "c":"STORAGE", "id":22430, "ctx":"conn3241", "msg":"WiredTiger cache is full, eviction threads are struggling"}
+                        </div>
+<div class="text-outline-variant italic py-2">... logs truncated for clarity ...</div>
+<div class="text-outline-variant">
+<span class="text-blue-400">[2024-06-15T16:18:33.442+0000]</span> <span class="text-green-400">"W"</span> [REPL] {"s":"W", "c":"REPL", "id":21102, "ctx":"OplogFetcher", "msg":"Oplog delay increasing", "attr":{"lagSecs":14}}
+                        </div>
+</div>
+</div>
+</section>
+</div>
+<!-- Phase Details (Accordion) -->
+<section class="space-y-4 mb-12">
+<h2 class="text-2xl font-black font-headline text-on-surface mb-6">Execution Timeline</h2>
+<!-- Accordion Item 1 -->
+<div class="group bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden transition-all">
+<button class="w-full flex items-center justify-between p-6 text-left hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('phase-a')">
+<div class="flex items-center gap-4">
+<span class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant font-bold">A</span>
+<div>
+<h3 class="font-bold text-on-surface">Phase A: Investigation</h3>
+<p class="text-sm text-on-surface-variant">Scanning and indexing all cluster diagnostic logs</p>
+</div>
+</div>
+<span class="material-symbols-outlined transition-transform duration-300 rotate-180" id="icon-phase-a">expand_more</span>
+</button>
+<div class="max-h-[500px] overflow-hidden transition-all duration-300 px-6 pb-6" id="phase-a">
+<div class="pt-2 border-t border-outline-variant/10 space-y-3">
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            Parsed 1.2GB of FTDC binary data
+                        </div>
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            Indexed 50,000+ mongod.log entries
+                        </div>
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            Synchronized timestamps across 3 nodes
+                        </div>
+</div>
+</div>
+</div>
+<!-- Accordion Item 2 -->
+<div class="group bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden transition-all">
+<button class="w-full flex items-center justify-between p-6 text-left hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('phase-b')">
+<div class="flex items-center gap-4">
+<span class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant font-bold">B</span>
+<div>
+<h3 class="font-bold text-on-surface">Phase B: Clarification</h3>
+<p class="text-sm text-on-surface-variant">Identifying patterns and cross-referencing metrics</p>
+</div>
+</div>
+<span class="material-symbols-outlined transition-transform duration-300" id="icon-phase-b">expand_more</span>
+</button>
+<div class="max-h-0 overflow-hidden transition-all duration-300 px-6 pb-0" id="phase-b">
+<div class="pt-2 border-t border-outline-variant/10 space-y-3 pb-6">
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            Correlation found between Write Tickets and CPU I/O Wait
+                        </div>
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            Detected anomalous "find" query behavior on "orders" collection
+                        </div>
+</div>
+</div>
+</div>
+<!-- Accordion Item 3 -->
+<div class="group bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden transition-all">
+<button class="w-full flex items-center justify-between p-6 text-left hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('phase-c')">
+<div class="flex items-center gap-4">
+<span class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface-variant font-bold">C</span>
+<div>
+<h3 class="font-bold text-on-surface">Phase C: Final RCA</h3>
+<p class="text-sm text-on-surface-variant">Drawing conclusions and generating action items</p>
+</div>
+</div>
+<span class="material-symbols-outlined transition-transform duration-300" id="icon-phase-c">expand_more</span>
+</button>
+<div class="max-h-0 overflow-hidden transition-all duration-300 px-6 pb-0" id="phase-c">
+<div class="pt-2 border-t border-outline-variant/10 space-y-3 pb-6">
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            RCA Model Score: 98% Confidence
+                        </div>
+<div class="flex items-center gap-3 text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            Remediation script generated and ready for review
+                        </div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="bg-surface-container py-12 px-6">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 opacity-60">
+<div class="text-sm font-bold tracking-tighter">MONGORCA PRO / DIAGNOSTIC SUITE v2.4.0</div>
+<div class="flex gap-8 text-xs font-medium">
+<a class="hover:text-accent-terracotta" href="#">Support Portal</a>
+<a class="hover:text-accent-terracotta" href="#">Documentation</a>
+<a class="hover:text-accent-terracotta" href="#">Privacy Policy</a>
+</div>
+<div class="text-xs">© 2024 Mongo Debugger Inc. All rights reserved.</div>
+</div>
+</footer>
+<script>
+        function toggleAccordion(id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (content.style.maxHeight === "0px" || !content.style.maxHeight) {
+                content.style.maxHeight = "500px";
+                content.style.paddingBottom = "1.5rem";
+                icon.classList.add('rotate-180');
+            } else {
+                content.style.maxHeight = "0px";
+                content.style.paddingBottom = "0px";
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        // Initialize accordion states
+        document.addEventListener('DOMContentLoaded', () => {
+            const b = document.getElementById('phase-b');
+            const c = document.getElementById('phase-c');
+            b.style.maxHeight = "0px";
+            c.style.maxHeight = "0px";
+        });
+    </script>
+<style>
+        @keyframes heightGrow {
+            from { height: 0; }
+        }
+    </style>
+</body></html>

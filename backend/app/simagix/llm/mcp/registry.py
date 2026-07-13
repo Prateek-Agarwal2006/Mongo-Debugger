@@ -10,7 +10,7 @@ from backend.app.simagix.llm.mcp.connectors import (
     STDIO_TEMPLATES,
     McpConnectorRecord,
 )
-from backend.app.simagix.llm.mcp.specs import BARE_TOOL_MCP_SERVER_NAMES, McpServerSpec
+from backend.app.simagix.llm.mcp.specs import ADK_MCP_STDIO_TIMEOUT_SEC, BARE_TOOL_MCP_SERVER_NAMES, McpServerSpec
 from backend.app.simagix.llm.session import Phase2Session
 
 EVIDENCE_SERVER_MODULE = "backend.app.simagix.llm.mcp.servers.evidence"
@@ -196,7 +196,8 @@ def to_adk_mcp_toolsets(specs: list[McpServerSpec]) -> list[Any]:
                     args=list(spec.args),
                     env=spec.env or None,
                     cwd=spec.cwd,
-                )
+                ),
+                timeout=ADK_MCP_STDIO_TIMEOUT_SEC,
             )
         toolsets.append(McpToolset(connection_params=params))
     return toolsets

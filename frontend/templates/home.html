@@ -9,7 +9,7 @@
       <h2 class="h6 mb-1" id="appearance-settings-title"><i class="bi bi-palette me-2 text-success"></i>Appearance</h2>
       <p class="small text-secondary mb-0">
         <strong>Classic</strong> is the original dark Mongo look.
-        <strong>Modern</strong> is a full React shell (Home, Uploads, Upload) with DotGrid hero.
+        <strong>Modern</strong> is a full React shell (Home, Runs, Upload) with DotGrid hero.
       </p>
     </div>
     <div data-app-theme-toggle></div>
@@ -32,7 +32,7 @@
             <i class="bi bi-cloud-upload me-2"></i>Upload FTDC
           </a>
           <a class="btn btn-outline-light btn-lg" href="/runs">
-            <i class="bi bi-collection me-2"></i>Browse uploads
+            <i class="bi bi-collection me-2"></i>Browse runs
           </a>
           <a class="btn btn-outline-success btn-lg" href="/mcp-workarea">
             <i class="bi bi-plug me-2"></i>MCP WorkArea
@@ -99,7 +99,7 @@
 
 <div class="glass-card reveal-panel" data-reveal="up">
   <div class="card-header bg-transparent border-secondary-subtle d-flex justify-content-between align-items-center px-4 pt-3">
-    <h2 class="h5 mb-0"><i class="bi bi-cloud-upload me-2 text-success"></i>Recent uploads</h2>
+    <h2 class="h5 mb-0"><i class="bi bi-collection me-2 text-success"></i>Recent runs</h2>
     <a href="/runs" class="btn btn-sm btn-outline-secondary">View all</a>
   </div>
   <div class="card-body p-0">
@@ -110,7 +110,7 @@
     {% else %}
     <div class="p-4 text-center text-secondary">
       <i class="bi bi-inbox display-6 d-block mb-2 opacity-50"></i>
-      No uploads yet. <a href="/upload">Upload FTDC data</a> to get started.
+      No runs yet. <a href="/upload">Upload FTDC data</a> to get started.
     </div>
     {% endif %}
   </div>

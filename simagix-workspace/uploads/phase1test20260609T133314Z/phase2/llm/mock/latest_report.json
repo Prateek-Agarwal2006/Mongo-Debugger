@@ -1,13 +1,13 @@
 {
   "run_id": "phase1test20260609T133314Z",
   "summary": "[mock] Schema placeholder for run on qa6-mongo-core12-2-b:53421. Tier-1 flagged 4 findings; mechanism fields are stubs, not concluded RCA.",
-  "root_cause": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+  "root_cause": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
   "mechanism_summary": "[mock] pending evidence-backed analysis",
   "finding_analyses": [
     {
       "finding_name": "Replication Lag Issues",
       "what_observed": "Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -18,7 +18,7 @@
     {
       "finding_name": "Missing Indexes",
       "what_observed": "High query targeting ratios indicate collection scans or inefficient index usage Symptoms: Keys examined per doc returned: p95=837:1 (score: 0); Docs examined per doc returned: p95=752:1 (score: 0); Objects scanned per key: avg=17159:1 (score: 0)",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -29,7 +29,7 @@
     {
       "finding_name": "CPU Saturation",
       "what_observed": "High CPU usage may indicate inefficient queries or under-provisioned hardware Symptoms: Low CPU idle: p5=2% (score: 0); High CPU user: p95=76% (score: 0); High CPU system: p95=18% (score: 0)",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -40,7 +40,7 @@
     {
       "finding_name": "Memory Fragmentation",
       "what_observed": "tcmalloc memory fragmentation causing inefficient memory usage Symptoms: Memory fragmentation: p95=47% (score: 11)",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -101,7 +101,7 @@
   ],
   "causal_chain": [
     "Tier-1 flagged 'Replication Lag Issues': Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
-    "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results."
+    "[mock] Not inferred — live agent must derive mechanism from metric/log tool results."
   ],
   "ruled_out_hypotheses": [
     "[mock] Mechanism hypotheses not evaluated — use live agent with MCP tools"

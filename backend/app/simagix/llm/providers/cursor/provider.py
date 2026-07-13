@@ -8,6 +8,10 @@ from typing import Any, Literal
 from backend.app.core.config import Settings, get_settings
 from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs, to_cursor_sdk_servers
 from backend.app.simagix.llm.skills.registry import copy_all_to_cursor_scratch, list_skill_dirs
+from backend.app.simagix.llm.providers.cursor.errors import (
+    cursor_parse_failure_message,
+    cursor_run_failure_message,
+)
 from backend.app.simagix.llm.parse_output import (
     parse_clarifying_questions,
     parse_investigation_summary,
@@ -80,9 +84,8 @@ class CursorLLMProvider(LLMProvider):
         bundle_cwd = str(session.evidence.bundle_dir)
         scratch_cwd = str(session.ensure_chatbot_scratch_dir())
         agent_cwd = scratch_cwd if include_mcp else bundle_cwd
-        # ponytail: sandbox off when MCP on — headless runs need bundle reads + MCP without cursorsandbox rejection
-        sandbox = SandboxOptions(enabled=not include_mcp)
-        auto_review = include_mcp
+        # ponytail: sandbox always off — headless uvicorn cannot use Cursor local sandbox (Phase B clarify included)
+        sandbox = SandboxOptions(enabled=False)
         custom_tools = {}
         setting_sources: list[str] = []
         if include_mcp:
@@ -98,7 +101,6 @@ class CursorLLMProvider(LLMProvider):
                 cwd=agent_cwd,
                 setting_sources=setting_sources,
                 sandbox_options=sandbox,
-                auto_review=auto_review,
                 custom_tools=custom_tools or None,
             ),
             mcp_servers=self._mcp_config(session, enabled_mcp_ids=enabled_mcp_ids)
@@ -134,7 +136,7 @@ class CursorLLMProvider(LLMProvider):
                 self._collect_assistant_text(message, assistant_chunks)
             result = run.wait()
             if result.status == "error":
-                raise RuntimeError(f"Cursor agent run failed: {result.id}")
+                raise RuntimeError(cursor_run_failure_message(result))
         trace.save()
         return self._best_agent_text(result, assistant_chunks)
 
@@ -157,8 +159,10 @@ class CursorLLMProvider(LLMProvider):
             return parse_investigation_summary(raw_text, session.run_id)
         except ValueError as exc:
             raise RuntimeError(
-                "Cursor agent completed but did not return valid InvestigationSummary JSON. "
-                f"Preview: {raw_text[:300]!r}"
+                cursor_parse_failure_message(
+                    "Cursor agent completed but did not return valid InvestigationSummary JSON.",
+                    raw_text,
+                )
             ) from exc
 
     def generate_clarifying_questions(
@@ -175,8 +179,10 @@ class CursorLLMProvider(LLMProvider):
             return parse_clarifying_questions(raw_text, session.run_id, max_questions=max_questions)
         except ValueError as exc:
             raise RuntimeError(
-                "Cursor agent completed but did not return valid ClarifyingQuestionsBlock JSON. "
-                f"Preview: {raw_text[:300]!r}"
+                cursor_parse_failure_message(
+                    "Cursor agent completed but did not return valid ClarifyingQuestionsBlock JSON.",
+                    raw_text,
+                )
             ) from exc
 
     def run(
@@ -199,8 +205,10 @@ class CursorLLMProvider(LLMProvider):
             report = parse_rca_report(raw_text, session.run_id)
         except ValueError as exc:
             raise RuntimeError(
-                "Cursor agent completed but did not return valid RCAReportDraft JSON. "
-                f"Preview: {raw_text[:300]!r}"
+                cursor_parse_failure_message(
+                    "Cursor agent completed but did not return valid RCAReportDraft JSON.",
+                    raw_text,
+                )
             ) from exc
         return Phase2RunResult(
             report=report,
@@ -211,10 +219,20 @@ class CursorLLMProvider(LLMProvider):
             raw_assistant_text=raw_text,
         )
 
-    def run_chatbot(self, session: Phase2Session, user_message: str) -> ChatbotResult:
+    def run_chatbot(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> ChatbotResult:
         session.configure_budget(self.settings.phase2_chatbot_max_tool_calls, reset=True)
         raw_text = self._run_agent_text(
-            session, user_message, include_mcp=True, phase="chatbot"
+            session,
+            user_message,
+            include_mcp=True,
+            phase="chatbot",
+            enabled_mcp_ids=enabled_mcp_ids,
         )
         return ChatbotResult(
             content=raw_text,

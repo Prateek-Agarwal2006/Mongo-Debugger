@@ -82,6 +82,10 @@ class ChatbotAttachmentRef(BaseModel):
 class ChatbotMessageRequest(BaseModel):
     content: str = Field(default="", description="User message for post-report chatbot")
     attachments: list[ChatbotAttachmentRef] = Field(default_factory=list)
+    enabled_mcp_ids: list[str] = Field(
+        default_factory=list,
+        description="User MCP connector ids for this chatbot message (stateless per message)",
+    )
 
 
 @router.get("/phase2/llm-providers")
@@ -338,6 +342,7 @@ def post_chatbot(
             llm=folder,
             content=body.content,
             attachments=[a.model_dump() for a in body.attachments],
+            enabled_mcp_ids=body.enabled_mcp_ids or None,
             force_mock=force_mock,
             llm_provider=llm_provider,
         )

@@ -114,37 +114,50 @@ def resolve_tool_identity(tool_name: str, args: Any) -> tuple[str, str | None]:
 
 
 def classify_tool_category(tool_name: str, args: Any = None) -> ToolTraceCategory:
+    """Bucket tools for the trace UI using the SDK tool name (Cursor returns ``mcp`` for all MCP)."""
+    raw = (tool_name or "").strip()
+    lower = raw.lower()
     args_dict = _coerce_args_dict(args)
+    args_text = json.dumps(args, default=str).lower() if args is not None else ""
+
+    # Cursor SDK: every operator MCP call uses tool_name "mcp" (connector lives in args).
+    if lower == "mcp":
+        return "mcp"
+
     inner_tool = args_dict.get("toolName") or args_dict.get("tool_name")
     if inner_tool in EVIDENCE_MCP_TOOL_NAMES or inner_tool in OPERATOR_TEST_MCP_TOOL_NAMES:
         return "mcp"
 
-    display_name, _ = resolve_tool_identity(tool_name, args)
-    name = display_name.lower()
-    args_text = json.dumps(args, default=str).lower() if args is not None else ""
+    if _split_operator_mcp_tool_name(raw) is not None:
+        return "mcp"
+    if raw in EVIDENCE_MCP_TOOL_NAMES or raw in HATCHET_MCP_TOOL_NAMES or raw in OPERATOR_TEST_MCP_TOOL_NAMES:
+        return "mcp"
 
-    if any(token in name for token in ("fetch", "web_search", "websearch", "browse", "internet", "google_search", "web_fetch")):
+    if any(
+        token in lower
+        for token in ("fetch", "web_search", "websearch", "browse", "internet", "google_search", "web_fetch")
+    ):
         return "web"
     if "http://" in args_text or "https://" in args_text:
         return "web"
 
     if (
-        "mcp" in name
-        or name.startswith("simagix-evidence/")
-        or name.startswith("hatchet-evidence/")
-        or name.startswith("graylog/")
-        or name.startswith("operator-mcp/")
-        or name in OPERATOR_TEST_MCP_TOOL_NAMES
+        "mcp" in lower
+        or lower.startswith("simagix-evidence/")
+        or lower.startswith("simagix-evidence_")
+        or lower.startswith("hatchet-evidence/")
+        or lower.startswith("hatchet-evidence_")
+        or lower.startswith("graylog/")
+        or lower.startswith("operator-mcp/")
         or "simagix-evidence" in args_text
         or "graylog" in args_text
-        or "local-test-http" in args_text
     ):
         return "mcp"
 
-    if any(token in name for token in ("shell", "terminal", "bash", "run_terminal")):
+    if any(token in lower for token in ("shell", "terminal", "bash", "run_terminal")):
         return "shell"
 
-    if any(token in name for token in ("read", "grep", "glob", "semsearch", "semantic", "list_dir", "ls")):
+    if any(token in lower for token in ("read", "grep", "glob", "semsearch", "semantic", "list_dir", "ls")):
         return "local"
 
     return "other"
@@ -283,6 +296,37 @@ def summarize_entries(entries: list[ToolTraceEntry]) -> dict[str, Any]:
     }
 
 
+
+
+def adk_tool_trace_call_id(
+    tool_context: Any,
+    phase: ToolTracePhase | None = None,
+) -> str | None:
+    """Per-tool call id for ADK traces (Cursor SDK uses tool_call.call_id the same way).
+
+    Scope ids by phase — ADK may reuse function_call_id values across separate runs
+    (investigation vs final_rca) in the same tool_trace.json file.
+    """
+    function_call_id = getattr(tool_context, "function_call_id", None)
+    if not function_call_id:
+        return None
+    call_id = str(function_call_id)
+    return f"{phase}:{call_id}" if phase else call_id
+
+
+def adk_tool_trace_status(tool_context: Any, tool_response: Any) -> str:
+    """Map ADK tool outcome to trace status (Cursor uses SDK message status)."""
+    if getattr(tool_context, "error", None):
+        return "error"
+    if isinstance(tool_response, dict):
+        if tool_response.get("isError") or tool_response.get("error"):
+            return "error"
+        content = tool_response.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("isError"):
+                    return "error"
+    return "completed"
 
 
 def adk_tool_trace_identity(tool_name: str) -> tuple[str, ToolTraceCategory, str | None]:

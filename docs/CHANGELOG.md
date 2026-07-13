@@ -3,19 +3,209 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-30
+**Last updated:** 2026-06-29
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
 
 ---
 
-## 2026-06-30 — Cursor sandbox off when MCP on
+## 2026-07-01 — Chatbot MCP center modal (blur backdrop)
 
-**What:** Phase 2 Cursor runs with MCP use `SandboxOptions(enabled=False)`; clarify-only phases keep sandbox on.
+**What:** MCP picker is a centered modal with blurred/faded backdrop; **MCP**, **Attach**, and **Send** sit together on the right of the composer.
 
-**How:** `providers/cursor/provider.py` — `enabled=not include_mcp`; `auto_review=True` unchanged when MCP attached.
+**How:** `#chatbot-mcp-modal` moved outside the chat form (fixed overlay); backdrop blur + **×** / Escape / backdrop click to close. Fixes popover clipping inside the chat card.
 
-**Why:** Sandbox + headless uvicorn blocked MCP tool calls and bundle-path reads; operators need MCP evidence retrieval to succeed.
+**Why:** User-requested modal UX; prior anchor popover was clipped and split buttons left vs right.
+
+---
+
+## 2026-07-01 — Chatbot MCP popover (composer button)
+
+**What:** Chatbot MCP selection opens from an **MCP** button left of **Attach**; top-right **×** closes the panel.
+
+**How:** `#chatbot-mcp-picker` popover in composer actions; `agent-chat.js` toggle/close; styles in `clarify-chat.css` + `agent-chat-stitch.css`.
+
+**Why:** Keep chat focused; MCP selection on demand like a tool picker.
+
+---
+
+## 2026-07-01 — Chatbot MCP panel on Chatbot tab
+
+**What:** Post-report chatbot has its own MCP connector checkboxes on the Chatbot tab (and report-section chat panel on Bootstrap run page), independent of Investigation.
+
+**How:** `#chatbot-mcp-run-checkboxes` panel in `run_workspace.html` / `run_detail.html`; `rca.js` loads connectors into both Investigation and chatbot panels; `agent-chat.js` sends `selectedChatbotMcpIds()` per message. Not persisted to `chatbot_chat.json`.
+
+**Why:** Operators on the Chatbot tab should pick MCPs without switching back to Investigation.
+
+---
+
+## 2026-07-01 — Chatbot MCP selection (stateless per message)
+
+**What:** Post-report chatbot accepts `enabled_mcp_ids` on each message like Phase A and Phase C.
+
+**How:** `POST /phase2/chatbot/messages` accepts `enabled_mcp_ids`; service passes through to `run_chatbot()` on all providers.
+
+**Why:** Operators expect WorkArea connectors on follow-up questions without a saved selection.
+
+---
+
+## 2026-06-30 — Grafana dashboard buttons visible on Stitch run page
+
+**What:** **Anomaly view** and **All metrics** buttons appear on the Evidence tab after the stack is healthy or FTDC load completes.
+
+**How:** `grafana.js` — `setGrafanaElVisible()` toggles Tailwind `class="hidden"` and HTML `hidden` (Stitch markup uses both); cache-bust `?v=5`.
+
+**Why:** `_applyOpenLinks` only cleared the `hidden` attribute; Tailwind `hidden` kept buttons invisible — same class of bug as Phase B Skip on Stitch.
+
+---
+
+## 2026-06-30 — README: Colima / Docker stuck recovery (Mac)
+
+**What:** Quick-start docs explain how to recover when Colima says Running but Docker socket fails (Grafana 503, pipeline Docker errors).
+
+**How:** New **Colima / Docker stuck** subsection in root `README.md`; matching operator table in `OPERATIONS.md`.
+
+**Why:** Common Mac failure mode — `colima start` alone does not fix a dead socket forward; operators need `colima stop` then `colima start`.
+
+---
+
+## 2026-06-30 — ADK Phase C tool trace: scope call_id by phase
+
+**What:** Phase C (final RCA) MCP/web tool calls appear in Agent Tool Activity with phase badge **C**, not dropped as duplicates of Phase A rows.
+
+**How:** `adk_tool_trace_call_id(tool_context, phase)` prefixes ids as `{phase}:{function_call_id}`; test `test_adk_tool_trace_call_id_scoped_by_phase`.
+
+**Why:** One `tool_trace.json` per LLM slot accumulates A+C; ADK may reuse `function_call_id` across separate agent sessions — dedup on raw id silently dropped Phase C rows while terminal still showed `CallToolRequest`.
+
+---
+
+## 2026-06-30 — Phase B Skip button visible after submit / re-run
+
+**What:** Skip (and Prev/Next/Submit) reappear on Phase B clarifying questions after submit, LLM switch, or a second Run RCA on the same page; Skip on the last question clears the textarea and updates progress dots.
+
+**How:** `clarify-wizard.js` — `resetClarifyActions()` restores `#clarify-actions` visibility and re-enables buttons from `showClarifyWizard`, `hideClarifyWizard`, and `setSubmitting(false)`; Skip always calls `renderWizardCard()`; Stitch buttons get `text-on-surface`; cache-bust `?v=4`.
+
+**Why:** `setSubmitting(true)` hid the entire `#clarify-actions` bar; success path called `hide()` without restoring it, so a later `show()` rendered questions but left the action bar hidden. Last-question Skip cleared the answer in memory without re-rendering.
+
+---
+
+## 2026-06-30 — ADK tool trace: one row per MCP call (+ error status)
+
+**What:** Gemini ADK activity panel shows every MCP/web tool call with correct status; docs explain Cursor vs ADK trace IDs and failures.
+
+**How:** `adk_tool_trace_call_id()` uses `function_call_id` (not `invocation_id`); `adk_tool_trace_status()` marks MCP/ADK errors; PHASE2_LLM + DESIGN_NOTES §13.18 talking points.
+
+**Why:** Shared `invocation_id` deduped six real calls into one row; failed MCP executions should show `error`/`failed` like Cursor when the provider reports them.
+
+---
+
+## 2026-06-30 — Gemini ADK: MCP stdio timeout + skill slot fix
+
+**What:** Gemini ADK Phase 2 registers simagix-evidence MCP tools again; operator skill folder renamed to match SKILL.md `name:`.
+
+**How:** `ADK_MCP_STDIO_TIMEOUT_SEC=60` on `StdioConnectionParams` (ADK default 5s < evidence server cold import ~14s); preflight `_ensure_adk_mcp_toolsets_ready` in ADK runner; `upload_skill_zip` syncs frontmatter `name:` to slot; `operator/skills/trial` → `mongo-rca-playbook`.
+
+**Why:** ADK MCP session timed out during initialize → only `web_fetch` registered → `get_metric_window` not found; skill `mongo-rca-playbook` vs folder `trial` failed ADK load.
+
+---
+
+## 2026-06-30 — Cursor: drop auto_review from LocalAgentOptions
+
+**What:** Phase 2 Cursor runs no longer pass `auto_review=True` to the SDK.
+
+**How:** Removed `auto_review` from `providers/cursor/provider.py` `LocalAgentOptions` (SDK default).
+
+**Why:** User request; rely on SDK default instead of forcing Smart Auto Review on MCP phases.
+
+---
+
+## 2026-06-30 — Phase A: require MCP, block bundle file reads
+
+**What:** Investigation prompt forbids read/grep on export bundle paths; tier-2 proof must go through simagix-evidence MCP.
+
+**How:** `INVESTIGATION_SCRATCH_RULES` in `prompts.py` (Phase A only); Phase C/chatbot keep permissive `SCRATCH_RULES`.
+
+**Why:** With sandbox off, Cursor agent read `phase1/mongo-ftdc/normalized/*.json` directly (461 local / 0 MCP on 2026-06-30) instead of calling simagix-evidence.
+
+---
+
+## 2026-06-30 — Cursor sandbox always off (fix Phase B 500)
+
+**What:** All Phase 2 Cursor phases (investigation, clarify, final RCA, chatbot) run with `SandboxOptions(enabled=False)`.
+
+**How:** `providers/cursor/provider.py` — `enabled=False` for every `_agent_options` call; no per-phase toggle.
+
+**Why:** Phase B (clarify, MCP off) enabled sandbox and Cursor SDK returned `BadRequestError` (“sandboxing is not supported in this environment”) → unhandled 500 on `POST /phase2/run`.
+
+---
+
+## 2026-06-30 — Verbatim errors: Phase 2 + upload (no Unexpected token)
+
+**What:** Phase 2 RCA, chatbot, and upload failures show the full response body instead of `Unexpected token 'I'…` JSON parse errors.
+
+**How:** `readResponseBody` + `errorFromBody` in `api-error-text.js`; `rca.js` and `agent-chat.js` parse text-first on all error paths; upload POST uses same helper; Phase 1 job error embedded via `#mdb-job-error-json` (`tojson`) instead of raw `<template>`.
+
+**Why:** Bare `response.json()` on HTML/plain-text 502 bodies surfaced SyntaxError text instead of the real server message.
+
+---
+
+## 2026-06-30 — Verbatim Phase 1 errors (no JSON.parse on stack traces)
+
+**What:** Failed Phase 1 jobs show the full stored error (Docker panic, stderr) instead of `Unexpected token` in the UI.
+
+**How:** `job_error` removed from `#mdb-page-data` JSON; errors live in `<template id="mdb-job-error">` or are fetched via `MdbPageData.fetchJob`. Stitch `pipeline.html` and upload poll paths use `page-data.js` + `readResponseBody` instead of bare `response.json()`.
+
+**Why:** Embedding multi-line stderr inside a hand-built JSON script tag broke `JSON.parse`, so the Stitch iframe never read page data and poll failures surfaced as parse errors.
+
+---
+
+## 2026-06-30 — Nav label: Uploads → Runs (UI only)
+
+**What:** User-facing list/nav copy says **Runs** instead of **Uploads**; upload action labels unchanged.
+
+**How:** Classic nav, Stitch iframe pages, Jinja templates, React `ModernShell` / `StitchShell` / `RunsTable`; rebuilt `frontend/static/modern/assets/index.js`.
+
+**Why:** “Runs” matches `/runs` and the analysis workflow; API paths and `simagix-workspace/uploads/` dirs unchanged.
+
+---
+
+## 2026-06-30 — Fake FTDC upload cleanup
+
+**What:** Removed eight duplicate fake-FTDC upload runs and their failed/pending jobs; one canonical test fixture remains.
+
+**How:** Deleted `upload20260620T082155Z`, `upload20260621T124610Z`, `upload20260621T125755Z`, `upload20260627T010718Z`, `upload20260627T144723Z`, `upload20260629T131844Z`, `upload20260629T132543Z`, `upload20260630T081605Z` under `simagix-workspace/uploads/` (each had a 17-byte `fake-ftdc-content` metrics file). Added `backend/tests/fixtures/fake_ftdc/metrics.2026-06-10T00-00-00Z-00000`; `test_upload_zip_starts_job` reads from it via `FAKE_FTDC_METRICS`.
+
+**Why:** Repeated fake uploads cluttered the runs list and caused identical mongo-ftdc decoder panics on retry; real uploads (`upload20260625T131510Z`, etc.) unchanged.
+
+---
+
+## 2026-06-30 — Verbatim job and Phase 2 errors in UI
+
+**What:** Phase 1 pipeline page (Modern Stitch shell), upload poll, and Phase 2 RCA show the full stored error string — no summarizing, no `detail.msg` parsing, no 2k stderr trim.
+
+**How:** `job_error` in pipeline `page_data`; `stitch/pipeline.html` `<pre>` + poll shows `job.error`; `api-error-text.js`; Cursor provider returns full SDK JSON / raw model text; `pipeline.py` / `hatchet.py` store full stderr.
+
+**Why:** Retries looked identical because the UI hid the real failure (e.g. Docker daemon down) behind generic labels or parsed Cursor messages.
+
+---
+
+## 2026-06-30 — Cursor sandbox off when MCP on (superseded)
+
+**What:** Earlier attempt: sandbox off only when MCP on; clarify kept sandbox on.
+
+**How:** `enabled=not include_mcp` — replaced same day by “Cursor sandbox always off” above.
+
+**Why:** Superseded — clarify phase still hit sandbox unsupported error.
+
+---
+
+## 2026-06-29 — Tool trace MCP classify uses Cursor SDK name
+
+**What:** Agent Tool Activity MCP badge covers all Cursor MCP calls, including operator connectors like `dummy_test`.
+
+**How:** `classify_tool_category()` returns `"mcp"` when the SDK `tool_name` is `"mcp"` (raw name, not decoded display); classification no longer calls `resolve_tool_identity()`. Display names still use resolve. Test for `dummy_test`/`echo`.
+
+**Why:** Cursor wraps every MCP invocation as tool `"mcp"` with connector in args; allowlisting inner tool names mis-bucketed unknown connectors as `other`.
 
 ---
 

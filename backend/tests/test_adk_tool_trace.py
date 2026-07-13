@@ -5,9 +5,98 @@ from types import SimpleNamespace
 
 from backend.app.simagix.llm.tool_trace import (
     ToolTraceCollector,
+    ToolTraceEntry,
+    adk_tool_trace_call_id,
+    adk_tool_trace_status,
     adk_tool_trace_identity,
     record_grounding_metadata,
 )
+
+
+def test_adk_tool_trace_status_error_from_context() -> None:
+    class Ctx:
+        error = "MCP tool rejected"
+
+    assert adk_tool_trace_status(Ctx(), {}) == "error"
+
+
+def test_adk_tool_trace_status_error_from_mcp_response() -> None:
+    class Ctx:
+        error = None
+
+    assert adk_tool_trace_status(Ctx(), {"isError": True, "content": []}) == "error"
+    assert adk_tool_trace_status(Ctx(), {"content": [{"isError": True}]}) == "error"
+
+
+def test_adk_tool_trace_status_completed() -> None:
+    class Ctx:
+        error = None
+
+    assert adk_tool_trace_status(Ctx(), {"content": [{"text": "ok"}]}) == "completed"
+
+
+def test_adk_tool_trace_call_id_prefers_function_call_id() -> None:
+    class Ctx:
+        function_call_id = "fc-abc"
+        invocation_id = "inv-run"
+
+    assert adk_tool_trace_call_id(Ctx()) == "fc-abc"
+
+
+def test_adk_tool_trace_call_id_none_without_function_call_id() -> None:
+    class Ctx:
+        invocation_id = "inv-run"
+
+    assert adk_tool_trace_call_id(Ctx()) is None
+
+
+def test_adk_tool_trace_call_id_scoped_by_phase(tmp_path: Path) -> None:
+    trace_path = tmp_path / "tool_trace.json"
+    trace = ToolTraceCollector(trace_path, agent_id="gemini-adk:test")
+
+    class Ctx:
+        def __init__(self, function_call_id: str) -> None:
+            self.function_call_id = function_call_id
+
+    for phase in ("investigation", "final_rca"):
+        trace.append_entry(
+            ToolTraceEntry(
+                phase=phase,
+                timestamp="2026-06-30T12:00:00+00:00",
+                tool_name="simagix-evidence/get_metric_window",
+                category="mcp",
+                status="completed",
+                call_id=adk_tool_trace_call_id(Ctx("fc-1"), phase),
+                args_summary='{"metric": "cpu_idle"}',
+                mcp_server="simagix-evidence",
+            )
+        )
+    assert len(trace.entries) == 2
+
+
+def test_adk_tool_trace_call_id_dedupes_distinct_calls(tmp_path: Path) -> None:
+    trace_path = tmp_path / "tool_trace.json"
+    trace = ToolTraceCollector(trace_path, agent_id="gemini-adk:test")
+
+    class Ctx:
+        def __init__(self, function_call_id: str) -> None:
+            self.function_call_id = function_call_id
+            self.invocation_id = "same-invocation"
+
+    for metric in ("wt_cache_used", "latency_read", "repl_lag_host-4"):
+        trace.append_entry(
+            ToolTraceEntry(
+                phase="investigation",
+                timestamp="2026-06-30T12:00:00+00:00",
+                tool_name="simagix-evidence/get_metric_window",
+                category="mcp",
+                status="completed",
+                call_id=adk_tool_trace_call_id(Ctx(f"fc-{metric}")),
+                args_summary=f'{{"metric": "{metric}"}}',
+                mcp_server="simagix-evidence",
+            )
+        )
+    assert len(trace.entries) == 3
 
 
 def test_adk_tool_trace_identity_google_search() -> None:

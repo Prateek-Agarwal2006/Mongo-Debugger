@@ -24,7 +24,7 @@ def _make_skill_zip(*, root_prefix: str = "") -> bytes:
         prefix = f"{root_prefix}/" if root_prefix else ""
         zf.writestr(
             f"{prefix}SKILL.md",
-            "---\ndescription: Test playbook\n---\n# Skill body\n",
+            f"---\nname: {root_prefix or 'skill-body'}\ndescription: Test playbook\n---\n# Skill body\n",
         )
         zf.writestr(f"{prefix}references/notes.txt", "extra context")
     return buf.getvalue()
@@ -45,9 +45,28 @@ def test_validate_slot_name_rejects_invalid() -> None:
         validate_slot_name("Bad Name!")
 
 
+def test_upload_skill_zip_syncs_frontmatter_name(tmp_path: Path) -> None:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "SKILL.md",
+            "---\nname: wrong-name\ndescription: Test\n---\n# Body\n",
+        )
+    upload_skill_zip(tmp_path, "my-playbook", buf.getvalue())
+    text = (operator_skills_dir(tmp_path) / "my-playbook" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "name: my-playbook" in text
+    assert "name: wrong-name" not in text
+
+
 def test_upload_skill_zip_flat_layout(tmp_path: Path) -> None:
     record = upload_skill_zip(tmp_path, "my-playbook", _make_skill_zip())
     assert record["slot_name"] == "my-playbook"
+    skill_md = (operator_skills_dir(tmp_path) / "my-playbook" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "name: my-playbook" in skill_md
     assert record["description"] == "Test playbook"
     slot_dir = operator_skills_dir(tmp_path) / "my-playbook"
     assert (slot_dir / "SKILL.md").is_file()

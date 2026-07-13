@@ -67,7 +67,7 @@ def run_hatchet_job(workspace_root: Path, job_id: str, run_id: str, log_dir: Pat
                 job_id,
                 workspace_root=workspace_root,
                 state=JobState.FAILED,
-                error=(result.stderr or result.stdout or "Hatchet failed")[-2000:],
+                error=result.stderr or result.stdout or "Hatchet failed",
                 message="Hatchet failed",
             )
             return

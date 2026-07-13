@@ -44,7 +44,7 @@ def run_pipeline_job(workspace_root: Path, job_id: str, run_id: str, input_path:
                 job_id,
                 workspace_root=workspace_root,
                 state=JobState.FAILED,
-                error=(result.stderr or result.stdout or "Pipeline failed")[-2000:],
+                error=result.stderr or result.stdout or "Pipeline failed",
                 message="Pipeline failed",
             )
             return

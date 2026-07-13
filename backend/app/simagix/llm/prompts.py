@@ -33,6 +33,18 @@ SCRATCH_RULES = (
     "latest_report.json, investigation.json, or git-tracked files.\n"
 )
 
+# Phase A: tier-1 is embedded in the prompt — forbid bundle reads so the agent uses simagix-evidence MCP.
+INVESTIGATION_SCRATCH_RULES = (
+    "SCRATCH RULES (Phase A — investigation):\n"
+    "- Tier-2 metric proof MUST use simagix-evidence MCP (get_metric_window, get_normalized_series, "
+    "list_fallback_metrics, get_raw_path). Do not skip MCP.\n"
+    "- Do NOT read, grep, or glob phase1/, normalized/, diagnosis/, or other export bundle files — "
+    "tier-1 context is already in this prompt.\n"
+    "- read/grep/shell only under chatbot_scratch/ for transient scratch work.\n"
+    "- Do NOT write or edit backend/, simagix-workspace/exports/ (except chatbot_scratch/), "
+    "latest_report.json, investigation.json, or git-tracked files.\n"
+)
+
 
 def _hatchet_mcp_guidance(package: dict[str, Any]) -> str:
     tools = package.get("available_tools", [])
@@ -73,10 +85,10 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
 
     return (
         "You are a MongoDB RCA analyst in INVESTIGATION mode (not final RCA).\n"
-        f"{SCRATCH_RULES}"
+        f"{INVESTIGATION_SCRATCH_RULES}"
         "Use simagix-evidence MCP tools for metric slices and logs when available.\n"
         "Tier-1 summarizes mongo-ftdc findings; call MCP (get_metric_window, list_fallback_metrics) "
-        "for tier-2 proof on any retrievable metric listed below.\n"
+        "for tier-2 proof on any retrievable metric listed below — do not read normalized JSON from disk.\n"
         "If Graylog MCP is available, query logs around the primary anomaly window.\n"
         f"{_hatchet_mcp_guidance(package)}"
         f"{WEB_SEARCH_INVESTIGATION}"

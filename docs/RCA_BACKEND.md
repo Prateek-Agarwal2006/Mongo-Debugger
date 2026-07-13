@@ -6,7 +6,7 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
-**Last updated:** 2026-06-26
+**Last updated:** 2026-07-01
 
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
@@ -451,7 +451,7 @@ POST /simagix/runs/{run_id}/phase2/chatbot/attachments?llm=mock
 POST /simagix/runs/{run_id}/phase2/chatbot/messages?llm=mock
 ```
 
-Body (POST messages): `{"content": "user message", "attachments": [{"name": "notes.txt", "path": "attachments/abc_notes.txt", "size": 42}]}`. Upload files first via **multipart** `POST .../chatbot/attachments` with field `file` (`.json`, `.txt`, `.log`, `.md`, `.csv`, `.yaml`, `.yml`; max `PHASE2_CHATBOT_MAX_ATTACHMENT_BYTES`, default 512 KiB). Files land in `chatbot_scratch/attachments/`; the agent prompt lists paths for `read`/`grep`.
+Body (POST messages): `{"content": "user message", "attachments": [{"name": "notes.txt", "path": "attachments/abc_notes.txt", "size": 42}], "enabled_mcp_ids": ["github-prod"]}`. `enabled_mcp_ids` is optional — current **Chatbot-tab** MCP checkbox state (`#chatbot-mcp-run-checkboxes`); **stateless per message** (not stored in chat history). Upload files first via **multipart** `POST .../chatbot/attachments` with field `file` (`.json`, `.txt`, `.log`, `.md`, `.csv`, `.yaml`, `.yml`; max `PHASE2_CHATBOT_MAX_ATTACHMENT_BYTES`, default 512 KiB). Files land in `chatbot_scratch/attachments/`; the agent prompt lists paths for `read`/`grep`.
 
 Returns assistant `message` + `tool_calls_used`. **404** if no `latest_report.json` for that LLM slot. History persisted to `chatbot_chat.json` (full transcript); long threads summarized into `summary_of_older` for prompt replay.
 

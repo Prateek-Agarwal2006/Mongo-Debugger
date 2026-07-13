@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mongo Debugger | Professional Root Cause Analysis</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Public Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#f5ded7",
+                    "outline-variant": "#afb3ac",
+                    "tertiary-fixed": "#ffcdd7",
+                    "background": "#faf9f5",
+                    "secondary": "#665d5b",
+                    "on-primary-fixed-variant": "#685853",
+                    "on-primary": "#fff6f3",
+                    "secondary-fixed-dim": "#ded2ce",
+                    "tertiary-container": "#ffcdd7",
+                    "on-error": "#fff7f6",
+                    "on-error-container": "#752121",
+                    "surface-variant": "#e0e4dc",
+                    "primary-fixed": "#f5ded7",
+                    "on-surface": "#2f342e",
+                    "surface-tint": "#6b5b56",
+                    "inverse-surface": "#0d0f0d",
+                    "tertiary": "#7b555d",
+                    "on-surface-variant": "#5c605a",
+                    "surface": "#faf9f5",
+                    "surface-container-low": "#f4f4ef",
+                    "on-tertiary-container": "#66434b",
+                    "on-secondary-container": "#58504d",
+                    "inverse-primary": "#fee6df",
+                    "surface-container-highest": "#e0e4dc",
+                    "on-primary-container": "#5e4e49",
+                    "error": "#9f403d",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#6b5b56",
+                    "error-dim": "#4e0309",
+                    "secondary-fixed": "#ede0dc",
+                    "on-background": "#2f342e",
+                    "primary-dim": "#5f4f4a",
+                    "surface-container-high": "#e6e9e2",
+                    "surface-container": "#edeee8",
+                    "inverse-on-surface": "#9d9d9a",
+                    "on-secondary-fixed-variant": "#625a57",
+                    "on-tertiary": "#fff7f7",
+                    "on-secondary-fixed": "#453e3b",
+                    "error-container": "#fe8983",
+                    "on-secondary": "#fff7f5",
+                    "secondary-dim": "#5a514f",
+                    "on-tertiary-fixed": "#513038",
+                    "outline": "#787c75",
+                    "surface-dim": "#d7dcd2",
+                    "secondary-container": "#ede0dc",
+                    "tertiary-fixed-dim": "#f0c0c9",
+                    "on-tertiary-fixed-variant": "#714c54",
+                    "surface-bright": "#faf9f5",
+                    "on-primary-fixed": "#4b3c37",
+                    "primary-fixed-dim": "#e6d0c9",
+                    "tertiary-dim": "#6e4951",
+                    "accent": "#C96442"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans", "sans-serif"],
+                    "display": ["Public Sans", "sans-serif"],
+                    "body": ["Public Sans", "sans-serif"],
+                    "label": ["Public Sans", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Public Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .document-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        .glass-effect {
+            backdrop-filter: blur(8px);
+            background-color: rgba(250, 249, 245, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/30">
+<nav class="flex justify-between items-center h-16 px-6 lg:px-12 max-w-7xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-headline font-bold text-on-surface">Mongo Debugger</span>
+<div class="hidden md:flex items-center gap-6">
+<!-- Active Logic: We are on Home -->
+<a class="font-body text-label-large text-primary font-semibold border-b-2 border-primary pb-1" href="#">Home</a>
+<a class="font-body text-label-large text-on-surface-variant hover:text-primary transition-colors hover:bg-primary-container/20 rounded-lg px-2 py-1" href="#">Uploads</a>
+<a class="font-body text-label-large text-on-surface-variant hover:text-primary transition-colors hover:bg-primary-container/20 rounded-lg px-2 py-1" href="#">Upload</a>
+</div>
+</div>
+<button class="bg-accent text-white px-5 py-2 rounded-lg font-body text-label-large font-semibold hover:opacity-90 transition-all active:scale-95">
+                Start analysis
+            </button>
+</nav>
+</header>
+<main class="pt-16 min-h-screen">
+<!-- Hero Section -->
+<section class="relative py-24 lg:py-32 overflow-hidden">
+<div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
+<div class="max-w-3xl">
+<span class="inline-block px-3 py-1 mb-6 text-xs font-bold tracking-widest uppercase text-accent bg-primary-container rounded-full">
+                        Analyst Workspace
+                    </span>
+<h1 class="text-5xl lg:text-7xl font-headline font-extrabold tracking-tight text-on-surface leading-[1.1] mb-8">
+                        Find the root cause in your <span class="text-accent">MongoDB logs</span>
+</h1>
+<p class="text-xl lg:text-2xl font-body text-on-surface-variant leading-relaxed mb-10 max-w-2xl">
+                        Automated investigation, clarifying questions, and detailed RCA reports designed for focused analysis.
+                    </p>
+<div class="flex flex-wrap gap-4">
+<button class="flex items-center gap-2 bg-on-surface text-surface px-8 py-4 rounded-xl font-semibold hover:bg-on-surface/90 transition-all shadow-lg">
+<span class="material-symbols-outlined">upload_file</span>
+                            Upload logs
+                        </button>
+<button class="flex items-center gap-2 border-2 border-outline-variant text-on-surface px-8 py-4 rounded-xl font-semibold hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined">history</span>
+                            View runs
+                        </button>
+</div>
+</div>
+</div>
+<!-- Background Decorative Element (Abstract Analysis Graphic) -->
+<div class="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none hidden lg:block">
+<div class="absolute inset-0 flex items-center justify-center">
+
+</div>
+</div>
+</section>
+<!-- Feature Cards (Bento/Asymmetric Grid) -->
+<section class="py-20 bg-surface-container-low">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Card 1 -->
+<div class="group bg-surface p-8 rounded-2xl border border-outline-variant/20 hover:border-accent/40 transition-all duration-300 document-shadow hover:translate-y-[-4px]">
+<div class="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center mb-6 text-accent group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">magnify_docked</span>
+</div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-3">Phase A Investigation</h3>
+<p class="text-on-surface-variant font-body leading-relaxed">
+                            Automated scanning of log dumps to identify anomalies and performance bottlenecks with granular precision.
+                        </p>
+</div>
+<!-- Card 2 -->
+<div class="group bg-surface p-8 rounded-2xl border border-outline-variant/20 hover:border-accent/40 transition-all duration-300 document-shadow hover:translate-y-[-4px]">
+<div class="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center mb-6 text-accent group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">question_mark</span>
+</div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-3">Clarifying questions</h3>
+<p class="text-on-surface-variant font-body leading-relaxed">
+                            AI-driven interrogation of log patterns to narrow down potential failure vectors through contextual dialogue.
+                        </p>
+</div>
+<!-- Card 3 -->
+<div class="group bg-surface p-8 rounded-2xl border border-outline-variant/20 hover:border-accent/40 transition-all duration-300 document-shadow hover:translate-y-[-4px]">
+<div class="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center mb-6 text-accent group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">comment</span>
+</div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-3">Phase C RCA report</h3>
+<p class="text-on-surface-variant font-body leading-relaxed">
+                            Comprehensive root cause analysis reports formatted specifically for engineering reviews and executive summaries.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Product Preview / Visual Canvas -->
+<section class="py-24 max-w-7xl mx-auto px-6 lg:px-12">
+<div class="relative rounded-3xl overflow-hidden bg-on-surface/5 border border-outline-variant/30 p-4 lg:p-12">
+<div class="flex flex-col lg:flex-row gap-12 items-center">
+<div class="lg:w-1/2">
+<h2 class="text-3xl font-headline font-bold mb-6">Designed for clarity. Built for speed.</h2>
+<ul class="space-y-4 font-body">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-accent">check_circle</span>
+<span>Zero-config ingestion for standard MongoDB log formats.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-accent">check_circle</span>
+<span>Pattern recognition for high-cardinality query performance.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-accent">check_circle</span>
+<span>Exportable PDF and Markdown reports for Jira integration.</span>
+</li>
+</ul>
+</div>
+<div class="lg:w-1/2 w-full">
+<!-- Placeholder for Dashboard/App preview -->
+<div class="aspect-video bg-surface rounded-xl shadow-2xl border border-outline-variant/20 relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist user interface dashboard of a technical analysis tool. The screen shows a sophisticated terminal-like log viewer on the left with highlighted syntax, and a clean white analysis sidebar on the right. Soft beige and muted warm tones dominate the workspace, creating a calm professional aesthetic. Data visualizations like small sparklines and heatmaps are visible, rendered with a single orange accent color." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyuTTijTOwP_33aovQ-YIrFSYAmCklPBpUqeXnbOyuKJIJyxSgEWHFZ6D-jeBdHZuvm9Pf1scQPW606hPClqEZTbt-NLZNrWIva7lb8cTf3_-JbHyRXFX3SuhaJHBpRabByotOEt_Bq3eWfm19YetzH8l1TM71uvMFJeMNC_23JtgLneFpJxDH-M-MykVnya3fiFSefY2EkOOf0cARbqZL_-d_5SEjhRJimG2_QtOVeGQLteoe3v2P79RZLDd1voRsc7hSL4OXd6vt"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 bg-surface-container-low border-t border-outline-variant/20">
+<div class="flex flex-col md:flex-row justify-between items-center px-6 lg:px-12 max-w-7xl mx-auto gap-4">
+<div class="flex items-center gap-2">
+<span class="text-lg font-headline font-semibold text-on-surface">Mongo Debugger</span>
+<span class="text-on-surface-variant/40">|</span>
+<p class="font-body text-label-medium text-on-surface-variant">© 2024 Mongo Debugger. Analyst workspace for MongoDB RCA.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-body text-label-medium text-on-surface-variant hover:text-on-surface hover:underline transition-all opacity-80 hover:opacity-100" href="#">Documentation</a>
+<a class="font-body text-label-medium text-on-surface-variant hover:text-on-surface hover:underline transition-all opacity-80 hover:opacity-100" href="#">API</a>
+</div>
+</div>
+</footer>
+<script>
+        // Simple micro-interaction for scroll effects
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('header');
+            if (window.scrollY > 20) {
+                nav.classList.add('shadow-sm');
+            } else {
+                nav.classList.remove('shadow-sm');
+            }
+        });
+    </script>
+</body></html>

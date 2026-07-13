@@ -10,6 +10,7 @@
 body { font-family: "Public Sans", sans-serif; background: #FAF9F5; }
 .glass-panel { background: rgba(255,255,255,0.75); backdrop-filter: blur(16px); border: 1px solid #d2c3bf; border-radius: 0.75rem; }
 .material-symbols-outlined { font-variation-settings: "FILL" 1; }
+.job-error-pre { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 </style>
 <link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
 </head>
@@ -25,7 +26,7 @@ body { font-family: "Public Sans", sans-serif; background: #FAF9F5; }
 <span id="status-badge" class="text-xs font-medium px-2 py-1 rounded-full bg-gray-200"></span>
 </div>
 <p id="job-message" class="text-sm text-gray-600"></p>
-<p id="job-error" class="text-sm text-red-700 mt-3 hidden"></p>
+<pre id="job-error" class="job-error-pre text-sm text-red-800 mt-3 p-3 rounded-lg bg-red-50 border border-red-200 hidden" aria-live="polite"></pre>
 </div>
 <div id="success-banner" class="hidden glass-panel p-4 mb-4 bg-green-50 border-green-200 text-green-900 text-sm">
 Phase 1 complete — <a id="phase2-link" href="#" target="_top" class="font-semibold underline">Start run analysis (Phase 2)</a>
@@ -38,17 +39,18 @@ Worker must be running: <code class="text-xs">uv run python -m backend.app.jobs.
 </div>
 </main>
 <div id="mdb-stitch-footer-mount"></div>
+<script src="/static/js/api-error-text.js"></script>
+<script src="/static/js/page-data.js"></script>
 <script>
 (function () {
-  function readPageData() {
-    try {
-      const el = window.parent?.document?.getElementById("mdb-page-data");
-      if (!el?.textContent) return null;
-      return JSON.parse(el.textContent);
-    } catch { return null; }
+  function showJobError(text) {
+    const el = document.getElementById("job-error");
+    if (!el || !text) return;
+    el.textContent = text;
+    el.classList.remove("hidden");
   }
 
-  const data = readPageData();
+  const data = window.MdbPageData ? window.MdbPageData.readPageData() : null;
   if (!data?.run_id) return;
 
   const runId = data.run_id;
@@ -69,24 +71,47 @@ Worker must be running: <code class="text-xs">uv run python -m backend.app.jobs.
   if (data.job_id) {
     document.getElementById("job-message").textContent = "Job: " + data.job_id;
   }
+  if (data.job_message) {
+    document.getElementById("job-message").textContent += " — " + data.job_message;
+  }
+
+  const embeddedError = window.MdbPageData?.readEmbeddedJobError?.();
+  if (embeddedError) {
+    showJobError(embeddedError);
+  } else if (data.job_id && (status === "failed" || status === "stale")) {
+    window.MdbPageData.fetchJob(data.job_id)
+      .then((job) => showJobError(job.error || job.message || "Phase 1 failed"))
+      .catch((err) => showJobError(err.message || String(err)));
+  }
 
   if (status === "finished") {
     document.getElementById("success-banner").classList.remove("hidden");
-    const link = document.getElementById("phase2-link");
-    link.href = "/runs/" + encodeURIComponent(runId);
+    document.getElementById("phase2-link").href = "/runs/" + encodeURIComponent(runId);
   } else if (status === "queued" || status === "processing") {
     document.getElementById("poll-banner").classList.remove("hidden");
     if (data.job_id) {
       const poll = setInterval(async () => {
-        const job = await fetch("/simagix/uploads/jobs/" + data.job_id).then((r) => r.json());
-        document.getElementById("job-message").textContent = "Phase 1 " + job.state + ": " + job.message;
-        if (job.state === "succeeded") {
+        try {
+          const job = await window.MdbPageData.fetchJob(data.job_id);
+          document.getElementById("job-message").textContent =
+            "Phase 1 " + job.state + ": " + (job.message || "");
+          if (job.state === "succeeded") {
+            clearInterval(poll);
+            window.top.location.href = "/runs/" + encodeURIComponent(runId);
+          }
+          if (job.state === "failed") {
+            clearInterval(poll);
+            showJobError(job.error || job.message || "Phase 1 failed");
+            badge.textContent = "Failed";
+            document.getElementById("poll-banner").classList.add("hidden");
+            document.getElementById("retry-banner").classList.remove("hidden");
+          }
+        } catch (err) {
           clearInterval(poll);
-          window.top.location.href = "/runs/" + encodeURIComponent(runId);
-        }
-        if (job.state === "failed") {
-          clearInterval(poll);
-          window.top.location.reload();
+          showJobError(err.message || String(err));
+          badge.textContent = "Failed";
+          document.getElementById("poll-banner").classList.add("hidden");
+          document.getElementById("retry-banner").classList.remove("hidden");
         }
       }, 3000);
     }
@@ -94,9 +119,9 @@ Worker must be running: <code class="text-xs">uv run python -m backend.app.jobs.
     document.getElementById("retry-banner").classList.remove("hidden");
     document.getElementById("retry-btn").onclick = async () => {
       const resp = await fetch("/simagix/uploads/runs/" + runId + "/retry", { method: "POST" });
+      const { data: body, text } = await window.MdbVerbatimError.readResponseBody(resp);
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        alert(body.detail || "Retry failed");
+        showJobError(window.MdbVerbatimError.errorFromBody(resp, body, text, "Retry failed"));
         return;
       }
       window.top.location.reload();

@@ -295,7 +295,13 @@ class MockLLMProvider(LLMProvider):
             raw_assistant_text=report.model_dump_json(indent=2),
         )
 
-    def run_chatbot(self, session: Phase2Session, user_message: str) -> ChatbotResult:
+    def run_chatbot(
+        self,
+        session: Phase2Session,
+        user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
+    ) -> ChatbotResult:
         report = session.load_persisted_report()
         if report is None:
             return ChatbotResult(content="No report available for this run.")

@@ -1,6 +1,6 @@
 # Operations Guide
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-06-30
 
 ## Prerequisites
 
@@ -154,10 +154,29 @@ curl "http://localhost:8000/simagix/runs/grafana/status"
 
 Requires Docker (`mongo-debugger/ftdc:local` from patched mongo-ftdc + locally built `mongo-debugger-grafana-ftdc`). Build FTDC once: `simagix-workspace/scripts/build-ftdc-local.sh` (also run automatically on first Grafana load if the image is missing).
 
+### Colima “Running” but Docker unreachable (Mac)
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `Cannot connect to the Docker daemon at .../.colima/default/docker.sock` | Colima VM listed as **Running** but Docker socket forward is stale or SSH tunnel died | `colima stop` then `colima start --cpu 4 --memory 8` — **not** `colima start` alone when it says “already running” |
+| `run-grafana-stack.sh` or pipeline jobs fail with same Docker error | Same broken Colima state | After stop/start, confirm `docker ps`, then re-run Grafana script or pipeline worker |
+| `colima start ... # comment` → `accepts at most 1 arg(s), received 5` | Shell passed words after `#` as arguments | Run `colima start --cpu 4 --memory 8` alone on one line |
+| App returns **503** on `POST .../grafana/load` | Backend cannot reach Docker to ensure Grafana stack | Fix Colima first; then `./simagix-workspace/scripts/run-grafana-stack.sh` |
+
+```bash
+colima stop
+colima start --cpu 4 --memory 8
+docker ps
+curl -s http://localhost:8000/simagix/runs/grafana/status | jq
+```
+
+See also root [README.md](../README.md) quick start — **Colima / Docker stuck**.
+
 ### Grafana troubleshooting (run page)
 
 | Symptom | What was going wrong | Fix (in code) |
 |---------|----------------------|---------------|
+| **Anomaly / All Metrics buttons never appear** (Stitch run page) | `_applyOpenLinks` cleared HTML `hidden` only; Stitch buttons also have Tailwind `class="hidden"` | `setGrafanaElVisible()` in `grafana.js` (2026-06-30) |
 | **Reload hides Anomaly / All Metrics links**; status says *"FTDC decode in progress — stack is busy"* even though Docker containers are still up | Health probes to `:5408` / `:3030` time out while FTDC is decoding. A per-request `GrafanaStackManager` had an **empty health cache every time**, so `/grafana/urls` reported the stack down and the UI hid links. | **Module-level health cache** (`_HEALTH_CACHE` in `stack.py`, 180s TTL): after a recent successful probe, a timeout still counts as up. Frontend always shows links when `/urls` succeeds. |
 | **Grafana "restarts" or feels broken after reload** | Page reload re-triggered `POST /grafana/load`, stacking decodes on the busy FTDC API; compose recovery could restart containers when probes failed. | **Session guards** in `grafana.js`: auto-load only on first visit (`sessionStorage` `wasLoaded`); skip if `:started` within 5 min (`_loadInProgress`). `ensure_stack_ready_for_load()` waits before restarting FTDC; compose uses `restart: unless-stopped`, no `--build` on recovery. |
 | **One click opens multiple Grafana tabs** | Native `<a target="_blank">` opens one tab **per click event**; double/triple-click fired multiple navigations. | Open buttons are `<button>` elements with a single debounced `window.open()` (500ms). |

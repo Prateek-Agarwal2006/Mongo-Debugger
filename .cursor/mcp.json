@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "excalidraw": {
+      "command": "/usr/local/bin/npx",
+      "args": ["-y", "@scofieldfree/excalidraw-mcp"],
+      "env": {
+        "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    "shadcn": {
+      "command": "/usr/local/bin/node",
+      "args": ["frontend/node_modules/shadcn/dist/index.js", "mcp"],
+      "env": {
+        "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    "aceternity-ui": {
+      "command": "/Users/prateek.agarwal/.local/share/uv/tools/aceternity-mcp/bin/aceternity-mcp-server",
+      "args": [],
+      "env": {
+        "PATH": "/Users/prateek.agarwal/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    },
+    "stitch": {
+      "command": "/bin/bash",
+      "args": ["scripts/stitch-mcp-proxy.sh"],
+      "env": {
+        "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    }
+  }
+}

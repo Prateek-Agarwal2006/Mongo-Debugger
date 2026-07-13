@@ -6,6 +6,9 @@ from backend.app.core.run_workspace import RunWorkspace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_RUN_ID = "phase1test20260609T133314Z"
+FAKE_FTDC_METRICS = (
+    Path(__file__).resolve().parent / "fixtures/fake_ftdc/metrics.2026-06-10T00-00-00Z-00000"
+)
 
 
 def fixture_workspace() -> RunWorkspace:

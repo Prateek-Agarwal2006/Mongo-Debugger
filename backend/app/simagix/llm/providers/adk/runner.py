@@ -16,6 +16,8 @@ from backend.app.simagix.llm.tool_trace import (
     ToolTraceEntry,
     ToolTracePhase,
     adk_tool_trace_identity,
+    adk_tool_trace_call_id,
+    adk_tool_trace_status,
     record_grounding_metadata,
 )
 from backend.app.simagix.llm.web_fetch import build_web_fetch_tool
@@ -33,6 +35,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 _ADK_APP_NAME = "mongo-debugger-phase2"
 _AGENT_NAME = "simagix_rca"
+_EVIDENCE_MCP_PROBE = frozenset({"get_metric_window", "list_fallback_metrics"})
 
 
 def _require_adk() -> None:
@@ -73,16 +76,20 @@ def _make_after_tool_callback(
     ) -> dict | None:
         raw_name = getattr(tool, "name", None) or getattr(tool, "__name__", "tool")
         display_name, category, mcp_server = adk_tool_trace_identity(str(raw_name))
+        status = adk_tool_trace_status(tool_context, tool_response)
+        result_summary = _summarize_value(tool_response)
+        if status == "error" and getattr(tool_context, "error", None):
+            result_summary = _summarize_value(getattr(tool_context, "error", None))
         trace.append_entry(
             ToolTraceEntry(
                 phase=phase,
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 tool_name=display_name,
                 category=category,
-                status="completed",
-                call_id=getattr(tool_context, "invocation_id", None),
+                status=status,
+                call_id=adk_tool_trace_call_id(tool_context, phase),
                 args_summary=_summarize_value(args),
-                result_summary=_summarize_value(tool_response),
+                result_summary=result_summary,
                 mcp_server=mcp_server,
             )
         )
@@ -118,6 +125,29 @@ async def _close_toolsets(toolsets: list[Any]) -> None:
             await result
 
 
+async def _ensure_adk_mcp_toolsets_ready(mcp_toolsets: list[Any]) -> None:
+    if not mcp_toolsets:
+        return
+    names: set[str] = set()
+    errors: list[str] = []
+    for toolset in mcp_toolsets:
+        try:
+            tools = await toolset.get_tools()
+            names.update(str(getattr(tool, "name", "") or "") for tool in tools)
+        except Exception as exc:
+            errors.append(str(exc).strip())
+    if errors:
+        raise RuntimeError(
+            "MCP server failed to start for Gemini ADK. " + " ".join(errors)
+        )
+    if not names & _EVIDENCE_MCP_PROBE:
+        raise RuntimeError(
+            "simagix-evidence MCP tools were not registered for Gemini ADK "
+            f"(got: {sorted(name for name in names if name) or 'none'}). "
+            "Ensure Phase 1 completed and retry."
+        )
+
+
 async def _run_adk_async(
     session: Phase2Session,
     user_message: str,
@@ -149,6 +179,7 @@ async def _run_adk_async(
             closable_toolsets.append(skill_toolset)
             tools.append(skill_toolset)
         tools.append(build_web_fetch_tool(settings))
+        await _ensure_adk_mcp_toolsets_ready(mcp_toolsets)
 
     try:
         agent = Agent(

@@ -11,6 +11,16 @@
       },
       "template_id": null,
       "env": {}
+    },
+    {
+      "id": "dummy_test",
+      "name": "Dummy_Test",
+      "transport": "http",
+      "description": "testing",
+      "url": "https://mcpplaygroundonline.com/mcp-echo-server",
+      "headers": {},
+      "template_id": null,
+      "env": {}
     }
   ]
 }

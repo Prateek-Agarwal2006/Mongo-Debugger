@@ -5,7 +5,9 @@ from typing import Literal
 
 McpServerTransport = Literal["stdio", "http"]
 
-# FastMCP server names that expose unique tool names — keep bare names for ADK trace parity.
+# FastMCP stdio servers import heavy deps; ADK default connect timeout is 5s.
+ADK_MCP_STDIO_TIMEOUT_SEC = 60.0
+
 BARE_TOOL_MCP_SERVER_NAMES = frozenset(
     {
         "simagix-evidence",

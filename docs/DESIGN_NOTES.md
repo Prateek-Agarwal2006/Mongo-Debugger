@@ -522,7 +522,8 @@ Renamed from `SimagixRCAOrchestrator` because “orchestrator” implied cogniti
 
 1. **`AgentOptions`** — `api_key`, `model` (`cursor_model`, default `composer-2.5`).
 2. **`LocalAgentOptions(cwd=…)`** — agent built-in `cwd` is **`chatbot_scratch/`** when MCP is on (Phases A/C/chatbot), **export bundle** when MCP is off (Phase B clarify). See [PHASE2_LLM.md](PHASE2_LLM.md) § Mentor Q&A — Cursor SDK agent runtime.
-3. **`SandboxOptions(enabled=not include_mcp)`** + **`auto_review=True` when MCP on** — sandbox off for MCP phases so headless runs can read bundle paths and execute MCP; sandbox on for clarify-only.
+3. **`SandboxOptions(enabled=False)` always** — headless uvicorn cannot use Cursor local sandbox (Phase B clarify included); MCP phases still need bundle reads without cursorsandbox rejection.
+4. **ADK MCP stdio timeout 60s** — evidence server cold import exceeds ADK default 5s; preflight verifies `get_metric_window` / `list_fallback_metrics` before agent run.
 4. **`mcp_servers`** — dict of **`StdioMcpServerConfig`**: spawn subprocesses that speak MCP over stdin/stdout:
    - `simagix-evidence` → `python -m backend.app.simagix.llm.mcp_evidence_server` with env `SIMAGIX_RUN_ID`, `SIMAGIX_WORKSPACE_ROOT`, `SIMAGIX_BUDGET_STATE_PATH`
    - `graylog` (optional) → `graylog_mcp_server` when `GRAYLOG_*` set
@@ -651,6 +652,14 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 
 **Interview line:** "One MCP server tree; Cursor SDK and ADK `McpToolset` are two adapters. WorkArea MCP checkboxes feed the same registry builder; Skill WorkArea attaches all skills automatically."
 
+#### Talking points — tool trace (Agent Tool Activity)
+
+- **One row per tool call:** Cursor uses `tool_call.call_id`; ADK must use `function_call_id`, not `invocation_id` (whole run). Prefix ADK ids with phase (`investigation:…`, `final_rca:…`) — same file holds A+C rows.
+- **Terminal vs UI:** `CallToolRequest` × N in uvicorn = MCP wire protocol; activity panel = `tool_trace.json` rows after adapter normalization.
+- **Phase C may show zero rows:** Prompt tells Gemini to use MCP only if investigation is insufficient; many runs skip tools in Phase C by design.
+- **Errors:** Completed MCP calls with error payloads show `status: error` when the SDK/ADK reports failure; MCP **server won't start** → 502 on `/phase2/run`, no trace row.
+- **Cursor MCP category:** `classify_tool_category()` uses the SDK `tool_name` as returned (e.g. `"mcp"` → MCP chip); `resolve_tool_identity()` is display-only.
+
 ---
 
 ## 14. Architecture tradeoffs — mentor Q&A (“why this, not that?”)
@@ -662,6 +671,7 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 | Topic | What we chose | Why | Why not the alternative | Code / config |
 |-------|---------------|-----|-------------------------|---------------|
 | **MongoDB profiler (`db.system.profile`)** | **Removed** — no upload API, MCP tool, schema field, or prompt mentions | Profiler caused Gemini hard-fails when MCP failed; out of scope vs FTDC + Hatchet logs | **Profiler upload + `get_profiler_samples`** — extra operator step; brittle when tool not registered | Profiler code deleted 2026-06-29; `parse_output.py` strips legacy `profiler_insights` |
+| **ADK tool trace call id** | **`function_call_id` per tool** in `after_tool_callback` | One activity row per MCP call, parity with Cursor `tool_*` ids | **`invocation_id`** — one id per agent run; dedup dropped 5 of 6 MCP rows | `tool_trace.adk_tool_trace_call_id`, `providers/adk/runner.py` |
 | **Agent tool loop** | **Cursor SDK** (and Gemini **ADK** for the `gemini` slot) runs ReAct; we implement MCP **servers** + evidence Facade only | Avoid duplicating JSON-RPC tool loop, subprocess lifecycle, and sandbox in Python; swap providers via `LLMProvider` | **LangGraph / custom ReAct in Python** — more control but high build cost; we’d re-own what Cursor/ADK already ship | `cursor_provider.py`, `gemini_adk_provider.py`, §13.16–§13.17 |
 | **Workflow shape** | Fixed **3-phase** template in `service.py` (A investigate → B clarify once → C final RCA) | Predictable ops flow, separate tool budgets, human gate only after tools run | **Open-ended chat RCA** or **dynamic supervisor** — harder to demo, budget blow-ups, unclear “done” | `service.py`, `PHASE2_*_MAX_TOOL_CALLS` |
 | **Multi-agent orchestration** | **Not built** — one reasoning brain per incident per phase | Single upload, deep RCA; tier-1 + one investigation pass usually enough | **Parallel specialist agents + verifier graph** — cost/latency; defer unless eval shows single-agent misses signals | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Multi-agent; prefer **deterministic verifier** first |
@@ -671,7 +681,7 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 | **Web research tool** | Shared **`web_fetch`** — SSRF-safe HTTPS, size/timeout caps (`PHASE2_WEB_FETCH_*`) for Cursor + Gemini | One policy, one audit category (`web` in tool trace), operator-trustable allowlist behavior | **Gemini `GoogleSearchTool` only** — provider-specific, harder to align with Cursor; removed from ADK tool list | `web_fetch.py` |
 | **Operator skill catalog** | **Skill WorkArea** — ZIP upload by slot name; attach **entire catalog** on every tool phase; Cursor `copytree` + `setting_sources=["project"]`; ADK `SkillToolset` | Skills are playbooks, not MCP tools; provider-native attachment avoids prompt injection | **Prompt injection**; **run-page skill checkboxes** for attach-all policy | `skills/registry.py`, `/skill-workarea` |
 | **ADK MCP attachment** | Native **`McpToolset`** via `to_adk_mcp_toolsets()`; **`mcp/client.py` deleted** | ADK owns MCP lifecycle; same specs as Cursor | **Custom `ClientSessionGroup` bridge** — duplicate lifecycle glue | `mcp/registry.py`, `providers/adk/runner.py` |
-| **Operator MCP connectors** | Disk registry + **MCP WorkArea** UI; **stateless** run-page checkboxes → `enabled_mcp_ids` on Phase A/C for **both** Cursor and ADK via `build_mcp_server_specs` | Operators attach GitHub/HTTP MCPs without code changes; explicit opt-in per run; `simagix-evidence` always locked on | **Saved defaults / env-only MCP list** — hides what ran; **free-form stdio commands** — unsafe; **Cursor-only WorkArea** — ADK could not use operator MCPs | `mcp/connectors.py`, `mcp/registry.py`, `api/mcp_connectors.py`, `/mcp-workarea` |
+| **Operator MCP connectors** | Disk registry + **MCP WorkArea** UI; **stateless** run-page checkboxes → `enabled_mcp_ids` on Phase A/C/**chatbot** for **both** Cursor and ADK via `build_mcp_server_specs` | Operators attach GitHub/HTTP MCPs without code changes; explicit opt-in per run/message; `simagix-evidence` always locked on; **separate panels** on Investigation vs Chatbot tab | **Saved defaults / env-only MCP list** — hides what ran; **free-form stdio commands** — unsafe; **Cursor-only WorkArea** — ADK could not use operator MCPs; **persisting chatbot MCP selection** — checkbox state is read at send time only; **sharing Investigation checkboxes with chatbot** — forces tab switching | `mcp/connectors.py`, `mcp/registry.py`, `api/mcp_connectors.py`, `/mcp-workarea`, `rca.js`, `agent-chat.js` |
 | **ADK in-process evidence tools (v1, superseded)** | Was **`adk_evidence_tools.py`**; **file deleted** — ADK uses shared MCP servers | Faster local dev before unify | **Permanent duplicate** vs `@mcp.tool` servers | `mcp/servers/` |
 | **Provider file split (Cursor vs ADK)** | **`providers/cursor`**, **`providers/adk`**, **`providers/mock`**; shared **`mcp/`** tree | Names layers; ADK runner testable without JSON parse; one registry for all providers | **Flat llm/*.py forever** — harder navigation as providers grow | `providers/`, `mcp/`, §13.18 |
 | **Unified MCP tool surface** | **`mcp/servers/*.py`** as single `@mcp.tool` source; **`mcp/registry.py`** + native **`McpToolset`** for ADK; Cursor SDK as client; **`adk_evidence_tools` deleted** | WorkArea + graylog + hatchet parity across providers; one place to add tools; OpenAI slot can reuse registry | **Keep ADK in-process forever** — duplicate tool surfaces; **per-provider tool modules** — drift | `mcp/`, `providers/`, [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout |

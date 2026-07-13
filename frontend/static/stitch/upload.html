@@ -223,7 +223,7 @@ What happens next
 <!-- Security Box -->
 <div class="bg-primary-container/40 rounded-xl p-5 flex gap-4 items-start border border-primary/10">
 <span class="material-symbols-outlined text-primary mt-0.5">shield_lock</span>
-<p class="text-sm text-on-surface-variant leading-relaxed">Uploads stay on your workspace disk; Phase 1 decode runs locally via the pipeline worker.</p>
+<p class="text-sm text-on-surface-variant leading-relaxed">Runs stay on your workspace disk; Phase 1 decode runs locally via the pipeline worker.</p>
 </div>
 <!-- Decorative Image -->
 <div class="rounded-xl overflow-hidden shadow-sm h-48 border border-outline-variant/50 relative bg-surface-container">
@@ -233,6 +233,8 @@ What happens next
 </div>
 </main>
 <div id="mdb-stitch-footer-mount"></div>
+<script src="/static/js/api-error-text.js"></script>
+<script src="/static/js/page-data.js"></script>
 <script>
 (function () {
   const fileInput = document.getElementById('file-input');
@@ -287,32 +289,43 @@ What happens next
 
     try {
       const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
-      let body;
-      try {
-        body = await resp.json();
-      } catch {
-        statusEl.textContent = 'Upload failed: server returned ' + resp.status + ' (non-JSON response)';
+      const { data: body, text } = window.MdbVerbatimError
+        ? await window.MdbVerbatimError.readResponseBody(resp)
+        : { data: null, text: '' };
+      if (!resp.ok) {
+        const detail = window.MdbVerbatimError
+          ? window.MdbVerbatimError.errorFromBody(resp, body, text, 'Upload failed')
+          : (body?.detail || text || 'Upload failed');
+        statusEl.textContent = detail;
         return;
       }
-      if (!resp.ok) {
-        const detail = Array.isArray(body.detail)
-          ? body.detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
-          : (body.detail || 'Upload failed');
-        statusEl.textContent = 'Error: ' + detail;
+      if (!body?.run_id || !body?.job_id) {
+        statusEl.textContent = text.trim() || 'Upload failed: invalid response';
         return;
       }
 
       statusEl.textContent = 'Phase 1 queued for ' + body.run_id + '. Polling decode…';
       const poll = window.setInterval(async () => {
-        const job = await fetch('/simagix/uploads/jobs/' + body.job_id).then((r) => r.json());
-        statusEl.textContent = 'Phase 1 ' + job.state + ': ' + job.message;
-        if (job.state === 'succeeded') {
+        try {
+          const job = await window.MdbPageData.fetchJob(body.job_id);
+          statusEl.textContent = 'Phase 1 ' + job.state + ': ' + (job.message || '');
+          if (job.state === 'succeeded') {
+            window.clearInterval(poll);
+            window.top.location.href = '/runs/' + body.run_id;
+          }
+          if (job.state === 'failed') {
+            window.clearInterval(poll);
+            const errEl = document.createElement('pre');
+            errEl.className = 'text-sm text-red-800 mt-2 font-mono whitespace-pre-wrap break-words';
+            errEl.textContent = job.error || job.message || 'Phase 1 failed';
+            statusEl.replaceChildren(errEl);
+          }
+        } catch (err) {
           window.clearInterval(poll);
-          window.top.location.href = '/runs/' + body.run_id;
-        }
-        if (job.state === 'failed') {
-          window.clearInterval(poll);
-          statusEl.textContent = 'Phase 1 failed: ' + (job.error || job.message);
+          const errEl = document.createElement('pre');
+          errEl.className = 'text-sm text-red-800 mt-2 font-mono whitespace-pre-wrap break-words';
+          errEl.textContent = err instanceof Error ? err.message : String(err);
+          statusEl.replaceChildren(errEl);
         }
       }, 3000);
     } catch (err) {

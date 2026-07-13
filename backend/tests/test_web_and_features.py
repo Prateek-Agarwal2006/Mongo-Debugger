@@ -16,6 +16,7 @@ from backend.app.simagix.llm.service import (
     run_investigation,
 )
 from backend.app.simagix.evidence_service import SimagixEvidenceService
+from backend.tests.fixture_paths import FAKE_FTDC_METRICS
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_RUN_ID = "phase1test20260609T133314Z"
@@ -150,7 +151,7 @@ def test_html_report_view(client: TestClient) -> None:
 def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr("metrics.2026-06-10T00-00-00Z-00000", b"fake-ftdc-content")
+        zf.writestr("metrics.2026-06-10T00-00-00Z-00000", FAKE_FTDC_METRICS.read_bytes())
     buf.seek(0)
 
     with patch("backend.app.api.upload.FileJobQueue.enqueue") as mock_enqueue:

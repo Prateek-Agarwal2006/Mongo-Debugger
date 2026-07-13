@@ -19,6 +19,8 @@ _FRONTMATTER_DESC_RE = re.compile(
     r"^---\s*\n.*?^description:\s*(.+?)\s*$",
     re.MULTILINE | re.DOTALL,
 )
+_FRONTMATTER_BLOCK_RE = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
+_FRONTMATTER_NAME_LINE_RE = re.compile(r"^name:\s*.+\s*$", re.MULTILINE)
 
 
 def operator_skills_dir(workspace_root: Path) -> Path:
@@ -100,6 +102,26 @@ def _safe_extract_zip(archive: bytes, dest_dir: Path) -> None:
         raise ValueError("Invalid zip archive") from exc
 
 
+def _sync_skill_frontmatter_name(slot_dir: Path, slot_name: str) -> None:
+    """ADK/Cursor require SKILL.md `name:` to match the slot directory name."""
+    skill_md = _find_skill_markdown(slot_dir)
+    if skill_md is None:
+        return
+    text = skill_md.read_text(encoding="utf-8")
+    match = _FRONTMATTER_BLOCK_RE.match(text)
+    if match:
+        body = match.group(1)
+        rest = text[match.end() :]
+        if _FRONTMATTER_NAME_LINE_RE.search(body):
+            body = _FRONTMATTER_NAME_LINE_RE.sub(f"name: {slot_name}", body, count=1)
+        else:
+            body = f"name: {slot_name}\n{body}"
+        text = f"---\n{body}\n---{rest}"
+    else:
+        text = f"---\nname: {slot_name}\ndescription: Operator skill\n---\n{text}"
+    skill_md.write_text(text, encoding="utf-8")
+
+
 def list_skill_dirs(workspace_root: Path) -> list[dict[str, Any]]:
     root = operator_skills_dir(workspace_root)
     if not root.is_dir():
@@ -136,6 +158,8 @@ def upload_skill_zip(workspace_root: Path, slot_name: str, archive: bytes) -> di
         if slot_dir.exists():
             shutil.rmtree(slot_dir)
         shutil.copytree(skill_root, slot_dir)
+
+    _sync_skill_frontmatter_name(slot_dir, normalized)
 
     return {
         "slot_name": normalized,

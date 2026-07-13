@@ -96,6 +96,14 @@ def run_pipeline_status(request: Request, run_id: str) -> HTMLResponse:
         status = pipeline_display_status(workspace, job)
     elif (workspace.resolve_exports_dir(run_id) / "manifest.json").exists():
         status = "finished"
+    page_payload = {
+        "page": "pipeline",
+        "run_id": run_id,
+        "pipeline_status": status,
+        "job_id": job.job_id if job else None,
+        "job_message": job.message if job else None,
+        "upload_time_utc": upload_time_utc_from_run_id(run_id),
+    }
     return templates.TemplateResponse(
         request,
         "run_pipeline.html",
@@ -105,6 +113,7 @@ def run_pipeline_status(request: Request, run_id: str) -> HTMLResponse:
             "phase1_status": status,
             "job": job.to_dict() if job else None,
             "job_id": job.job_id if job else None,
+            "page_payload": page_payload,
             "phase1_attempts": [attempt.to_dict() for attempt in list_phase1_attempts(workspace.root, run_id)],
             "upload_time_utc": upload_time_utc_from_run_id(run_id),
         },

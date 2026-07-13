@@ -279,6 +279,7 @@ def test_resolve_tool_identity_operator_http_mcp() -> None:
     assert name == "local-test-http/test_ping"
     assert server == "local-test-http"
     assert classify_tool_category("mcp", {"toolName": "test_ping", "providerIdentifier": "local-test-http"}) == "mcp"
+    assert classify_tool_category("mcp", {"toolName": "echo", "providerIdentifier": "dummy_test"}) == "mcp"
 
 
 def test_resolve_tool_identity_prefixed_operator_tool() -> None:
@@ -573,6 +574,37 @@ def test_chatbot_api_mock(fixture_run_id: str) -> None:
     assert "root cause" in body["message"]["content"].lower()
     after = client.get(f"/simagix/runs/{fixture_run_id}/phase2/chatbot?llm=mock")
     assert len(after.json()["messages"]) == 2
+
+
+def test_chatbot_enabled_mcp_ids_passthrough(
+    fixture_run_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = TestClient(create_app())
+    _complete_mock_rca(client, fixture_run_id)
+    chat_path = _mock_session_dir(fixture_run_id) / "chatbot_chat.json"
+    if chat_path.exists():
+        chat_path.unlink()
+    phase2_session_store.reset(fixture_run_id, "mock")
+
+    captured: dict[str, object] = {}
+    original = MockLLMProvider.run_chatbot
+
+    def spy(self, session, user_message, *, enabled_mcp_ids=None):
+        captured["enabled_mcp_ids"] = enabled_mcp_ids
+        return original(self, session, user_message, enabled_mcp_ids=enabled_mcp_ids)
+
+    monkeypatch.setattr(MockLLMProvider, "run_chatbot", spy)
+
+    post = client.post(
+        f"/simagix/runs/{fixture_run_id}/phase2/chatbot/messages?llm=mock",
+        json={"content": "What is the root cause?", "enabled_mcp_ids": ["github-prod"]},
+    )
+    assert post.status_code == 200
+    assert captured.get("enabled_mcp_ids") == ["github-prod"]
+    saved = json.loads(chat_path.read_text(encoding="utf-8"))
+    for msg in saved.get("messages", []):
+        assert "enabled_mcp_ids" not in msg
+    assert "enabled_mcp_ids" not in saved
 
 
 def test_chatbot_attachment_upload_and_message(fixture_run_id: str) -> None:

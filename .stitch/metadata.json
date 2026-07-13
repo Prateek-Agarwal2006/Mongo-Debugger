@@ -1,0 +1,40 @@
+{
+  "projectId": "17805132687550021616",
+  "title": "Mongo Debugger Modern",
+  "designSystemId": "assets/10122152001253465519",
+  "designSystemName": "Mongo Debugger Claude",
+  "theme": {
+    "background": "#FAF9F5",
+    "accent": "#C96442",
+    "font": "Public Sans",
+    "colorMode": "LIGHT",
+    "roundness": "ROUND_EIGHT"
+  },
+  "screens": [
+    {
+      "slug": "home",
+      "title": "Mongo Debugger Landing Page",
+      "screenId": "12ee9b7e362d402b907dfd689ee3e3c2",
+      "name": "projects/17805132687550021616/screens/12ee9b7e362d402b907dfd689ee3e3c2"
+    },
+    {
+      "slug": "uploads",
+      "title": "Analysis Runs Listing",
+      "screenId": "f251e5cf25434916baa36cc5ab9ef16b",
+      "name": "projects/17805132687550021616/screens/f251e5cf25434916baa36cc5ab9ef16b"
+    },
+    {
+      "slug": "upload",
+      "title": "Upload Logs",
+      "screenId": "b49038ef4ba748cbb286582b6306a5dc",
+      "name": "projects/17805132687550021616/screens/b49038ef4ba748cbb286582b6306a5dc"
+    },
+    {
+      "slug": "results",
+      "title": "Analysis Results Detail",
+      "screenId": "9edc184335cb480c96c0b3f6ac6207c2",
+      "name": "projects/17805132687550021616/screens/9edc184335cb480c96c0b3f6ac6207c2"
+    }
+  ],
+  "stitchUrl": "https://stitch.withgoogle.com"
+}

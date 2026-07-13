@@ -22,6 +22,7 @@ function isStitchClarifyWizard() {
 function getWizardEls() {
   return {
     form: document.getElementById("clarify-form"),
+    actions: document.getElementById("clarify-actions"),
     container: document.getElementById("questions-container"),
     progress: document.getElementById("clarify-progress"),
     prevBtn: document.getElementById("clarify-prev"),
@@ -30,6 +31,15 @@ function getWizardEls() {
     submitBtn: document.getElementById("clarify-submit"),
     textarea: document.getElementById("clarify-answer-input"),
   };
+}
+
+/** setSubmitting(true) hides the whole action bar; show/hide must restore it for the next Phase B. */
+function resetClarifyActions() {
+  const { actions, prevBtn, skipBtn, nextBtn, submitBtn } = getWizardEls();
+  setElVisible(actions, true);
+  [prevBtn, skipBtn, nextBtn, submitBtn].forEach((btn) => {
+    if (btn) btn.disabled = false;
+  });
 }
 
 function currentQuestion() {
@@ -145,6 +155,7 @@ function showClarifyWizard(questions, existingAnswers = {}) {
   wizardIndex = 0;
   wizardAnswers = { ...existingAnswers };
 
+  resetClarifyActions();
   setElVisible(form, true);
   renderWizardCard();
 }
@@ -155,6 +166,7 @@ function hideClarifyWizard() {
     setElVisible(form, false);
     delete form.dataset.submitting;
   }
+  resetClarifyActions();
   wizardQuestions = [];
   wizardIndex = 0;
   wizardAnswers = {};
@@ -191,8 +203,7 @@ function setSubmitting(busy) {
   }
 
   delete form.dataset.submitting;
-  const actions = document.getElementById("clarify-actions");
-  setElVisible(actions, true);
+  resetClarifyActions();
   renderWizardCard();
 }
 
@@ -221,8 +232,8 @@ function initClarifyWizard() {
     if (q) wizardAnswers[q.id] = "";
     if (wizardIndex < wizardQuestions.length - 1) {
       wizardIndex += 1;
-      renderWizardCard();
     }
+    renderWizardCard();
   });
 
   nextBtn?.addEventListener("click", () => {
@@ -234,12 +245,24 @@ function initClarifyWizard() {
   });
 }
 
+/** ponytail: browser-console check — FtdcClarifyWizard._selfCheck() */
+function _clarifyWizardSelfCheck() {
+  const probe = document.createElement("div");
+  probe.classList.add("hidden");
+  probe.hidden = true;
+  setElVisible(probe, true);
+  const ok = !probe.hidden && !probe.classList.contains("hidden");
+  probe.remove();
+  return ok;
+}
+
 window.FtdcClarifyWizard = {
   show: showClarifyWizard,
   hide: hideClarifyWizard,
   collectAnswers: collectWizardAnswers,
   setSubmitting,
   init: initClarifyWizard,
+  _selfCheck: _clarifyWizardSelfCheck,
 };
 
 if (document.readyState === "loading") {

@@ -6,7 +6,7 @@
     {
       key: "uploads",
       href: "/runs",
-      label: "Uploads",
+      label: "Runs",
       match: (path) => path === "/runs" || path.startsWith("/runs/"),
     },
     {

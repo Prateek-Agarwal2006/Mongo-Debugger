@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Uploads — FTDC Analyzer{% endblock %}
+{% block title %}Runs — FTDC Analyzer{% endblock %}
 {% block body_class %}mdb-modern-page{% endblock %}
 {% block page_data %}{"page":"runs","runs":{{ run_entries | tojson }}}{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
   <div>
-    <h1 class="h2 mb-1"><i class="bi bi-collection me-2 text-success"></i>Uploads &amp; analyses</h1>
+    <h1 class="h2 mb-1"><i class="bi bi-collection me-2 text-success"></i>Runs &amp; analyses</h1>
     <p class="text-secondary mb-0">Each row is one upload — <strong>Phase 1</strong> decode/export, then optional <strong>Phase 2</strong> run analysis (LLM RCA)</p>
   </div>
   <a class="btn btn-success btn-glow" href="/upload"><i class="bi bi-cloud-upload me-2"></i>New upload</a>
@@ -20,7 +20,7 @@
     {% else %}
     <div class="p-5 text-center text-secondary">
       <i class="bi bi-folder2-open display-4 d-block mb-3 opacity-50"></i>
-      <p class="mb-3">No uploads found yet.</p>
+      <p class="mb-3">No runs found yet.</p>
       <a class="btn btn-success btn-glow" href="/upload">Upload your first FTDC archive</a>
     </div>
     {% endif %}

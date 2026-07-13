@@ -91,18 +91,41 @@ function normalizeMessages(payload) {
   }));
 }
 
+function isStitchAvatarChat() {
+  return Boolean(document.querySelector(".agent-chat-stitch--rca"));
+}
+
 function attachmentsHtml(attachments) {
   if (!attachments?.length) return "";
+  const icon = isStitchAvatarChat()
+    ? '<span class="material-symbols-outlined agent-chat-attachment-icon" aria-hidden="true">attach_file</span>'
+    : '<i class="bi bi-paperclip me-1" aria-hidden="true"></i>';
   const pills = attachments
     .map(
       (a) =>
-        `<span class="agent-chat-attachment-pill" title="${escapeChat(a.path || "")}"><i class="bi bi-paperclip me-1" aria-hidden="true"></i>${escapeChat(a.name || "file")}</span>`
+        `<span class="agent-chat-attachment-pill" title="${escapeChat(a.path || "")}">${icon}${escapeChat(a.name || "file")}</span>`
     )
     .join("");
   return `<div class="agent-chat-attachments">${pills}</div>`;
 }
 
 function loadingBubbleHtml() {
+  if (isStitchAvatarChat()) {
+    return `<div class="agent-chat-row agent-chat-row--assistant agent-chat-bubble--loading" aria-live="polite" aria-busy="true">
+        <div class="agent-chat-row__avatar agent-chat-row__avatar--bot">
+          <span class="material-symbols-outlined text-sm">smart_toy</span>
+        </div>
+        <div class="agent-chat-row__bubble agent-chat-row__bubble--assistant">
+          <div class="agent-chat-generating">
+            <span class="material-symbols-outlined text-sm agent-chat-generating__spin">sync</span>
+            <span>Generating…</span>
+          </div>
+          <div class="agent-chat-generating__dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>`;
+  }
   return `<div class="agent-chat-bubble agent-chat-bubble--assistant agent-chat-bubble--loading" aria-live="polite" aria-busy="true">
         <span class="agent-chat-role">Assistant</span>
         <div class="agent-chat-generating">
@@ -114,6 +137,22 @@ function loadingBubbleHtml() {
 
 function assistantBubbleHtml(m, idx) {
   const body = wrapTables(renderMarkdown(m.text));
+  if (isStitchAvatarChat()) {
+    return `<div class="agent-chat-row agent-chat-row--assistant">
+        <div class="agent-chat-row__avatar agent-chat-row__avatar--bot">
+          <span class="material-symbols-outlined text-sm">smart_toy</span>
+        </div>
+        <div class="agent-chat-row__bubble agent-chat-row__bubble--assistant">
+          <div class="agent-chat-bubble-actions">
+            <button type="button" class="agent-chat-copy-btn" data-copy-index="${idx}" aria-label="Copy response">
+              <span class="material-symbols-outlined text-sm">content_copy</span>
+              <span class="agent-chat-copy-label">Copy</span>
+            </button>
+          </div>
+          <div class="agent-chat-md">${body}</div>
+        </div>
+      </div>`;
+  }
   return `<div class="agent-chat-bubble agent-chat-bubble--assistant">
         <div class="agent-chat-bubble-actions">
           <span class="agent-chat-role">Assistant</span>
@@ -129,6 +168,17 @@ function userBubbleHtml(m) {
   const textBlock = m.text
     ? `<div class="agent-chat-text">${escapeChat(m.text).replace(/\n/g, "<br>")}</div>`
     : "";
+  if (isStitchAvatarChat()) {
+    return `<div class="agent-chat-row agent-chat-row--user">
+        <div class="agent-chat-row__bubble agent-chat-row__bubble--user">
+          ${textBlock}
+          ${attachmentsHtml(m.attachments)}
+        </div>
+        <div class="agent-chat-row__avatar agent-chat-row__avatar--user">
+          <span class="material-symbols-outlined text-sm">person</span>
+        </div>
+      </div>`;
+  }
   return `<div class="agent-chat-bubble agent-chat-bubble--user">
         <span class="agent-chat-role">You</span>
         ${textBlock}
@@ -140,8 +190,9 @@ async function renderMessages(messages, { generating = false } = {}) {
   const log = document.getElementById("agent-chat-log");
   if (!log) return;
   if (!messages.length && !generating) {
-    log.innerHTML =
-      '<p class="text-secondary small mb-0">Ask about the report or attach a file.</p>';
+    log.innerHTML = isStitchAvatarChat()
+      ? '<p class="agent-chat-empty">Ask about the report or attach a file.</p>'
+      : '<p class="text-secondary small mb-0">Ask about the report or attach a file.</p>';
     return;
   }
   const bubbles = messages
@@ -224,12 +275,14 @@ async function copyMessageText(index, button) {
   }
   const label = button.querySelector(".agent-chat-copy-label");
   const icon = button.querySelector(".bi");
+  const materialIcon = button.querySelector(".material-symbols-outlined");
   button.classList.add("agent-chat-copy-btn--copied");
   if (label) label.textContent = "Copied!";
   if (icon) {
     icon.classList.remove("bi-clipboard");
     icon.classList.add("bi-check2");
   }
+  if (materialIcon) materialIcon.textContent = "check";
   window.setTimeout(() => {
     button.classList.remove("agent-chat-copy-btn--copied");
     if (label) label.textContent = "Copy";
@@ -237,6 +290,7 @@ async function copyMessageText(index, button) {
       icon.classList.add("bi-clipboard");
       icon.classList.remove("bi-check2");
     }
+    if (materialIcon) materialIcon.textContent = "content_copy";
   }, 2000);
 }
 
@@ -295,9 +349,15 @@ async function uploadChatAttachment(file) {
     `/simagix/runs/${chatRunId}/phase2/chatbot/attachments?llm=${encodeURIComponent(llm)}`,
     { method: "POST", body: form }
   );
-  const data = await resp.json().catch(() => ({}));
+  const { data, text } = window.MdbVerbatimError
+    ? await window.MdbVerbatimError.readResponseBody(resp)
+    : { data: await resp.json().catch(() => null), text: "" };
   if (!resp.ok) {
-    throw new Error(data.detail || `Failed to upload ${file.name}`);
+    throw new Error(
+      window.MdbVerbatimError
+        ? window.MdbVerbatimError.errorFromBody(resp, data, text, `Failed to upload ${file.name}`)
+        : data?.detail || text || `Failed to upload ${file.name}`
+    );
   }
   return { name: data.name, path: data.path, size: data.size };
 }
@@ -322,17 +382,31 @@ async function sendChatMessage(text, files = []) {
       uploaded.push(await uploadChatAttachment(file));
     }
 
+    const enabledMcpIds =
+      window.FtdcRca && typeof window.FtdcRca.selectedChatbotMcpIds === "function"
+        ? window.FtdcRca.selectedChatbotMcpIds()
+        : [];
     const resp = await fetch(
       `/simagix/runs/${chatRunId}/phase2/chatbot/messages?llm=${encodeURIComponent(llm)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, attachments: uploaded }),
+        body: JSON.stringify({
+          content,
+          attachments: uploaded,
+          enabled_mcp_ids: enabledMcpIds,
+        }),
       }
     );
-    const data = await resp.json().catch(() => ({}));
+    const { data, text } = window.MdbVerbatimError
+      ? await window.MdbVerbatimError.readResponseBody(resp)
+      : { data: await resp.json().catch(() => null), text: "" };
     if (!resp.ok) {
-      throw new Error(data.detail || "Chatbot request failed");
+      throw new Error(
+        window.MdbVerbatimError
+          ? window.MdbVerbatimError.errorFromBody(resp, data, text, "Chatbot request failed")
+          : data?.detail || text || "Chatbot request failed"
+      );
     }
 
     pendingFiles = [];
@@ -352,6 +426,57 @@ async function sendChatMessage(text, files = []) {
 function showChatPanel(show) {
   const panel = document.getElementById("agent-chat-panel");
   if (panel) panel.hidden = !show;
+  if (!show) setChatbotMcpPickerOpen(false);
+}
+
+function isStitchChatPage() {
+  return Boolean(document.getElementById("btn-chatbot"));
+}
+
+function setChatbotMcpPickerOpen(open) {
+  const inline = document.getElementById("chatbot-mcp-panel");
+  const modal = document.getElementById("chatbot-mcp-modal");
+  const btn = document.getElementById("agent-chat-mcp-btn");
+  const target = inline || modal;
+  if (!target) return;
+
+  target.hidden = !open;
+  target.setAttribute("aria-hidden", open ? "false" : "true");
+  if (inline) {
+    inline.classList.toggle("hidden", !open);
+  } else if (isStitchChatPage()) {
+    modal.classList.toggle("hidden", !open);
+    document.body.classList.toggle("chatbot-mcp-modal-open", open);
+  } else {
+    document.body.classList.toggle("chatbot-mcp-modal-open", open);
+  }
+  btn?.setAttribute("aria-expanded", open ? "true" : "false");
+  btn?.classList.toggle("is-active", open);
+}
+
+function bindChatbotMcpPicker() {
+  const mcpBtn = document.getElementById("agent-chat-mcp-btn");
+  const mcpClose = document.getElementById("chatbot-mcp-close");
+  const mcpBackdrop = document.getElementById("chatbot-mcp-backdrop");
+  const inline = document.getElementById("chatbot-mcp-panel");
+  const modal = document.getElementById("chatbot-mcp-modal");
+  const target = inline || modal;
+  if (!mcpBtn || !target || mcpBtn.dataset.mcpBound === "1") return;
+  mcpBtn.dataset.mcpBound = "1";
+
+  mcpBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    setChatbotMcpPickerOpen(Boolean(target.hidden));
+  });
+  mcpClose?.addEventListener("click", (e) => {
+    e.preventDefault();
+    setChatbotMcpPickerOpen(false);
+  });
+  mcpBackdrop?.addEventListener("click", () => setChatbotMcpPickerOpen(false));
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || target.hidden) return;
+    setChatbotMcpPickerOpen(false);
+  });
 }
 
 function bindAgentChatComposer() {
@@ -365,6 +490,7 @@ function bindAgentChatComposer() {
   if (!form || !fileInput) return;
 
   composerBound = true;
+  bindChatbotMcpPicker();
 
   log?.addEventListener("click", (e) => {
     const btn = e.target.closest(".agent-chat-copy-btn");
@@ -404,6 +530,13 @@ function bindAgentChatComposer() {
     fileInput.value = "";
   });
 
+  input?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    if (chatLoading || input.disabled) return;
+    form.requestSubmit();
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!input) return;
@@ -440,6 +573,7 @@ function onRcaCompleted(getLlm) {
 
 function onRcaReset() {
   showChatPanel(false);
+  setChatbotMcpPickerOpen(false);
   pendingFiles = [];
   renderPendingFiles();
   showFileError("");

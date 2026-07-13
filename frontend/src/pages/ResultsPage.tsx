@@ -181,7 +181,7 @@ export default function ResultsPage({
       <nav className="flex text-xs font-medium text-on-surface-variant mb-4 uppercase tracking-wider">
         <a href="/" className="hover:text-on-surface">Home</a>
         <span className="mx-2 text-outline-variant">/</span>
-        <a href="/runs" className="hover:text-on-surface">Uploads</a>
+        <a href="/runs" className="hover:text-on-surface">Runs</a>
         <span className="mx-2 text-outline-variant">/</span>
         <span className="text-accent-terracotta">Analysis Results</span>
       </nav>

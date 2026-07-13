@@ -1,3 +1,13 @@
+/** Stitch uses Tailwind `class="hidden"`; classic uses the `hidden` attribute — toggle both. */
+function setGrafanaElVisible(el, visible) {
+  if (!el) return;
+  el.hidden = !visible;
+  el.classList.toggle('hidden', !visible);
+  if (visible) {
+    el.removeAttribute('disabled');
+  }
+}
+
 window.FtdcGrafana = {
   _loadInFlight: null,
   _openLinksBound: false,
@@ -57,10 +67,8 @@ window.FtdcGrafana = {
     if (!anomalyLink || !allLink) return;
     anomalyLink.dataset.grafanaUrl = anomalyUrl;
     allLink.dataset.grafanaUrl = allUrl;
-    anomalyLink.hidden = false;
-    allLink.hidden = false;
-    anomalyLink.disabled = false;
-    allLink.disabled = false;
+    setGrafanaElVisible(anomalyLink, true);
+    setGrafanaElVisible(allLink, true);
   },
 
   async init(runId) {
@@ -123,7 +131,7 @@ window.FtdcGrafana = {
     const metrics = (data.anomaly_metrics || []).join(', ') || 'n/a';
     const meta = document.getElementById('grafana-meta');
     if (!meta) return;
-    meta.hidden = false;
+    setGrafanaElVisible(meta, true);
     meta.textContent =
       `Anomaly window: ${data.anomaly_window?.from} → ${data.anomaly_window?.to} | Metrics: ${metrics}`;
   },
@@ -174,7 +182,8 @@ window.FtdcGrafana = {
 
     const metrics = (data.anomaly_metrics || []).join(', ') || 'n/a';
     const meta = document.getElementById('grafana-meta');
-    meta.hidden = false;
+    if (!meta) return;
+    setGrafanaElVisible(meta, true);
     meta.textContent =
       `Anomaly window: ${data.anomaly_window?.from} → ${data.anomaly_window?.to} | Metrics: ${metrics}`;
   },

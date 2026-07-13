@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Analysis Runs | Mongo Debugger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#ede0dc",
+                        "on-tertiary": "#fff7f7",
+                        "inverse-surface": "#0d0f0d",
+                        "surface-variant": "#e0e4dc",
+                        "on-error": "#fff7f6",
+                        "primary-dim": "#5f4f4a",
+                        "background": "#faf9f5",
+                        "on-primary": "#fff6f3",
+                        "inverse-on-surface": "#9d9d9a",
+                        "surface-container-low": "#f4f4ef",
+                        "tertiary-container": "#ffcdd7",
+                        "surface-dim": "#d7dcd2",
+                        "on-primary-fixed": "#4b3c37",
+                        "error-dim": "#4e0309",
+                        "primary-fixed-dim": "#e6d0c9",
+                        "on-secondary-container": "#58504d",
+                        "on-background": "#2f342e",
+                        "secondary-dim": "#5a514f",
+                        "secondary": "#665d5b",
+                        "on-secondary": "#fff7f5",
+                        "inverse-primary": "#fee6df",
+                        "primary": "#6b5b56",
+                        "brand-primary": "#C96442",
+                        "error": "#9f403d",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#2f342e",
+                        "surface-container": "#edeee8",
+                        "primary-fixed": "#f5ded7",
+                        "on-tertiary-fixed": "#513038",
+                        "secondary-fixed-dim": "#ded2ce",
+                        "tertiary": "#7b555d",
+                        "on-secondary-fixed": "#453e3b",
+                        "on-primary-container": "#5e4e49",
+                        "surface": "#faf9f5",
+                        "on-error-container": "#752121",
+                        "on-primary-fixed-variant": "#685853",
+                        "outline-variant": "#afb3ac",
+                        "on-surface-variant": "#5c605a",
+                        "surface-container-high": "#e6e9e2",
+                        "tertiary-fixed": "#ffcdd7",
+                        "on-secondary-fixed-variant": "#625a57",
+                        "tertiary-fixed-dim": "#f0c0c9",
+                        "on-tertiary-fixed-variant": "#714c54",
+                        "primary-container": "#f5ded7",
+                        "on-tertiary-container": "#66434b",
+                        "surface-bright": "#faf9f5",
+                        "tertiary-dim": "#6e4951",
+                        "outline": "#787c75",
+                        "surface-tint": "#6b5b56",
+                        "surface-container-highest": "#e0e4dc",
+                        "secondary-container": "#ede0dc",
+                        "error-container": "#fe8983"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans"],
+                        "display": ["Public Sans"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .status-spinner {
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar Component -->
+<nav class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/30">
+<div class="flex justify-between items-center h-16 px-6 lg:px-12 max-w-7xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-headline font-bold text-on-surface">Mongo Debugger</span>
+<div class="hidden md:flex items-center gap-6 font-body text-label-large">
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 ease-in-out" href="#">Home</a>
+<a class="text-primary font-semibold border-b-2 border-brand-primary pb-1 transition-colors duration-200 ease-in-out" href="#">Uploads</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-200 ease-in-out" href="#">Upload</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-5 py-2 rounded-lg bg-primary-container/20 text-primary font-medium hover:bg-primary-container/30 transition-all duration-200 ease-in-out">
+                    Start analysis
+                </button>
+</div>
+</div>
+</nav>
+<main class="pt-24 pb-16 min-h-screen max-w-7xl mx-auto px-6 lg:px-12">
+<!-- Page Title Bar -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+<div class="space-y-2">
+<h1 class="text-4xl font-headline font-extrabold tracking-tight text-on-surface">Analysis runs</h1>
+<p class="text-on-surface-variant text-lg max-w-2xl">Track and manage your past root cause analysis pipelines.</p>
+</div>
+<button class="flex items-center justify-center gap-2 px-6 py-3 bg-[#C96442] hover:bg-[#b35638] text-white font-semibold rounded-lg shadow-sm transition-all transform active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]">upload</span>
+                New upload
+            </button>
+</div>
+<!-- Primary Content Area: Data Table -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant/30">
+<th class="px-6 py-4 text-label-medium font-bold text-on-surface-variant uppercase tracking-wider">Run ID</th>
+<th class="px-6 py-4 text-label-medium font-bold text-on-surface-variant uppercase tracking-wider">Uploaded</th>
+<th class="px-6 py-4 text-label-medium font-bold text-on-surface-variant uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-label-medium font-bold text-on-surface-variant uppercase tracking-wider">Phase</th>
+<th class="px-6 py-4 text-label-medium font-bold text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20">
+<!-- Row 1 -->
+<tr class="group hover:bg-surface-container/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm text-on-surface font-medium">RUN-082</td>
+<td class="px-6 py-5 text-on-surface-variant">2 hours ago</td>
+<td class="px-6 py-5">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-tight">
+<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                    Complete
+                                </div>
+</td>
+<td class="px-6 py-5 text-on-surface">Phase C Report</td>
+<td class="px-6 py-5 text-right space-x-3">
+<button class="text-brand-primary font-semibold hover:underline decoration-2 transition-all">View</button>
+<button class="text-error font-semibold hover:underline decoration-2 transition-all">Delete</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="group hover:bg-surface-container/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm text-on-surface font-medium">RUN-081</td>
+<td class="px-6 py-5 text-on-surface-variant">5 hours ago</td>
+<td class="px-6 py-5">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-bold uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px] status-spinner">sync</span>
+                                    In progress
+                                </div>
+</td>
+<td class="px-6 py-5 text-on-surface italic">Phase B Interrogation</td>
+<td class="px-6 py-5 text-right space-x-3">
+<button class="text-brand-primary font-semibold hover:underline decoration-2 transition-all">View</button>
+<button class="text-error font-semibold hover:underline decoration-2 transition-all">Delete</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="group hover:bg-surface-container/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm text-on-surface font-medium">RUN-080</td>
+<td class="px-6 py-5 text-on-surface-variant">Yesterday</td>
+<td class="px-6 py-5">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-100 text-red-800 text-xs font-bold uppercase tracking-tight">
+<span class="w-2 h-2 rounded-full bg-red-600"></span>
+                                    Failed
+                                </div>
+</td>
+<td class="px-6 py-5 text-on-surface opacity-50">Phase A Investigation</td>
+<td class="px-6 py-5 text-right space-x-3">
+<button class="text-brand-primary font-semibold hover:underline decoration-2 transition-all">View</button>
+<button class="text-error font-semibold hover:underline decoration-2 transition-all">Delete</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="group hover:bg-surface-container/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm text-on-surface font-medium">RUN-079</td>
+<td class="px-6 py-5 text-on-surface-variant">2 days ago</td>
+<td class="px-6 py-5">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-tight">
+<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                    Complete
+                                </div>
+</td>
+<td class="px-6 py-5 text-on-surface">Phase C Report</td>
+<td class="px-6 py-5 text-right space-x-3">
+<button class="text-brand-primary font-semibold hover:underline decoration-2 transition-all">View</button>
+<button class="text-error font-semibold hover:underline decoration-2 transition-all">Delete</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="group hover:bg-surface-container/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm text-on-surface font-medium">RUN-078</td>
+<td class="px-6 py-5 text-on-surface-variant">3 days ago</td>
+<td class="px-6 py-5">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-tight">
+<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                    Complete
+                                </div>
+</td>
+<td class="px-6 py-5 text-on-surface">Phase C Report</td>
+<td class="px-6 py-5 text-right space-x-3">
+<button class="text-brand-primary font-semibold hover:underline decoration-2 transition-all">View</button>
+<button class="text-error font-semibold hover:underline decoration-2 transition-all">Delete</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination or Status hint -->
+<div class="px-6 py-4 bg-surface-container-lowest border-t border-outline-variant/20 flex justify-between items-center text-label-medium text-on-surface-variant">
+<span>Showing 5 of 82 analysis runs</span>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-surface-container transition-colors rounded disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-2 hover:bg-surface-container transition-colors rounded">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Secondary Info Cards (Bento-lite) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+<div class="p-6 rounded-xl border border-outline-variant/30 bg-surface-container-low/50 space-y-4">
+<div class="flex items-center gap-3 text-brand-primary">
+<span class="material-symbols-outlined">storage</span>
+<h3 class="font-bold">Total Processed</h3>
+</div>
+<p class="text-3xl font-headline font-bold">12.4 TB</p>
+<p class="text-on-surface-variant text-sm">Aggregated MongoDB log data across all historic runs.</p>
+</div>
+<div class="p-6 rounded-xl border border-outline-variant/30 bg-surface-container-low/50 space-y-4">
+<div class="flex items-center gap-3 text-brand-primary">
+<span class="material-symbols-outlined">bolt</span>
+<h3 class="font-bold">Avg. Speed</h3>
+</div>
+<p class="text-3xl font-headline font-bold">18m 42s</p>
+<p class="text-on-surface-variant text-sm">Average time from ingestion to Phase C reporting.</p>
+</div>
+<div class="p-6 rounded-xl border border-outline-variant/30 bg-surface-container-low/50 space-y-4">
+<div class="flex items-center gap-3 text-brand-primary">
+<span class="material-symbols-outlined">description</span>
+<h3 class="font-bold">Success Rate</h3>
+</div>
+<p class="text-3xl font-headline font-bold">98.2%</p>
+<p class="text-on-surface-variant text-sm">Percentage of runs that completed Phase C without errors.</p>
+</div>
+</div>
+</main>
+<!-- Footer Component -->
+<footer class="w-full py-12 bg-surface-container-low border-t border-outline-variant/20 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center px-6 lg:px-12 max-w-7xl mx-auto gap-4">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="text-lg font-headline font-semibold text-on-surface">Mongo Debugger</span>
+<p class="font-body text-label-medium text-on-surface-variant opacity-80 hover:opacity-100 transition-opacity">
+                    © 2024 Mongo Debugger. Analyst workspace for MongoDB RCA.
+                </p>
+</div>
+<div class="flex items-center gap-8 font-body text-label-medium">
+<a class="text-on-surface-variant hover:text-on-surface hover:underline transition-all" href="#">Documentation</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:underline transition-all" href="#">API</a>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction: Row highlighting logic or notification simulation
+        document.querySelectorAll('tr.group').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if(e.target.tagName !== 'BUTTON') {
+                    // Simulation of navigation to details
+                    console.log('Navigating to run details...');
+                }
+            });
+        });
+
+        // Simple pulse effect for the "In Progress" spinner if we wanted it more dynamic
+        const spinner = document.querySelector('.status-spinner');
+        if(spinner) {
+            // Native CSS animation handles it, but we could add JS-driven logic for status updates here
+        }
+    </script>
+</body></html>

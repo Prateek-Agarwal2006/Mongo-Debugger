@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "FastAPI Backend",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "uvicorn", "backend.app.main:app", "--port", "8000"],
+      "port": 8000,
+      "autoPort": false
+    }
+  ]
+}

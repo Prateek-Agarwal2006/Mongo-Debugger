@@ -43,6 +43,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/api-error-text.js"></script>
+<script src="/static/js/page-data.js"></script>
 <script>
 const fileInput = document.getElementById('file-input');
 const fileNameEl = document.getElementById('file-name');
@@ -81,31 +83,38 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   status.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading…';
   try {
     const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
-    let body;
-    try {
-      body = await resp.json();
-    } catch {
-      status.textContent = `Upload failed: server returned ${resp.status} (non-JSON response)`;
+    const { data: body, text } = window.MdbVerbatimError
+      ? await window.MdbVerbatimError.readResponseBody(resp)
+      : { data: await resp.json().catch(() => null), text: '' };
+    if (!resp.ok) {
+      const detail = window.MdbVerbatimError
+        ? window.MdbVerbatimError.errorFromBody(resp, body, text, 'Upload failed')
+        : (body?.detail || text || 'Upload failed');
+      status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${String(detail).replace(/</g, '&lt;')}</pre>`;
       return;
     }
-    if (!resp.ok) {
-      const detail = Array.isArray(body.detail)
-        ? body.detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
-        : (body.detail || 'Upload failed');
-      status.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${detail}</span>`;
+    if (!body?.run_id || !body?.job_id) {
+      status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${String(text || 'Upload failed: invalid response').replace(/</g, '&lt;')}</pre>`;
       return;
     }
     status.innerHTML = `Phase 1 queued for upload <a href="/runs/${body.run_id}/pipeline">${body.run_id}</a>. Polling decode…`;
     const poll = setInterval(async () => {
-      const job = await fetch(`/simagix/uploads/jobs/${body.job_id}`).then((r) => r.json());
-      status.textContent = `Phase 1 ${job.state}: ${job.message}`;
-      if (job.state === 'succeeded') {
+      try {
+        const job = await window.MdbPageData.fetchJob(body.job_id);
+        status.textContent = `Phase 1 ${job.state}: ${job.message}`;
+        if (job.state === 'succeeded') {
+          clearInterval(poll);
+          window.location.href = `/runs/${body.run_id}`;
+        }
+        if (job.state === 'failed') {
+          clearInterval(poll);
+          const errText = job.error || job.message || 'Phase 1 failed';
+          status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${String(errText).replace(/</g, '&lt;')}</pre> — <a href="/runs/${body.run_id}/pipeline">View details</a>`;
+        }
+      } catch (err) {
         clearInterval(poll);
-        window.location.href = `/runs/${body.run_id}`;
-      }
-      if (job.state === 'failed') {
-        clearInterval(poll);
-        status.innerHTML = `<span class="text-danger">Phase 1 failed: ${job.error || job.message}</span> — <a href="/runs/${body.run_id}/pipeline">View details</a>`;
+        const msg = err instanceof Error ? err.message : String(err);
+        status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${msg.replace(/</g, '&lt;')}</pre>`;
       }
     }, 3000);
   } catch (err) {

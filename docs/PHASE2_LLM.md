@@ -116,8 +116,8 @@ Operators configure optional MCPs at **`GET /mcp-workarea`** (also linked from h
 
 **Per-run selection (stateless):** On `/runs/{run_id}`, checkboxes list user connectors plus locked **simagix-evidence**. Nothing is pre-checked except the built-in. At click time:
 
-- `POST /phase2/run` → `enabled_mcp_ids` for **Phase A** (investigation)
-- `POST /phase2/clarify` → `enabled_mcp_ids` for **Phase C** (final RCA — uses **current** checkbox state)
+- **Investigation tab** (`#mcp-run-checkboxes`): `POST /phase2/run` → `enabled_mcp_ids` for **Phase A**; `POST /phase2/clarify` → **Phase C** (current Investigation checkbox state)
+- **Chatbot tab** (`#chatbot-mcp-run-checkboxes`): `POST /phase2/chatbot/messages` → **chatbot** (current Chatbot-tab checkbox state per message; **not** persisted to `chatbot_chat.json`)
 
 `build_mcp_server_specs()` always includes built-ins (`simagix-evidence`, optional `graylog`, optional `hatchet-evidence`) and merges selected user ids from the WorkArea registry. **Cursor** passes specs to the SDK via `to_cursor_sdk_servers()`; **Gemini ADK** uses native `McpToolset` via `to_adk_mcp_toolsets()`. All operator skills attach automatically via provider-native paths (see Skill WorkArea). Mock accepts MCP fields but ignores them.
 
@@ -680,8 +680,7 @@ One fresh `AgentOptions` per phase run (investigation / clarify / final / chatbo
 |-------|-----------|---------|
 | `cwd` | `chatbot_scratch/` (MCP on) or bundle (MCP off) | Working directory for SDK **built-ins** |
 | `setting_sources` | `[]` | Don’t load Cursor IDE settings from disk |
-| `sandbox_options` | `SandboxOptions(enabled=not include_mcp)` | Sandbox **off** when MCP on (investigation, final RCA, chatbot); **on** for clarify |
-| `auto_review` | `True` when MCP on | Smart Auto Review — headless SDK can approve MCP without interactive prompt |
+| `sandbox_options` | `SandboxOptions(enabled=False)` | Sandbox **off** for all phases (headless env does not support local sandbox) |
 | `custom_tools` | `web_fetch` via `build_cursor_sdk_web_tools(...)` | In-process SDK tools we define |
 
 **One-line summary:** `AgentOptions` = “Create a Cursor agent with this model, these MCP servers, and these local settings.” `LocalAgentOptions` = “On this machine, use this working directory, sandbox policy, and custom tools when the agent needs local execution.” In Mongo Debugger, MCP carries evidence retrieval; `LocalAgentOptions` mainly sets cwd + `web_fetch`, while the cloud model drives the tool loop.
@@ -1103,11 +1102,36 @@ Storage and UI are shared; **recording** differs per provider:
 
 All paths write to the same `tool_trace.json` under the active LLM folder. The API and **Agent Tool Activity** panel only read the normalized entries — no separate trace viewer per provider.
 
+### Per-call IDs (Cursor vs Gemini ADK)
+
+Both providers should show **one activity row per tool invocation**. They use different IDs from their SDKs; our trace dedupes on `call_id`:
+
+| Provider | ID source | Field | Pitfall |
+|----------|-----------|-------|---------|
+| **Cursor** | Cursor SDK stream | `tool_call.call_id` (e.g. `tool_9677bfc7-…`) | Many **local** rows (`read`/`grep`) are normal; filter **MCP** chip for evidence calls only |
+| **Gemini ADK** | Google ADK `ToolContext` | `function_call_id` (per call), scoped `{phase}:{id}` in trace | **`invocation_id`** deduped six calls into one row; **reuse of `function_call_id` across phases** dropped Phase C rows (fixed 2026-06-30) |
+
+Code: `adk_tool_trace_call_id()` in `tool_trace.py`; Cursor path in `ToolTraceCollector.record_sdk_message()`.
+
+### Failed / errored tool calls
+
+The **Status** column in Agent Tool Activity shows provider-reported outcomes (`completed`, `error`, `failed`).
+
+| Situation | Cursor | Gemini ADK | In activity panel? |
+|-----------|--------|------------|-------------------|
+| MCP tool ran but returned an error payload | SDK `tool_call` status `error` / `failed` | `after_tool_callback` + `adk_tool_trace_status()` (`tool_context.error`, MCP `isError`) | **Yes** — red **error** badge (Stitch UI) |
+| MCP subprocess never starts (timeout, crash) | Run fails before tools attach | Preflight `_ensure_adk_mcp_toolsets_ready()` → HTTP **502** with message | **No row** — see RCA error banner / server log, not tool trace |
+| Agent never invoked a tool | — | — | No row (expected) |
+
+**Not in trace:** MCP session startup failures and Phase 2 HTTP errors — those surface on the RCA error panel or uvicorn log (`CallToolRequest` in terminal is MCP wire traffic, not the UI row count).
+
+**Interview line:** “Tool trace is our audit log — one row per call_id / function_call_id. Terminal MCP logs prove the wire protocol; the panel is normalized JSON for operators.”
+
 ## Agent Tool Activity (UI)
 
 On `/runs/{run_id}`, the RCA section uses a two-column grid: **Root Cause Analysis** and **Agent Tool Activity**. The panel loads `GET /phase2/tool-trace?llm=...` (selected LLM from dropdown) and shows phase, category badge (MCP / Web / Local / Shell), tool name, status, and args/result summary.
 
-Cursor SDK records MCP calls as tool name `"mcp"` with the real tool in args (`toolName`, `providerIdentifier`). `resolve_tool_identity()` in `tool_trace.py` normalizes these to readable names like `simagix-evidence/get_metric_window`. The API also reads `tool_trace.json` from disk after server restart (session store is in-memory).
+Cursor SDK records MCP calls as tool name `"mcp"` with the real tool in args (`toolName`, `providerIdentifier`). `classify_tool_category()` buckets any raw `"mcp"` SDK name as MCP; `resolve_tool_identity()` still normalizes display names like `simagix-evidence/get_metric_window`. The API also reads `tool_trace.json` from disk after server restart (session store is in-memory).
 
 Implementation: `backend/app/simagix/llm/tool_trace.py`, `frontend/static/js/rca.js`.
 

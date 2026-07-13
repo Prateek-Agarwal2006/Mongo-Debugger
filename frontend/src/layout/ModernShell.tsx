@@ -4,7 +4,7 @@ import { StitchFooter } from "@/layout/StitchFooter";
 
 const NAV = [
   { href: "/", label: "Home", icon: "⌂" },
-  { href: "/runs", label: "Uploads", icon: "▤" },
+  { href: "/runs", label: "Runs", icon: "▤" },
   { href: "/upload", label: "Upload", icon: "↑" },
   { href: "/mcp-workarea", label: "MCP", icon: "⚡" },
   { href: "/docs", label: "API", icon: "{}" },

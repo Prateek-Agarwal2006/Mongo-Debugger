@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="/static/css/clarify-chat-stitch.css?v=1"/>
 <link rel="stylesheet" href="/static/css/phase-rail.css?v=1"/>
 <link rel="stylesheet" href="/static/css/tool-trace.css?v=3"/>
-<link rel="stylesheet" href="/static/css/agent-chat-stitch.css?v=2"/>
+<link rel="stylesheet" href="/static/css/agent-chat-stitch.css?v=6"/>
 <link rel="stylesheet" href="/static/css/mcp-run-panel.css"/>
 <script id="tailwind-config">
 tailwind.config = {
@@ -70,7 +70,7 @@ body {
 <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
 <!-- Breadcrumb + run header -->
 <nav class="text-xs font-medium text-on-surface-variant mb-4 uppercase tracking-wider flex items-center gap-2 flex-wrap">
-<a href="/runs" target="_top" class="hover:text-primary">Uploads</a>
+<a href="/runs" target="_top" class="hover:text-primary">Runs</a>
 <span>/</span>
 <span id="breadcrumb-run-id" class="font-mono text-on-surface"></span>
 <span class="text-primary">· Phase 2</span>
@@ -174,7 +174,8 @@ body {
 <div class="tab-content hidden" id="investigation">
 <section class="glass-panel rounded-xl p-6 max-w-4xl" id="rca-section">
 <h2 class="text-lg font-semibold mb-3">Root Cause Analysis</h2>
-<p class="text-sm text-on-surface-variant mb-4" id="rca-status">Phase A: tier-2 investigation (MCP tools) → Phase B: up to 10 clarifying questions → Phase C: final RCA.</p>
+<p class="text-sm text-on-surface-variant mb-2" id="rca-status">Phase A: tier-2 investigation (MCP tools) → Phase B: up to 10 clarifying questions → Phase C: final RCA.</p>
+<pre id="rca-error-detail" class="text-xs text-red-900 mt-2 mb-4 p-3 rounded-lg bg-red-50 border border-red-200 font-mono whitespace-pre-wrap break-words hidden" aria-live="polite"></pre>
 <div class="flex flex-wrap items-end gap-3 mb-4">
 <div>
 <label class="block text-xs text-on-surface-variant mb-1" for="llm-context-select">LLM</label>
@@ -196,16 +197,16 @@ body {
 </div>
 <div id="mcp-run-checkboxes" class="mcp-run-panel__list"></div>
 <p class="mcp-run-panel__empty hidden" id="mcp-run-empty">No user MCP connectors configured. Add one in MCP WorkArea.</p>
-<p class="mcp-run-panel__footer">Selections are not saved between runs.</p>
+<p class="mcp-run-panel__footer">Applies to Phase A and C — not saved between runs.</p>
 </div>
 <pre id="investigation-summary" class="text-xs bg-surface-container-low p-3 rounded-lg overflow-auto max-h-48 hidden"></pre>
 <form id="clarify-form" class="mt-4 hidden clarify-wizard--stitch">
 <div id="clarify-progress" class="mb-3" aria-label="Question progress"></div>
 <div id="questions-container"></div>
 <div class="flex flex-wrap gap-2 mt-3" id="clarify-actions">
-<button type="button" id="clarify-prev" class="hidden px-3 py-1.5 text-sm rounded-lg bg-surface-container-high" hidden>Previous</button>
-<button type="button" id="clarify-skip" class="px-3 py-1.5 text-sm rounded-lg bg-surface-container-high">Skip</button>
-<button type="button" id="clarify-next" class="px-3 py-1.5 text-sm rounded-lg bg-surface-container-high">Next</button>
+<button type="button" id="clarify-prev" class="hidden px-3 py-1.5 text-sm rounded-lg bg-surface-container-high text-on-surface" hidden>Previous</button>
+<button type="button" id="clarify-skip" class="px-3 py-1.5 text-sm rounded-lg bg-surface-container-high text-on-surface">Skip</button>
+<button type="button" id="clarify-next" class="px-3 py-1.5 text-sm rounded-lg bg-surface-container-high text-on-surface">Next</button>
 <button type="submit" id="clarify-submit" class="hidden px-3 py-1.5 text-sm rounded-lg bg-primary text-on-primary font-medium">Submit &amp; run final RCA</button>
 </div>
 </form>
@@ -264,25 +265,59 @@ Agent tool activity
 <p id="chatbot-unavailable" class="glass-panel rounded-xl p-6 text-sm agent-chat-stitch-unavailable w-full">
 Chat unlocks after Phase C completes. Run RCA on the Investigation tab, then return here for follow-up questions. You can attach <code>.json</code>, <code>.log</code>, or <code>.txt</code> files.
 </p>
-<div class="agent-chat-stitch glass-panel rounded-xl flex flex-col w-full" id="agent-chat-panel" hidden>
+<div class="agent-chat-stitch agent-chat-stitch--rca glass-panel rounded-xl flex flex-col w-full shadow-lg" id="agent-chat-panel" hidden>
 <div class="agent-chat-stitch__header">
-<h3 class="agent-chat-stitch__title">
-<span class="material-symbols-outlined">smart_toy</span>
-Chatbot
-</h3>
-<p class="agent-chat-stitch__hint">Post-report follow-up on your RCA — warm reading surface, attach <code>.json</code>, <code>.log</code>, or <code>.txt</code>.</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">smart_toy</span>
+<div>
+<h3 class="agent-chat-stitch__title">RCA Assistant</h3>
+<p class="agent-chat-stitch__hint">Post-report follow-up on your RCA — attach <code>.json</code>, <code>.log</code>, or <code>.txt</code>.</p>
+</div>
+</div>
 </div>
 <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
-<div id="agent-chat-pending-files" class="px-4" hidden></div>
-<p id="agent-chat-file-error" class="text-xs text-amber-800 px-4 hidden" role="alert"></p>
-<form id="agent-chat-form" class="agent-chat-composer">
+<div id="agent-chat-pending-files" class="agent-chat-stitch__pending" hidden></div>
+<p id="agent-chat-file-error" class="agent-chat-stitch__file-error" hidden role="alert"></p>
+<div class="agent-chat-stitch__footer">
+<div id="chatbot-mcp-panel" class="agent-chat-stitch__mcp-panel" hidden aria-hidden="true">
+<button type="button" id="chatbot-mcp-close" class="agent-chat-stitch__mcp-close" aria-label="Close MCP selection">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+<div class="mcp-run-panel" id="chatbot-mcp-run-panel">
+<div class="mcp-run-panel__header">
+<div>
+<p class="mcp-run-panel__subtitle mb-0">Optional connectors from MCP WorkArea. Checked items run with each message you send.</p>
+</div>
+<div class="mcp-run-panel__actions">
+<button type="button" class="mcp-run-panel__btn hidden" id="chatbot-mcp-select-all">Select all</button>
+<button type="button" class="mcp-run-panel__btn hidden" id="chatbot-mcp-clear-all">Clear</button>
+<a href="/mcp-workarea" target="_top" class="mcp-run-panel__link">Configure</a>
+</div>
+</div>
+<div id="chatbot-mcp-run-checkboxes" class="mcp-run-panel__list"></div>
+<p class="mcp-run-panel__empty hidden" id="chatbot-mcp-run-empty">No user MCP connectors configured. Add one in MCP WorkArea.</p>
+<p class="mcp-run-panel__footer mb-0">Per message only — not saved between runs.</p>
+</div>
+</div>
+<form id="agent-chat-form" class="agent-chat-stitch__composer">
 <textarea id="agent-chat-input" rows="3" placeholder="Ask about root cause, fixes, evidence…"></textarea>
-<div class="agent-chat-composer-actions flex gap-2 items-center justify-end">
+<div class="agent-chat-stitch__composer-actions">
+<button type="button" id="agent-chat-mcp-btn" class="agent-chat-stitch__action-btn agent-chat-mcp-btn" aria-expanded="false" aria-controls="chatbot-mcp-panel">
+<span class="material-symbols-outlined text-sm">hub</span>
+MCP
+</button>
 <input type="file" id="agent-chat-file" class="agent-chat-file-input hidden" multiple accept=".json,.txt,.log,.md,.csv,.yaml,.yml"/>
-<label for="agent-chat-file" id="agent-chat-attach-label" class="text-sm px-3 py-1.5 rounded-lg cursor-pointer" role="button">Attach</label>
-<button type="submit" class="px-4 py-1.5 rounded-lg text-sm font-medium" aria-label="Send">Send</button>
+<label for="agent-chat-file" id="agent-chat-attach-label" class="agent-chat-stitch__action-btn" role="button">
+<span class="material-symbols-outlined text-sm">attach_file</span>
+Attach
+</label>
+<button type="submit" class="agent-chat-stitch__send-btn" aria-label="Send">
+<span class="material-symbols-outlined text-sm">send</span>
+Send
+</button>
 </div>
 </form>
+</div>
 </div>
 </div>
 </main>
@@ -405,11 +440,12 @@ switchTab("investigation");
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="/static/js/phase-rail.js?v=6"></script>
-<script src="/static/js/clarify-wizard.js?v=3"></script>
+<script src="/static/js/clarify-wizard.js?v=4"></script>
 <script src="/static/js/report-viewer.js?v=5"></script>
-<script src="/static/js/agent-chat.js?v=2"></script>
-<script src="/static/js/grafana.js?v=4"></script>
-<script src="/static/js/rca.js?v=7"></script>
+<script src="/static/js/agent-chat.js?v=8"></script>
+<script src="/static/js/grafana.js?v=5"></script>
+<script src="/static/js/api-error-text.js"></script>
+<script src="/static/js/rca.js?v=10"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   if (!window.RUN_ID) return;

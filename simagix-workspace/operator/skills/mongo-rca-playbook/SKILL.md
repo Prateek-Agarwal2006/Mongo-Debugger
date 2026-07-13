@@ -3,7 +3,7 @@ name: mongo-rca-playbook
 description: Playbook for Mongo Debugger RCA — tier-1 findings, evidence tiers, Hatchet logs, and operator clarifications for FTDC incidents.
 ---
 
-# trial
+# Mongo RCA Playbook
 
 Use during **Phase A (investigate)**, **Phase C (final RCA)**, and **post-report chatbot** for Mongo Debugger runs.
 

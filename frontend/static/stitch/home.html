@@ -154,6 +154,15 @@
         .stagger-1 { transition-delay: 0.1s; }
         .stagger-2 { transition-delay: 0.3s; }
         .stagger-3 { transition-delay: 0.5s; }
+
+        /* Typing cursor */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .animate-blink {
+            animation: blink 0.8s step-end infinite;
+        }
     </style>
     <link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
 </head>
@@ -164,21 +173,19 @@
 </div>
 <div id="mdb-stitch-nav-mount"></div>
 <script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
-<main class="pt-24 min-h-screen">
+<main class="pt-20 min-h-screen">
 <!-- Hero Section -->
-<section class="relative min-h-screen flex items-center py-32 lg:py-48 overflow-hidden">
+<section class="relative min-h-[calc(100vh-5rem)] flex items-start pt-10 lg:pt-14 pb-24 overflow-hidden">
 <div class="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full">
 <div class="max-w-4xl">
-<span class="inline-block px-3 py-1 mb-8 text-sm font-bold tracking-widest uppercase text-accent bg-primary-container/20 backdrop-blur-sm rounded-full animate-on-scroll fade-slide-up stagger-1">
+<span class="hero-reveal-element opacity-0 translate-y-8 transition-all duration-700 ease-out inline-block px-3 py-1 mb-8 text-sm font-bold tracking-widest uppercase text-accent bg-primary-container/20 backdrop-blur-sm rounded-full">
                         Analyst Workspace
                     </span>
-<h1 class="text-6xl lg:text-8xl font-headline font-extrabold tracking-tight text-white leading-[1.1] mb-10 animate-on-scroll fade-slide-left stagger-2">
-                        Find the root cause in your <br/><span class="text-accent">MongoDB logs</span>
-</h1>
-<p class="text-2xl lg:text-3xl font-body text-surface-variant leading-relaxed mb-12 max-w-3xl animate-on-scroll fade-slide-right stagger-3">
+<h1 class="text-6xl lg:text-8xl font-headline font-extrabold tracking-tight text-white leading-[1.1] mb-10 min-h-[2.2em]" id="typewriter-heading"></h1>
+<p class="hero-reveal-element opacity-0 translate-y-8 transition-all duration-700 ease-out text-2xl lg:text-3xl font-body text-surface-variant leading-relaxed mb-12 max-w-3xl">
                         Automated investigation, clarifying questions, and detailed RCA reports designed for focused analysis.
                     </p>
-<div class="flex flex-wrap gap-6 animate-on-scroll fade-slide-up stagger-3">
+<div class="hero-reveal-element opacity-0 translate-y-8 transition-all duration-700 ease-out flex flex-wrap gap-6">
 <button type="button" onclick="window.top.location.href='/upload'" class="flex items-center gap-3 bg-accent text-white px-10 py-5 rounded-xl text-lg font-semibold hover:bg-accent/90 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95">
 <span class="material-symbols-outlined text-2xl">upload_file</span>
                             Upload logs
@@ -191,72 +198,277 @@
 </div>
 </div>
 </section>
-<!-- Feature Cards (Bento/Asymmetric Grid) -->
-<section class="py-32 bg-surface-container-low/90 backdrop-blur-sm">
-<div class="max-w-7xl mx-auto px-6 lg:px-12">
-<div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-<!-- Card 1 -->
-<div class="group bg-surface p-12 rounded-3xl border border-outline-variant/20 hover:border-accent/40 transition-all duration-300 document-shadow hover:translate-y-[-8px] card-perspective animate-on-scroll fade-slide-left stagger-1">
-<div class="flip-target w-16 h-16 rounded-2xl bg-primary-container flex items-center justify-center mb-8 text-accent group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 0;">magnify_docked</span>
-</div>
-<h3 class="text-2xl font-headline font-bold text-on-surface mb-4">Phase A Investigation</h3>
-<p class="text-lg text-on-surface-variant font-body leading-relaxed">
-                            Automated scanning of log dumps to identify anomalies and performance bottlenecks with granular precision.
-                        </p>
-</div>
-<!-- Card 2 -->
-<div class="group bg-surface p-12 rounded-3xl border border-outline-variant/20 hover:border-accent/40 transition-all duration-300 document-shadow hover:translate-y-[-8px] card-perspective animate-on-scroll fade-slide-up stagger-2">
-<div class="flip-target w-16 h-16 rounded-2xl bg-primary-container flex items-center justify-center mb-8 text-accent group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 0;">question_mark</span>
-</div>
-<h3 class="text-2xl font-headline font-bold text-on-surface mb-4">Clarifying questions</h3>
-<p class="text-lg text-on-surface-variant font-body leading-relaxed">
-                            AI-driven interrogation of log patterns to narrow down potential failure vectors through contextual dialogue.
-                        </p>
-</div>
-<!-- Card 3 -->
-<div class="group bg-surface p-12 rounded-3xl border border-outline-variant/20 hover:border-accent/40 transition-all duration-300 document-shadow hover:translate-y-[-8px] card-perspective animate-on-scroll fade-slide-right stagger-3">
-<div class="flip-target w-16 h-16 rounded-2xl bg-primary-container flex items-center justify-center mb-8 text-accent group-hover:scale-110 transition-transform">
-<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 0;">comment</span>
-</div>
-<h3 class="text-2xl font-headline font-bold text-on-surface mb-4">Phase C RCA report</h3>
-<p class="text-lg text-on-surface-variant font-body leading-relaxed">
-                            Comprehensive root cause analysis reports formatted specifically for engineering reviews and executive summaries.
-                        </p>
-</div>
-</div>
-</div>
-</section>
-<!-- Product Preview / Visual Canvas -->
-<section class="py-40 bg-background/95 backdrop-blur-md max-w-none px-6 lg:px-12">
-<div class="max-w-7xl mx-auto relative rounded-[2.5rem] overflow-hidden bg-on-surface/5 border border-outline-variant/30 p-8 lg:p-20">
-<div class="flex flex-col lg:flex-row gap-16 items-center">
-<div class="lg:w-5/12 animate-on-scroll fade-slide-left">
-<h2 class="text-4xl lg:text-5xl font-headline font-bold mb-8 text-on-surface leading-tight">Designed for clarity.<br/>Built for speed.</h2>
-<ul class="space-y-6 font-body text-lg text-on-surface-variant">
-<li class="flex items-start gap-4">
-<span class="material-symbols-outlined text-accent text-3xl">check_circle</span>
-<span>Zero-config ingestion for standard MongoDB log formats.</span>
-</li>
-<li class="flex items-start gap-4">
-<span class="material-symbols-outlined text-accent text-3xl">check_circle</span>
-<span>Pattern recognition for high-cardinality query performance.</span>
-</li>
-<li class="flex items-start gap-4">
-<span class="material-symbols-outlined text-accent text-3xl">check_circle</span>
-<span>Exportable PDF and Markdown reports for Jira integration.</span>
-</li>
-</ul>
-</div>
-<div class="lg:w-7/12 w-full animate-on-scroll fade-slide-right">
-<!-- Placeholder for Dashboard/App preview -->
-<div class="aspect-[16/10] bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 relative overflow-hidden group hover:shadow-accent/20 transition-shadow duration-500">
-<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" data-alt="A clean, minimalist user interface dashboard of a technical analysis tool. The screen shows a sophisticated terminal-like log viewer on the left with highlighted syntax, and a clean white analysis sidebar on the right. Soft beige and muted warm tones dominate the workspace, creating a calm professional aesthetic. Data visualizations like small sparklines and heatmaps are visible, rendered with a single orange accent color." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyuTTijTOwP_33aovQ-YIrFSYAmCklPBpUqeXnbOyuKJIJyxSgEWHFZ6D-jeBdHZuvm9Pf1scQPW606hPClqEZTbt-NLZNrWIva7lb8cTf3_-JbHyRXFX3SuhaJHBpRabByotOEt_Bq3eWfm19YetzH8l1TM71uvMFJeMNC_23JtgLneFpJxDH-M-MykVnya3fiFSefY2EkOOf0cARbqZL_-d_5SEjhRJimG2_QtOVeGQLteoe3v2P79RZLDd1voRsc7hSL4OXd6vt"/>
-</div>
-</div>
-</div>
-</div>
+<!-- Immersive Pipeline Journey -->
+<section id="pipeline-journey" style="background:#0e100e; position:relative; overflow:hidden;">
+
+  <!-- Section intro -->
+  <div style="text-align:center; padding: 7rem 2rem 4rem; position:relative; z-index:2;">
+    <span style="display:inline-block; padding:4px 16px; border:1px solid rgba(201,100,66,0.4); border-radius:9999px; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#C96442; margin-bottom:20px;">The pipeline</span>
+    <h2 style="font-size:clamp(36px,5vw,64px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:16px;">From raw data to root cause.</h2>
+    <p style="font-size:18px; color:rgba(224,228,220,0.6); max-width:520px; margin:0 auto; line-height:1.6;">Five stages. Fully automated. Scroll to walk through the journey.</p>
+  </div>
+
+  <!-- Phases container with vertical line -->
+  <div id="phases-container" style="position:relative; max-width:1200px; margin:0 auto; padding:0 3rem 8rem;">
+
+    <!-- Vertical connecting line -->
+    <div style="position:absolute; left:50%; top:0; bottom:0; width:2px; transform:translateX(-50%); z-index:1; pointer-events:none;">
+      <!-- Track (dim) -->
+      <div style="position:absolute; inset:0; background:rgba(201,100,66,0.15); border-radius:2px;"></div>
+      <!-- Fill (draws as you scroll) -->
+      <div id="line-fill" style="position:absolute; top:0; left:0; right:0; height:0%; background:linear-gradient(to bottom, #C96442, rgba(201,100,66,0.4)); border-radius:2px; transition:height 0.08s linear;"></div>
+    </div>
+
+    <!-- PHASE 1: Decoding Pipeline -->
+    <div class="pipeline-phase" data-index="0" style="display:flex; align-items:center; min-height:100vh; gap:4rem; position:relative; z-index:2; padding:4rem 0;">
+      <!-- Line dot -->
+      <div class="phase-dot" data-index="0" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%; background:#1a1c1a; border:2px solid rgba(201,100,66,0.3); transition:all 0.4s ease; z-index:3;"></div>
+      <!-- Text: left -->
+      <div class="phase-text" style="flex:1; opacity:0; transform:translateX(-80px); transition:opacity 0.7s ease, transform 0.7s cubic-bezier(0.16,1,0.3,1);">
+        <span style="display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#C96442; margin-bottom:16px;">Phase 1</span>
+        <h3 style="font-size:clamp(32px,4vw,52px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:20px;">Decoding<br/>Pipeline</h3>
+        <p style="font-size:17px; color:rgba(224,228,220,0.65); line-height:1.7; max-width:380px;">Upload your FTDC <code style="background:rgba(201,100,66,0.15); color:#C96442; padding:2px 8px; border-radius:4px; font-size:14px;">diagnostic.data</code> bundle. The pipeline decodes it locally using mongo-ftdc — metrics export, anomaly scoring, and health manifest land in your workspace in seconds.</p>
+        <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap;">
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">FTDC decode</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Anomaly scoring</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Tiered evidence</span>
+        </div>
+      </div>
+      <!-- Visual: right -->
+      <div class="phase-visual" style="flex:1; opacity:0; transform:translateX(80px); transition:opacity 0.7s ease 0.15s, transform 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s;">
+        <div style="background:#faf9f5; border-radius:20px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.05);">
+          <!-- Upload UI mockup -->
+          <div style="padding:20px 24px 12px; border-bottom:1px solid #e8e6e0; display:flex; align-items:center; gap:8px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block;"></span>
+            <span style="font-size:12px; color:#888; margin-left:8px;">Upload — FTDC Analyzer</span>
+          </div>
+          <div style="padding:32px 28px; background:#faf9f5;">
+            <div style="font-size:20px; font-weight:700; color:#2f342e; margin-bottom:6px;">Upload logs</div>
+            <div style="font-size:13px; color:#5c605a; margin-bottom:24px;">Upload your FTDC diagnostic.data bundle to begin the automated root cause analysis pipeline.</div>
+            <div style="border:2px dashed #c4b8b4; border-radius:12px; padding:36px 24px; text-align:center; background:#fff; margin-bottom:16px;">
+              <div style="width:40px;height:40px;border-radius:50%;background:#f5ded7;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><span class="material-symbols-outlined" style="color:#C96442;font-size:20px;">cloud_upload</span></div>
+              <div style="font-size:14px; font-weight:500; color:#2f342e;">Drop FTDC archive here or click to browse</div>
+              <div style="font-size:12px; color:#888; margin-top:4px;">Supported: .zip, .tar.gz, or metrics.* diagnostic bundle</div>
+            </div>
+            <div style="background:#C96442; color:#fff; text-align:center; padding:14px; border-radius:10px; font-size:14px; font-weight:600;">▶ Start pipeline</div>
+            <div style="margin-top:20px; background:#fff; border-radius:10px; border:1px solid #e8e6e0; padding:16px;">
+              <div style="font-size:12px; font-weight:700; color:#2f342e; margin-bottom:12px; display:flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;color:#C96442;">route</span> What happens next</div>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:#C96442;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div><div><div style="font-size:12px;font-weight:600;color:#2f342e;">Phase 1 — Decode &amp; export</div><div style="font-size:11px;color:#888;">FTDC archive decoded; metrics land in workspace.</div></div></div>
+                <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:#e8e6e0;color:#5c605a;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">A</div><div><div style="font-size:12px;font-weight:600;color:#2f342e;">Phase 2A — Investigation</div><div style="font-size:11px;color:#888;">Tier-2 agent pulls MCP evidence, metrics, and logs.</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2A: Investigation + Grafana -->
+    <div class="pipeline-phase" data-index="1" style="display:flex; align-items:center; min-height:100vh; gap:4rem; position:relative; z-index:2; padding:4rem 0; flex-direction:row-reverse;">
+      <div class="phase-dot" data-index="1" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%; background:#1a1c1a; border:2px solid rgba(201,100,66,0.3); transition:all 0.4s ease; z-index:3;"></div>
+      <div class="phase-text" style="flex:1; opacity:0; transform:translateX(80px); transition:opacity 0.7s ease, transform 0.7s cubic-bezier(0.16,1,0.3,1);">
+        <span style="display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#C96442; margin-bottom:16px;">Phase 2A</span>
+        <h3 style="font-size:clamp(32px,4vw,52px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:20px;">AI<br/>Investigation</h3>
+        <p style="font-size:17px; color:rgba(224,228,220,0.65); line-height:1.7; max-width:380px;">The agent investigates using MCP evidence tools — pulling metric slices, correlating anomaly windows, and querying logs. Grafana dashboards auto-load over the exact anomaly time window.</p>
+        <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap;">
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">MCP tools</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Grafana charts</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Cursor / Gemini</span>
+        </div>
+      </div>
+      <div class="phase-visual" style="flex:1; opacity:0; transform:translateX(-80px); transition:opacity 0.7s ease 0.15s, transform 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s;">
+        <div style="background:#faf9f5; border-radius:20px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.05);">
+          <div style="padding:20px 24px 12px; border-bottom:1px solid #e8e6e0; display:flex; align-items:center; gap:8px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block;"></span>
+            <span style="font-size:12px; color:#888; margin-left:8px;">Run analysis — Phase 2</span>
+          </div>
+          <div style="padding:20px 24px; background:#faf9f5;">
+            <div style="font-size:11px; color:#888; margin-bottom:4px;">RUNS / UPLOAD20260620 · PHASE 2</div>
+            <div style="font-size:18px; font-weight:700; color:#2f342e; margin-bottom:16px;">Run analysis</div>
+            <!-- A B C progress -->
+            <div style="display:flex; align-items:center; gap:0; background:#fff; border:1px solid #e8e6e0; border-radius:10px; padding:16px 24px; margin-bottom:16px;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#C96442;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;">A</div>
+                <div style="font-size:10px;color:#C96442;font-weight:600;">INVESTIGATE</div>
+                <div style="font-size:9px;color:#888;">MCP tools</div>
+              </div>
+              <div style="flex:1;height:2px;background:#e8e6e0;"></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#C96442;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;">B</div>
+                <div style="font-size:10px;color:#C96442;font-weight:600;">CLARIFY</div>
+                <div style="font-size:9px;color:#888;">Up to 10 questions</div>
+              </div>
+              <div style="flex:1;height:2px;background:#e8e6e0;"></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#e8e6e0;color:#888;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;">C</div>
+                <div style="font-size:10px;color:#888;font-weight:600;">FINAL RCA</div>
+                <div style="font-size:9px;color:#888;">Report</div>
+              </div>
+            </div>
+            <!-- Investigation panel -->
+            <div style="background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:16px;">
+              <div style="font-size:13px;font-weight:700;color:#2f342e;margin-bottom:10px;">Root Cause Analysis</div>
+              <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <select style="font-size:12px;border:1px solid #e8e6e0;border-radius:6px;padding:4px 10px;color:#2f342e;background:#faf9f5;">
+                  <option>Cursor SDK</option>
+                </select>
+                <div style="background:#C96442;color:#fff;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;">Run RCA</div>
+              </div>
+              <div style="font-size:11px;color:#888;padding:10px;background:#f4f4ef;border-radius:6px;">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;"><span class="material-symbols-outlined" style="font-size:14px;color:#C96442;">search</span> <span style="color:#2f342e;font-weight:500;">Fetching disk.nvme10n1.utilization window…</span></div>
+                <div style="display:flex;gap:6px;align-items:center;"><span class="material-symbols-outlined" style="font-size:14px;color:#C96442;">data_exploration</span> <span style="color:#2f342e;font-weight:500;">Correlating replication lag spikes…</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2B: Clarifying Questions -->
+    <div class="pipeline-phase" data-index="2" style="display:flex; align-items:center; min-height:100vh; gap:4rem; position:relative; z-index:2; padding:4rem 0;">
+      <div class="phase-dot" data-index="2" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%; background:#1a1c1a; border:2px solid rgba(201,100,66,0.3); transition:all 0.4s ease; z-index:3;"></div>
+      <div class="phase-text" style="flex:1; opacity:0; transform:translateX(-80px); transition:opacity 0.7s ease, transform 0.7s cubic-bezier(0.16,1,0.3,1);">
+        <span style="display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#C96442; margin-bottom:16px;">Phase 2B</span>
+        <h3 style="font-size:clamp(32px,4vw,52px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:20px;">Clarifying<br/>Questions</h3>
+        <p style="font-size:17px; color:rgba(224,228,220,0.65); line-height:1.7; max-width:380px;">The agent asks up to 10 targeted questions about your deployment context — things metrics alone can't answer. Your answers narrow the failure vector before the final report is written.</p>
+        <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap;">
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Up to 10 questions</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Skip if unknown</span>
+        </div>
+      </div>
+      <div class="phase-visual" style="flex:1; opacity:0; transform:translateX(80px); transition:opacity 0.7s ease 0.15s, transform 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s;">
+        <div style="background:#faf9f5; border-radius:20px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.05);">
+          <div style="padding:20px 24px 12px; border-bottom:1px solid #e8e6e0; display:flex; align-items:center; gap:8px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block;"></span>
+            <span style="font-size:12px; color:#888; margin-left:8px;">Phase B — Clarifying questions</span>
+          </div>
+          <div style="padding:20px 24px;">
+            <!-- progress dots -->
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:20px;">
+              <div style="font-size:10px;color:#888;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-right:4px;">Progress</div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#C96442;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#e8e6e0;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#e8e6e0;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#e8e6e0;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#e8e6e0;"></div>
+            </div>
+            <div style="background:#fff;border:1px solid #e8e6e0;border-radius:12px;padding:20px;">
+              <div style="display:inline-block;padding:3px 10px;background:#f4f4ef;border-radius:4px;font-size:10px;font-weight:600;color:#888;margin-bottom:14px;">QUESTION 1 OF 10</div>
+              <div style="font-size:14px;font-weight:600;color:#2f342e;margin-bottom:10px;line-height:1.5;">Is hbl-gcp-cxh-mongo-message-14-prod-vm-as3 (host-3) a SECONDARY in the replica set, and which member was PRIMARY during the lag windows?</div>
+              <div style="font-size:12px;color:#5c605a;margin-bottom:16px;">repl_lag_host-3 implies secondary apply delay, but tier-1/FTDC does not record member roles at spike times.</div>
+              <div style="font-size:10px;font-weight:700;color:#C96442;letter-spacing:0.08em;margin-bottom:6px;">● YOUR ANSWER</div>
+              <textarea style="width:100%;border:1px solid #e8e6e0;border-radius:8px;padding:10px;font-size:13px;color:#2f342e;resize:none;height:64px;background:#faf9f5;" placeholder="Share what you know — or skip if unknown..."></textarea>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <button style="padding:7px 16px;border:1px solid #e8e6e0;border-radius:6px;font-size:12px;background:#fff;color:#5c605a;cursor:pointer;">Skip</button>
+                <button style="padding:7px 16px;border:none;border-radius:6px;font-size:12px;background:#C96442;color:#fff;cursor:pointer;font-weight:600;">Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 2C: RCA Report -->
+    <div class="pipeline-phase" data-index="3" style="display:flex; align-items:center; min-height:100vh; gap:4rem; position:relative; z-index:2; padding:4rem 0; flex-direction:row-reverse;">
+      <div class="phase-dot" data-index="3" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%; background:#1a1c1a; border:2px solid rgba(201,100,66,0.3); transition:all 0.4s ease; z-index:3;"></div>
+      <div class="phase-text" style="flex:1; opacity:0; transform:translateX(80px); transition:opacity 0.7s ease, transform 0.7s cubic-bezier(0.16,1,0.3,1);">
+        <span style="display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#C96442; margin-bottom:16px;">Phase 2C</span>
+        <h3 style="font-size:clamp(32px,4vw,52px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:20px;">RCA<br/>Report</h3>
+        <p style="font-size:17px; color:rgba(224,228,220,0.65); line-height:1.7; max-width:380px;">A structured diagnostic report with executive summary, mechanism, timeline, findings, causal chain, evidence citations, and safe fixes — ready for engineering review or Jira.</p>
+        <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap;">
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Evidence citations</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Safe fixes</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">HTML / Plain text</span>
+        </div>
+      </div>
+      <div class="phase-visual" style="flex:1; opacity:0; transform:translateX(-80px); transition:opacity 0.7s ease 0.15s, transform 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s;">
+        <div style="background:#faf9f5; border-radius:20px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.05);">
+          <div style="padding:20px 24px 12px; border-bottom:1px solid #e8e6e0; display:flex; align-items:center; gap:8px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block;"></span>
+            <span style="font-size:12px; color:#888; margin-left:8px;">Report tab</span>
+            <div style="margin-left:auto;display:flex;gap:6px;">
+              <div style="padding:3px 10px;border:1px solid #e8e6e0;border-radius:4px;font-size:10px;color:#2f342e;background:#fff;">HTML Report</div>
+              <div style="padding:3px 10px;border:1px solid #e8e6e0;border-radius:4px;font-size:10px;color:#2f342e;background:#fff;">Plain text</div>
+            </div>
+          </div>
+          <div style="display:flex;height:280px;">
+            <!-- Sidebar -->
+            <div style="width:140px;border-right:1px solid #e8e6e0;padding:16px 12px;background:#fff;flex-shrink:0;">
+              <div style="font-size:10px;font-weight:700;color:#C96442;letter-spacing:0.06em;margin-bottom:10px;">● OVERVIEW</div>
+              <div style="font-size:10px;color:#888;margin-bottom:6px;padding:3px 0;">EXECUTIVE SUMMARY</div>
+              <div style="font-size:10px;color:#888;margin-bottom:6px;padding:3px 0;">MECHANISM</div>
+              <div style="font-size:10px;color:#888;margin-bottom:6px;padding:3px 0;">TIMELINE</div>
+              <div style="font-size:10px;color:#888;margin-bottom:6px;padding:3px 0;">FINDINGS</div>
+              <div style="font-size:10px;color:#888;margin-bottom:6px;padding:3px 0;">CAUSAL CHAIN</div>
+              <div style="font-size:10px;color:#888;margin-bottom:6px;padding:3px 0;">EVIDENCE</div>
+              <div style="font-size:10px;color:#888;padding:3px 0;">SAFE FIXES</div>
+            </div>
+            <!-- Report content -->
+            <div style="flex:1;padding:16px 20px;overflow:hidden;">
+              <div style="font-size:9px;color:#C96442;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">DIAGNOSTIC REPORT</div>
+              <div style="font-size:12px;color:#2f342e;line-height:1.6;margin-bottom:12px;">The primary root cause of the June 11 replication-lag incidents was <strong>I/O saturation on nvme10n1</strong> because the storage device could not sustain WiredTiger read/write throughput demanded by concurrent primary workload and secondary oplog application.</div>
+              <div style="font-size:12px;color:#5c605a;line-height:1.6;">Tier-1 flagged Disk I/O Bottleneck at p95=113% utilization (score 0), and tier-2 <code style="background:#f4f4ef;padding:1px 4px;border-radius:3px;font-size:10px;">get_metric_window</code> slices show disk.nvme10n1.utilization persistently at ~100% with spikes to 200–299%…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE: Chatbot -->
+    <div class="pipeline-phase" data-index="4" style="display:flex; align-items:center; min-height:100vh; gap:4rem; position:relative; z-index:2; padding:4rem 0;">
+      <div class="phase-dot" data-index="4" style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; border-radius:50%; background:#1a1c1a; border:2px solid rgba(201,100,66,0.3); transition:all 0.4s ease; z-index:3;"></div>
+      <div class="phase-text" style="flex:1; opacity:0; transform:translateX(-80px); transition:opacity 0.7s ease, transform 0.7s cubic-bezier(0.16,1,0.3,1);">
+        <span style="display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#C96442; margin-bottom:16px;">Post-report</span>
+        <h3 style="font-size:clamp(32px,4vw,52px); font-weight:800; color:#fff; line-height:1.1; margin-bottom:20px;">RCA<br/>Chatbot</h3>
+        <p style="font-size:17px; color:rgba(224,228,220,0.65); line-height:1.7; max-width:380px;">The investigation doesn't end with the report. Ask follow-up questions, attach additional logs, and get evidence-grounded answers — all within the context of the completed RCA.</p>
+        <div style="display:flex; gap:12px; margin-top:28px; flex-wrap:wrap;">
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Evidence-grounded</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Attach files</span>
+          <span style="padding:6px 14px; background:rgba(201,100,66,0.1); border:1px solid rgba(201,100,66,0.3); border-radius:6px; font-size:13px; color:#C96442;">Markdown output</span>
+        </div>
+      </div>
+      <div class="phase-visual" style="flex:1; opacity:0; transform:translateX(80px); transition:opacity 0.7s ease 0.15s, transform 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s;">
+        <div style="background:#faf9f5; border-radius:20px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.05);">
+          <div style="padding:20px 24px 12px; border-bottom:1px solid #e8e6e0; display:flex; align-items:center; gap:8px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block;"></span>
+            <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block;"></span>
+            <span style="font-size:12px; color:#888; margin-left:8px;">Chatbot tab</span>
+          </div>
+          <div style="padding:20px 24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:#f5ded7;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;color:#C96442;">smart_toy</span></div>
+              <div><div style="font-size:13px;font-weight:600;color:#2f342e;">RCA Assistant</div><div style="font-size:11px;color:#888;">Post-report follow-up — attach .json, .log, or .txt</div></div>
+            </div>
+            <!-- Chat messages -->
+            <div style="background:#f4f4ef;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+              <div style="font-size:12px;color:#2f342e;line-height:1.6;"><strong>Hygiene</strong> — rolling restart for chronic tcmalloc fragmentation; review read preference and connection pooling</div>
+            </div>
+            <div style="background:#fff;border:1px solid #e8e6e0;border-radius:10px;padding:12px 14px;margin-bottom:10px;text-align:right;">
+              <div style="font-size:12px;color:#5c605a;">Could the disk saturation have been caused by a backup job running concurrently?</div>
+            </div>
+            <div style="background:#f4f4ef;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+              <div style="font-size:12px;color:#2f342e;line-height:1.6;">Possible — tier-2 shows no explicit backup I/O spikes in the FTDC data, but <code style="background:#e8e6e0;padding:1px 4px;border-radius:3px;font-size:10px;">db.system.profile</code> from the lag windows would confirm or rule this out.</div>
+            </div>
+            <!-- Input -->
+            <div style="display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #e8e6e0;border-radius:8px;padding:8px 12px;">
+              <input style="flex:1;border:none;outline:none;font-size:12px;color:#2f342e;background:transparent;" placeholder="Ask a follow-up question…" />
+              <button style="width:28px;height:28px;border-radius:50%;background:#C96442;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span class="material-symbols-outlined" style="font-size:14px;color:#fff;">send</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /phases-container -->
 </section>
 </main>
 <div id="mdb-stitch-footer-mount"></div>
@@ -285,6 +497,116 @@
 
             const animatedElements = document.querySelectorAll('.animate-on-scroll');
             animatedElements.forEach(el => observer.observe(el));
+
+            // ── Pipeline phase cinematic entrance (scroll-event based) ──
+            const phases = Array.from(document.querySelectorAll('.pipeline-phase'));
+            const revealed = new Set();
+
+            function revealPhases() {
+                const vh = window.innerHeight;
+                phases.forEach(phase => {
+                    if (revealed.has(phase)) return;
+                    const rect = phase.getBoundingClientRect();
+                    // trigger when phase centre is within the viewport
+                    const centre = rect.top + rect.height / 2;
+                    if (centre > vh * 0.1 && centre < vh * 0.9) {
+                        const text = phase.querySelector('.phase-text');
+                        const visual = phase.querySelector('.phase-visual');
+                        const idx = parseInt(phase.dataset.index);
+                        const dot = document.querySelector(`.phase-dot[data-index="${idx}"]`);
+                        if (text) { text.style.opacity = '1'; text.style.transform = 'translateX(0)'; }
+                        if (visual) { visual.style.opacity = '1'; visual.style.transform = 'translateX(0)'; }
+                        if (dot) {
+                            dot.style.background = '#C96442';
+                            dot.style.borderColor = '#C96442';
+                            dot.style.boxShadow = '0 0 0 6px rgba(201,100,66,0.2)';
+                            dot.style.width = '20px';
+                            dot.style.height = '20px';
+                        }
+                        revealed.add(phase);
+                    }
+                });
+            }
+
+            window.addEventListener('scroll', revealPhases, { passive: true });
+            revealPhases(); // run once on load in case already in view
+
+            // ── Progressive line drawing ──
+            const lineFill = document.getElementById('line-fill');
+            const phasesContainer = document.getElementById('phases-container');
+
+            function updateLine() {
+                if (!lineFill || !phasesContainer) return;
+                const rect = phasesContainer.getBoundingClientRect();
+                const containerTop = rect.top + window.scrollY;
+                const containerHeight = rect.height;
+                const scrolled = window.scrollY - containerTop + window.innerHeight * 0.5;
+                const progress = Math.min(Math.max(scrolled / containerHeight, 0), 1);
+                lineFill.style.height = (progress * 100) + '%';
+            }
+
+            window.addEventListener('scroll', updateLine, { passive: true });
+            updateLine();
+
+            // Hero typewriter — then reveal subtitle and CTAs
+            const h1 = document.getElementById('typewriter-heading');
+            if (h1) {
+                const part1 = 'Find the root cause in your ';
+                const part2 = 'MongoDB logs';
+                const cursor = '<span class="inline-block w-1 h-[0.9em] bg-accent ml-2 align-baseline animate-blink"></span>';
+                let i = 0;
+                let j = 0;
+                const speed = 40;
+
+                function renderHeading() {
+                    if (j === 0) {
+                        h1.innerHTML = part1.substring(0, i) + cursor;
+                    } else {
+                        h1.innerHTML =
+                            part1 +
+                            '<br/><span class="text-accent">' +
+                            part2.substring(0, j) +
+                            '</span>' +
+                            cursor;
+                    }
+                }
+
+                function revealHeroElements() {
+                    document.querySelectorAll('.hero-reveal-element').forEach((el, index) => {
+                        setTimeout(() => {
+                            el.classList.remove('opacity-0', 'translate-y-8');
+                            el.classList.add('opacity-100', 'translate-y-0');
+                        }, index * 50);
+                    });
+                }
+
+                function typeWriter() {
+                    if (i < part1.length) {
+                        i += 1;
+                        renderHeading();
+                        setTimeout(typeWriter, speed);
+                        return;
+                    }
+                    if (j === 0) {
+                        j = 1;
+                        renderHeading();
+                        setTimeout(typeWriter, speed);
+                        return;
+                    }
+                    if (j <= part2.length) {
+                        j += 1;
+                        renderHeading();
+                        if (j <= part2.length) {
+                            setTimeout(typeWriter, speed);
+                            return;
+                        }
+                    }
+                    h1.innerHTML = part1 + '<br/><span class="text-accent">' + part2 + '</span>';
+                    setTimeout(revealHeroElements, 50);
+                }
+
+                setTimeout(typeWriter, 300);
+            }
             
             // Simple micro-interaction for scroll effects
             window.addEventListener('scroll', () => {

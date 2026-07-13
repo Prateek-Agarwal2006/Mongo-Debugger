@@ -66,6 +66,8 @@ class LLMProvider(ABC):
         self,
         session: Phase2Session,
         user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
     ) -> ChatbotResult:
         raise NotImplementedError
 

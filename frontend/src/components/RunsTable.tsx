@@ -7,7 +7,7 @@ export function RunsTable({ runs }: Readonly<{ runs: RunEntry[] }>) {
   if (runs.length === 0) {
     return (
       <div className="px-6 py-16 text-center">
-        <p className="text-on-surface-variant mb-4">No uploads yet.</p>
+        <p className="text-on-surface-variant mb-4">No runs yet.</p>
         <a
           href="/upload"
           className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white font-semibold rounded-lg"

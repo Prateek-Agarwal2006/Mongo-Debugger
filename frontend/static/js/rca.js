@@ -1,5 +1,46 @@
 /* global RUN_ID */
 
+function verbatimApiDetail(payload) {
+  if (window.MdbVerbatimError) {
+    return window.MdbVerbatimError.verbatimDetail(payload);
+  }
+  if (payload == null) return "";
+  if (typeof payload === "string") return payload;
+  if (payload instanceof Error) return payload.message || String(payload);
+  if (typeof payload.detail === "string") return payload.detail;
+  return JSON.stringify(payload, null, 2);
+}
+
+function showRcaError(text) {
+  if (!text) return;
+  if (window.MdbVerbatimError) {
+    window.MdbVerbatimError.showInPre("rca-error-detail", text);
+  }
+}
+
+async function parseFetchResponse(resp) {
+  if (window.MdbVerbatimError?.readResponseBody) {
+    return window.MdbVerbatimError.readResponseBody(resp);
+  }
+  const text = await resp.text();
+  let data = null;
+  if (text.trim()) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      /* non-JSON body */
+    }
+  }
+  return { data, text };
+}
+
+function fetchErrorDetail(resp, data, text, fallback) {
+  if (window.MdbVerbatimError?.errorFromBody) {
+    return window.MdbVerbatimError.errorFromBody(resp, data, text, fallback);
+  }
+  return verbatimApiDetail(data ?? text) || fallback || `Request failed (${resp.status})`;
+}
+
 function categoryBadgeClass(category) {
   switch (category) {
     case "web":
@@ -264,8 +305,22 @@ function renderMcpConnectorRow(connector) {
   return row;
 }
 
-function mcpOptionalToggles() {
-  return Array.from(document.querySelectorAll(".mcp-run-toggle"));
+const MCP_RUN_PANELS = [
+  { containerId: "mcp-run-checkboxes", emptyId: "mcp-run-empty", selectAllId: "mcp-select-all", clearAllId: "mcp-clear-all" },
+  {
+    containerId: "chatbot-mcp-run-checkboxes",
+    emptyId: "chatbot-mcp-run-empty",
+    selectAllId: "chatbot-mcp-select-all",
+    clearAllId: "chatbot-mcp-clear-all",
+  },
+];
+
+function mcpPanelRoot(containerId) {
+  return document.getElementById(containerId)?.closest(".mcp-run-panel") ?? null;
+}
+
+function mcpOptionalTogglesInPanel(panelRoot) {
+  return panelRoot ? Array.from(panelRoot.querySelectorAll(".mcp-run-toggle")) : [];
 }
 
 function syncMcpRowStyles() {
@@ -275,10 +330,11 @@ function syncMcpRowStyles() {
   });
 }
 
-function syncMcpBulkActions() {
-  const toggles = mcpOptionalToggles();
-  const selectAllBtn = document.getElementById("mcp-select-all");
-  const clearAllBtn = document.getElementById("mcp-clear-all");
+function syncMcpBulkActionsForPanel(panelRoot) {
+  if (!panelRoot) return;
+  const toggles = mcpOptionalTogglesInPanel(panelRoot);
+  const selectAllBtn = panelRoot.querySelector("[data-mcp-select-all]");
+  const clearAllBtn = panelRoot.querySelector("[data-mcp-clear-all]");
   const hasOptional = toggles.length > 0;
   const checkedCount = toggles.filter((input) => input.checked).length;
 
@@ -292,71 +348,97 @@ function syncMcpBulkActions() {
     if (isStitchRunPage()) clearAllBtn.classList.toggle("hidden", !hasOptional);
     clearAllBtn.disabled = checkedCount === 0;
   }
+}
+
+function syncMcpBulkActions() {
+  document.querySelectorAll(".mcp-run-panel").forEach(syncMcpBulkActionsForPanel);
   syncMcpRowStyles();
 }
 
-function selectedMcpIds() {
-  const panel = document.getElementById("mcp-run-checkboxes");
+function selectedMcpIdsFromContainer(containerId) {
+  const panel = document.getElementById(containerId);
   if (!panel) return [];
   return Array.from(panel.querySelectorAll('input[type="checkbox"]:checked:not([disabled])'))
     .map((input) => input.value)
     .filter(Boolean);
 }
 
-async function loadRunMcpConnectors() {
-  const container = document.getElementById("mcp-run-checkboxes");
-  const emptyMsg = document.getElementById("mcp-run-empty");
-  if (!container) return;
+function selectedMcpIds() {
+  return selectedMcpIdsFromContainer("mcp-run-checkboxes");
+}
 
+function selectedChatbotMcpIds() {
+  return selectedMcpIdsFromContainer("chatbot-mcp-run-checkboxes");
+}
+
+function renderMcpPanelConnectors(container, connectors) {
   container.innerHTML = "";
   renderMcpRequiredRow(container);
-
-  const resp = await fetch("/simagix/mcp-connectors");
-  if (!resp.ok) {
-    if (emptyMsg) {
-      emptyMsg.hidden = false;
-      emptyMsg.textContent = "Could not load MCP connectors.";
-      if (isStitchRunPage()) emptyMsg.classList.remove("hidden");
-    }
-    syncMcpBulkActions();
-    return;
-  }
-  const data = await resp.json();
-  const connectors = data.connectors || [];
-  if (!connectors.length) {
-    if (emptyMsg) {
-      emptyMsg.hidden = false;
-      if (isStitchRunPage()) emptyMsg.classList.remove("hidden");
-    }
-    syncMcpBulkActions();
-    return;
-  }
-  if (emptyMsg) {
-    emptyMsg.hidden = true;
-    if (isStitchRunPage()) emptyMsg.classList.add("hidden");
-  }
-
   for (const connector of connectors) {
     container.appendChild(renderMcpConnectorRow(connector));
+  }
+}
+
+function setMcpPanelEmpty(emptyEl, message, show) {
+  if (!emptyEl) return;
+  emptyEl.hidden = !show;
+  if (isStitchRunPage()) emptyEl.classList.toggle("hidden", !show);
+  if (show && message) emptyEl.textContent = message;
+}
+
+async function loadRunMcpConnectors() {
+  const panels = MCP_RUN_PANELS.map((cfg) => ({
+    ...cfg,
+    container: document.getElementById(cfg.containerId),
+    emptyEl: document.getElementById(cfg.emptyId),
+  })).filter((cfg) => cfg.container);
+
+  if (!panels.length) return;
+
+  const resp = await fetch("/simagix/mcp-connectors");
+  const { data, text } = await parseFetchResponse(resp);
+  if (!resp.ok) {
+    const detail = fetchErrorDetail(resp, data, text, "Could not load MCP connectors.");
+    for (const { container, emptyEl } of panels) {
+      container.innerHTML = "";
+      renderMcpRequiredRow(container);
+      setMcpPanelEmpty(emptyEl, detail, true);
+    }
+    syncMcpBulkActions();
+    return;
+  }
+
+  const connectors = (data && data.connectors) || [];
+  for (const { container, emptyEl } of panels) {
+    renderMcpPanelConnectors(container, connectors);
+    setMcpPanelEmpty(emptyEl, "", !connectors.length);
   }
   syncMcpBulkActions();
 }
 
 function initRunMcpPanel() {
-  const selectAllBtn = document.getElementById("mcp-select-all");
-  const clearAllBtn = document.getElementById("mcp-clear-all");
-  selectAllBtn?.addEventListener("click", () => {
-    mcpOptionalToggles().forEach((input) => {
-      input.checked = true;
+  for (const { containerId, selectAllId, clearAllId } of MCP_RUN_PANELS) {
+    const panelRoot = mcpPanelRoot(containerId);
+    if (!panelRoot) continue;
+    const selectAllBtn = document.getElementById(selectAllId);
+    const clearAllBtn = document.getElementById(clearAllId);
+    if (selectAllBtn) selectAllBtn.dataset.mcpSelectAll = "1";
+    if (clearAllBtn) clearAllBtn.dataset.mcpClearAll = "1";
+    selectAllBtn?.addEventListener("click", () => {
+      mcpOptionalTogglesInPanel(panelRoot).forEach((input) => {
+        input.checked = true;
+      });
+      syncMcpBulkActionsForPanel(panelRoot);
+      syncMcpRowStyles();
     });
-    syncMcpBulkActions();
-  });
-  clearAllBtn?.addEventListener("click", () => {
-    mcpOptionalToggles().forEach((input) => {
-      input.checked = false;
+    clearAllBtn?.addEventListener("click", () => {
+      mcpOptionalTogglesInPanel(panelRoot).forEach((input) => {
+        input.checked = false;
+      });
+      syncMcpBulkActionsForPanel(panelRoot);
+      syncMcpRowStyles();
     });
-    syncMcpBulkActions();
-  });
+  }
   loadRunMcpConnectors();
 }
 
@@ -382,13 +464,21 @@ function updateReportLinks() {
 async function fetchToolTrace() {
   const summaryEl = document.getElementById("tool-trace-summary");
   const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/tool-trace${llmQuery()}`);
+  const { data, text } = await parseFetchResponse(resp);
   if (!resp.ok) {
-    if (summaryEl) summaryEl.textContent = "Could not load tool trace.";
+    if (summaryEl) {
+      summaryEl.textContent = fetchErrorDetail(resp, data, text, "Could not load tool trace.");
+    }
     toolTraceCategoryFilter = null;
     renderToolTrace({ entries: [], summary: { total: 0, by_category: {} } });
     return;
   }
-  const data = await resp.json();
+  if (!data) {
+    if (summaryEl) summaryEl.textContent = text.trim() || "Could not load tool trace.";
+    toolTraceCategoryFilter = null;
+    renderToolTrace({ entries: [], summary: { total: 0, by_category: {} } });
+    return;
+  }
   toolTraceCategoryFilter = null;
   renderToolTrace(data);
 }
@@ -445,7 +535,8 @@ async function loadSavedReport() {
   if (!reportResp.ok) {
     return;
   }
-  const data = await reportResp.json();
+  const { data } = await parseFetchResponse(reportResp);
+  if (!data) return;
   if (viewer && window.FtdcReportViewer) {
     window.FtdcReportViewer.render(data, viewer);
   }
@@ -463,7 +554,8 @@ async function loadLlmContext() {
 
   const statusResp = await fetch(`/simagix/runs/${RUN_ID}/phase2/status${llmQuery()}`);
   if (!statusResp.ok) return;
-  const statusData = await statusResp.json();
+  const { data: statusData } = await parseFetchResponse(statusResp);
+  if (!statusData) return;
   const investigationEl = document.getElementById("investigation-summary");
 
   window.FtdcPhaseRail?.setFromApiStatus(statusData.status);
@@ -532,8 +624,9 @@ function initRcaPanel(initialLlm) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ llm, enabled_mcp_ids: selectedMcpIds() }),
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.detail || "Failed to start RCA");
+      const { data, text } = await parseFetchResponse(resp);
+      if (!resp.ok) throw new Error(fetchErrorDetail(resp, data, text, "Failed to start RCA"));
+      if (!data) throw new Error(text.trim() || "Failed to start RCA (empty response)");
       if (data.investigation && investigationEl) {
         investigationEl.hidden = false;
         investigationEl.textContent = JSON.stringify(data.investigation, null, 2);
@@ -549,7 +642,8 @@ function initRcaPanel(initialLlm) {
       showClarifyForm(questions);
     } catch (err) {
       window.FtdcPhaseRail?.reset?.();
-      if (statusEl) statusEl.textContent = `Failed: ${err.message}`;
+      showRcaError(err instanceof Error ? err.message : verbatimApiDetail(err));
+      if (statusEl) statusEl.textContent = "Phase 2 failed — see error below.";
     } finally {
       runBtn.disabled = false;
     }
@@ -571,7 +665,7 @@ function initRcaPanel(initialLlm) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers, enabled_mcp_ids: selectedMcpIds() }),
       });
-      const data = await resp.json();
+      const { data, text } = await parseFetchResponse(resp);
       if (!resp.ok) {
         window.FtdcClarifyWizard?.setSubmitting?.(false);
         window.FtdcPhaseRail?.applyState?.({
@@ -579,8 +673,12 @@ function initRcaPanel(initialLlm) {
           running: false,
           completed: { A: true, B: false, C: false },
         });
-        if (statusEl) statusEl.textContent = `RCA failed: ${data.detail || "unknown error"}`;
+        if (statusEl) statusEl.textContent = "Phase 2 failed — see error below.";
+        showRcaError(fetchErrorDetail(resp, data, text, "unknown error"));
         return;
+      }
+      if (!data) {
+        throw new Error(text.trim() || "Final RCA failed (empty response)");
       }
       const result = document.getElementById("rca-result");
       if (result) {
@@ -604,9 +702,17 @@ function initRcaPanel(initialLlm) {
         running: false,
         completed: { A: true, B: false, C: false },
       });
-      if (statusEl) statusEl.textContent = `RCA failed: ${err.message}`;
+      if (statusEl) statusEl.textContent = "Phase 2 failed — see error below.";
+      showRcaError(err instanceof Error ? err.message : verbatimApiDetail(err));
     }
   });
 }
 
-window.FtdcRca = { init: initRcaPanel, fetchToolTrace, renderToolTrace, loadLlmContext };
+window.FtdcRca = {
+  init: initRcaPanel,
+  fetchToolTrace,
+  renderToolTrace,
+  loadLlmContext,
+  selectedMcpIds,
+  selectedChatbotMcpIds,
+};

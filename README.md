@@ -106,6 +106,45 @@ curl -s http://localhost:8000/simagix/runs/phase2/llm-providers | jq '.options[]
 
 On a run page, FTDC loads automatically on first visit; open **Anomaly View** or **All Metrics** in a new tab. See [docs/OPERATIONS.md](docs/OPERATIONS.md) for troubleshooting (reload during decode, empty panels).
 
+#### Colima / Docker stuck (Mac)
+
+Sometimes Colima reports **Running** but Docker commands fail with:
+
+```text
+Cannot connect to the Docker daemon at unix:///Users/<you>/.colima/default/docker.sock. Is the docker daemon running?
+```
+
+That breaks the upload pipeline, Grafana (`503` on **Load FTDC**), and `./simagix-workspace/scripts/run-grafana-stack.sh`. `colima start` may print `already running, ignoring` and **not** fix it — the VM is up but the Docker socket forward is dead.
+
+**Recovery (run in order):**
+
+```bash
+colima stop
+colima start --cpu 4 --memory 8
+docker ps    # must succeed before continuing
+```
+
+Then restart what you need:
+
+```bash
+# Grafana stack (if charts / Load FTDC fail)
+./simagix-workspace/scripts/run-grafana-stack.sh
+
+# Pipeline worker (if uploads stay queued / "Docker daemon" in job error)
+uv run python -m backend.app.jobs.worker
+```
+
+**Verify:**
+
+```bash
+curl -s http://localhost:8000/simagix/runs/grafana/status | jq
+# expect "ftdc_api": true, "grafana": true
+```
+
+**Tips:** Run `colima start --cpu 4 --memory 8` on its own line — do not paste trailing comment text from docs (some shells pass extra words and Colima errors with `accepts at most 1 arg`). Use `docker context use colima` if `docker ps` still hits `/var/run/docker.sock`.
+
+Full ops notes: [docs/OPERATIONS.md](docs/OPERATIONS.md) (Grafana + Colima sections).
+
 ### 6. Tests and demo
 
 ```bash

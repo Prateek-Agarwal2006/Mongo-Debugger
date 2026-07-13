@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Upload logs | Mongo Debugger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-dim": "#6e4951",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#e6e9e2",
+                    "surface-dim": "#d7dcd2",
+                    "on-tertiary-fixed-variant": "#714c54",
+                    "on-secondary-fixed-variant": "#625a57",
+                    "inverse-on-surface": "#9d9d9a",
+                    "on-primary": "#fff6f3",
+                    "surface-container": "#edeee8",
+                    "surface-tint": "#6b5b56",
+                    "on-secondary-fixed": "#453e3b",
+                    "on-primary-container": "#5e4e49",
+                    "secondary-fixed": "#ede0dc",
+                    "error-dim": "#4e0309",
+                    "surface-container-highest": "#e0e4dc",
+                    "secondary-container": "#ede0dc",
+                    "on-error-container": "#752121",
+                    "error-container": "#fe8983",
+                    "surface-bright": "#faf9f5",
+                    "inverse-surface": "#0d0f0d",
+                    "primary-dim": "#5f4f4a",
+                    "on-error": "#fff7f6",
+                    "primary": "#6b5b56",
+                    "secondary": "#665d5b",
+                    "on-primary-fixed-variant": "#685853",
+                    "primary-fixed-dim": "#e6d0c9",
+                    "on-surface": "#2f342e",
+                    "tertiary": "#7b555d",
+                    "on-secondary-container": "#58504d",
+                    "inverse-primary": "#fee6df",
+                    "secondary-fixed-dim": "#ded2ce",
+                    "tertiary-fixed-dim": "#f0c0c9",
+                    "error": "#9f403d",
+                    "on-background": "#2f342e",
+                    "tertiary-container": "#ffcdd7",
+                    "outline-variant": "#afb3ac",
+                    "on-tertiary-container": "#66434b",
+                    "on-secondary": "#fff7f5",
+                    "on-primary-fixed": "#4b3c37",
+                    "background": "#faf9f5",
+                    "surface-variant": "#e0e4dc",
+                    "secondary-dim": "#5a514f",
+                    "tertiary-fixed": "#ffcdd7",
+                    "primary-container": "#f5ded7",
+                    "on-tertiary": "#fff7f7",
+                    "on-surface-variant": "#5c605a",
+                    "outline": "#787c75",
+                    "primary-fixed": "#f5ded7",
+                    "surface": "#faf9f5",
+                    "surface-container-low": "#f4f4ef",
+                    "on-tertiary-fixed": "#513038",
+                    "brand-accent": "#C96442"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Public Sans"],
+                    "display": ["Public Sans"],
+                    "body": ["Public Sans"],
+                    "label": ["Public Sans"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .drag-zone-active {
+            @apply border-brand-accent bg-brand-accent/5 ring-4 ring-brand-accent/10;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<!-- TopNavBar Component -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/30">
+<nav class="flex justify-between items-center h-16 px-6 lg:px-12 max-w-7xl mx-auto">
+<div class="text-xl font-headline font-bold text-on-surface">Mongo Debugger</div>
+<div class="hidden md:flex items-center gap-8 font-body text-label-large">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Home</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Uploads</a>
+<a class="text-brand-accent font-semibold border-b-2 border-brand-accent pb-1" href="#">Upload</a>
+</div>
+<button class="bg-primary text-on-primary px-5 py-2 rounded-lg font-medium hover:bg-primary-dim transition-all duration-200">
+                Start analysis
+            </button>
+</nav>
+</header>
+<main class="flex-grow pt-24 pb-16 px-6 max-w-5xl mx-auto w-full">
+<!-- Page Title Bar -->
+<div class="mb-10 text-center md:text-left">
+<h1 class="text-3xl md:text-4xl font-headline font-extrabold text-on-surface tracking-tight mb-2">Upload logs</h1>
+<p class="text-on-surface-variant text-lg max-w-2xl leading-relaxed">
+                Upload your mongod log bundles to begin the automated root cause analysis pipeline.
+            </p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Primary Content: Upload Card -->
+<div class="lg:col-span-2">
+<section class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/20 overflow-hidden">
+<div class="p-8">
+<div class="relative group cursor-pointer border-2 border-dashed border-outline-variant rounded-xl p-12 transition-all duration-300 hover:border-brand-accent flex flex-col items-center justify-center text-center" id="drop-zone">
+<input class="absolute inset-0 opacity-0 cursor-pointer" id="file-upload" multiple="" type="file"/>
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-4xl text-brand-accent" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
+</div>
+<h3 class="text-xl font-semibold text-on-surface mb-1">Drop mongod logs here or click to browse</h3>
+<p class="text-sm text-on-surface-variant">Supported: .log, .tar.gz, .zip (Max 2GB)</p>
+</div>
+<form class="mt-8 space-y-6">
+<div>
+<label class="block text-sm font-medium text-on-surface-variant mb-1.5" for="run-label">Run label</label>
+<input class="w-full bg-surface-container-low border-outline-variant rounded-lg focus:ring-brand-accent focus:border-brand-accent transition-all text-on-surface" id="run-label" placeholder="e.g., Production-Shard-01-Crash-Oct24" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface-variant mb-1.5" for="notes">Notes</label>
+<textarea class="w-full bg-surface-container-low border-outline-variant rounded-lg focus:ring-brand-accent focus:border-brand-accent transition-all text-on-surface" id="notes" placeholder="Describe the incident symptoms or specific timeframes to focus on..." rows="4"></textarea>
+</div>
+<button class="w-full bg-brand-accent hover:opacity-90 text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-brand-accent/20 transition-all flex items-center justify-center gap-2 text-lg" type="submit">
+                                Start pipeline
+                                <span class="material-symbols-outlined text-xl">play_arrow</span>
+</button>
+</form>
+</div>
+</section>
+</div>
+<!-- Secondary Panel -->
+<aside class="space-y-6">
+<div class="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10 h-fit">
+<h2 class="text-xl font-headline font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-brand-accent">info</span>
+                        What happens next
+                    </h2>
+<div class="space-y-8 relative">
+<!-- Progress line -->
+<div class="absolute left-4 top-0 bottom-0 w-0.5 bg-outline-variant/30 ml-[-1px]"></div>
+<div class="relative flex gap-4">
+<div class="z-10 flex-shrink-0 w-8 h-8 rounded-full bg-brand-accent text-white flex items-center justify-center font-bold text-sm">1</div>
+<div>
+<h3 class="font-bold text-on-surface leading-none mb-2 pt-1">Phase A Investigation</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">Automated scanning for anomalies, latch contention patterns, and storage engine pressure spikes.</p>
+</div>
+</div>
+<div class="relative flex gap-4">
+<div class="z-10 flex-shrink-0 w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-sm border border-outline-variant">2</div>
+<div>
+<h3 class="font-bold text-on-surface leading-none mb-2 pt-1 text-on-surface/70">Phase B Clarifying Questions</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">AI-driven interrogation to narrow failure vectors based on initial findings and topology metadata.</p>
+</div>
+</div>
+<div class="relative flex gap-4">
+<div class="z-10 flex-shrink-0 w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-sm border border-outline-variant">3</div>
+<div>
+<h3 class="font-bold text-on-surface leading-none mb-2 pt-1 text-on-surface/70">Phase C RCA Report</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">Delivery of a comprehensive root cause analysis report including remediation steps and preventative fixes.</p>
+</div>
+</div>
+</div>
+<div class="mt-10 pt-6 border-t border-outline-variant/20">
+<div class="bg-primary-container/30 p-4 rounded-lg flex gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">security</span>
+<p class="text-xs text-on-primary-container">Logs are encrypted at rest and purged automatically 48 hours after report generation.</p>
+</div>
+</div>
+</div>
+<!-- Abstract Visual Asset -->
+<div class="relative h-48 rounded-xl overflow-hidden shadow-sm group">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105" data-alt="A macro shot of complex network cables neatly organized in a data center with soft orange and brown lighting, reflecting a professional analyst workspace environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCL2-A8d7-nPc1q_WfftHZ5AfHLgujUa7HFQOtuQok2f2yS03uMMnT4WWAoFvSCRl7FA7aOw10fpeq5Z2EVKRJUF-OzdmhtjYknbsfQYPPZKMKAtCyBXxMzzdXUa2nAGNletMcQj0QimIfryB3O9GPZDm7ysOdetPGI8b96t4PE8tIlf-zI0_QwABY1Zj-ZCga-nHUM3DPY90fcVJyatMBdsyG3Tn0MU9frcj7Y1H_eXKImO_Vq4gyvsMmk5FNZGdQOB-zDPs-SSeU3')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-dim to-transparent opacity-60"></div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer Component -->
+<footer class="w-full py-12 bg-surface-container-low border-t border-outline-variant/20">
+<div class="flex flex-col md:flex-row justify-between items-center px-6 lg:px-12 max-w-7xl mx-auto gap-4">
+<div class="flex flex-col items-center md:items-start gap-2">
+<div class="text-lg font-headline font-semibold text-on-surface">Mongo Debugger</div>
+<p class="font-body text-label-medium text-on-surface-variant opacity-80">© 2024 Mongo Debugger. Analyst workspace for MongoDB RCA.</p>
+</div>
+<div class="flex items-center gap-6 font-body text-label-medium">
+<a class="text-on-surface-variant hover:text-on-surface hover:underline transition-all" href="#">Documentation</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:underline transition-all" href="#">API</a>
+</div>
+</div>
+</footer>
+<script>
+        // Simple drag and drop interaction simulation
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-upload');
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-brand-accent', 'bg-brand-accent/5', 'ring-4', 'ring-brand-accent/10');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-brand-accent', 'bg-brand-accent/5', 'ring-4', 'ring-brand-accent/10');
+            }, false);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if(fileInput.files.length > 0) {
+                const label = document.getElementById('run-label');
+                if(!label.value) {
+                    label.value = fileInput.files[0].name.split('.')[0] + '-analysis';
+                }
+            }
+        });
+    </script>
+</body></html>

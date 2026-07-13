@@ -111,6 +111,8 @@ class GeminiAdkLLMProvider(LLMProvider):
         self,
         session: Phase2Session,
         user_message: str,
+        *,
+        enabled_mcp_ids: list[str] | None = None,
     ) -> ChatbotResult:
         session.configure_budget(self.settings.phase2_chatbot_max_tool_calls, reset=True)
         raw_text = run_adk_agent_text(
@@ -119,6 +121,7 @@ class GeminiAdkLLMProvider(LLMProvider):
             settings=self.settings,
             include_tools=True,
             phase="chatbot",
+            enabled_mcp_ids=enabled_mcp_ids,
         )
         return ChatbotResult(
             content=raw_text,

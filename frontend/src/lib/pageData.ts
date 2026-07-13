@@ -36,6 +36,7 @@ export type PageData =
       run_id: string;
       pipeline_status?: string;
       job_id?: string | null;
+      job_message?: string | null;
       upload_time_utc?: string | null;
     }
   | { page: "mcp_workarea" }

@@ -1,16 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Upload {{ run_id }} — Phase 1{% endblock %}
 {% block body_class %}mdb-modern-page{% endblock %}
-{% block page_data %}
-{
-  "page": "pipeline",
-  "run_id": "{{ run_id }}",
-  "pipeline_status": {{ pipeline_status | tojson }},
-  "job_id": {{ job_id | tojson }},
-  "upload_time_utc": {{ upload_time_utc | tojson }}
-}
-{% endblock %}
+{% block page_data %}{{ page_payload | tojson }}{% endblock %}
 {% block content %}
+{% if job and job.error %}
+<script type="application/json" id="mdb-job-error-json">{{ job.error | tojson }}</script>
+{% endif %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 reveal-panel" data-reveal="up">
   <div>
     <h1 class="h2 mb-1"><i class="bi bi-cpu me-2 text-info"></i>Phase 1 — Decode &amp; export</h1>
@@ -19,7 +14,7 @@
       {% if upload_time_utc %}<span class="ms-1">· {{ upload_time_utc }}</span>{% endif %}
     </p>
   </div>
-  <a class="btn btn-outline-secondary" href="/runs"><i class="bi bi-arrow-left me-2"></i>All uploads</a>
+  <a class="btn btn-outline-secondary" href="/runs"><i class="bi bi-arrow-left me-2"></i>All runs</a>
 </div>
 
 <div class="glass-card reveal-panel mb-4" data-reveal="left">
@@ -42,7 +37,8 @@
     <p class="mb-1"><strong>Latest decode attempt:</strong> <code>{{ job.job_id }}</code></p>
     <p class="mb-1"><strong>Message:</strong> {{ job.message }}</p>
     {% if job.error %}
-    <div class="alert alert-danger mt-3 mb-0"><strong>Error:</strong> {{ job.error }}</div>
+    <pre class="alert alert-danger mt-3 mb-0 small font-monospace" style="white-space: pre-wrap; word-break: break-word;"><strong>Error:</strong>
+{{ job.error }}</pre>
     {% endif %}
     {% else %}
     <p class="text-secondary mb-0">No Phase 1 job record found for this upload.</p>
@@ -59,7 +55,7 @@
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
         <thead class="table-secondary table-opacity-25">
-          <tr><th>Attempt</th><th>State</th><th>Message</th></tr>
+          <tr><th>Attempt</th><th>State</th><th>Message</th><th>Error</th></tr>
         </thead>
         <tbody>
           {% for attempt in phase1_attempts %}
@@ -67,6 +63,7 @@
             <td><code>{{ attempt.job_id[:8] }}…</code></td>
             <td><span class="badge text-bg-secondary">{{ attempt.state }}</span></td>
             <td class="small text-secondary">{{ attempt.message }}</td>
+            <td class="small">{% if attempt.error %}<pre class="mb-0 font-monospace" style="white-space: pre-wrap; word-break: break-word;">{{ attempt.error }}</pre>{% else %}—{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -99,19 +96,24 @@
 {% endif %}
 
 {% if job_id and pipeline_status in ['queued', 'processing'] %}
+<script src="/static/js/page-data.js"></script>
 <script>
 (function poll() {
   const jobId = document.getElementById("pipeline-poll").dataset.jobId;
   const runId = document.getElementById("pipeline-poll").dataset.runId;
   async function tick() {
-    const job = await fetch(`/simagix/uploads/jobs/${jobId}`).then((r) => r.json());
-    if (job.state === 'succeeded') {
-      window.location.href = `/runs/${runId}`;
-      return;
-    }
-    if (job.state === 'failed') {
-      window.location.reload();
-      return;
+    try {
+      const job = await window.MdbPageData.fetchJob(jobId);
+      if (job.state === "succeeded") {
+        window.location.href = "/runs/" + runId;
+        return;
+      }
+      if (job.state === "failed") {
+        window.location.href = "/runs/" + runId + "/pipeline?failed=1";
+        return;
+      }
+    } catch (err) {
+      console.warn("Phase 1 poll failed", err);
     }
     setTimeout(tick, 3000);
   }
@@ -119,6 +121,7 @@
 })();
 </script>
 {% elif pipeline_status == 'failed' or pipeline_status == 'stale' %}
+<script src="/static/js/api-error-text.js"></script>
 <script>
 (function () {
   const btn = document.getElementById("retry-pipeline-btn");
@@ -126,10 +129,10 @@
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     const runId = btn.dataset.runId;
-    const resp = await fetch(`/simagix/uploads/runs/${runId}/retry`, { method: "POST" });
+    const resp = await fetch("/simagix/uploads/runs/" + runId + "/retry", { method: "POST" });
+    const { data, text } = await window.MdbVerbatimError.readResponseBody(resp);
     if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      alert(body.detail || "Retry failed");
+      alert(window.MdbVerbatimError.errorFromBody(resp, data, text, "Retry failed"));
       btn.disabled = false;
       return;
     }

@@ -5,7 +5,7 @@ import { StitchFooter } from "@/layout/StitchFooter";
 const NAV = [
   {
     href: "/runs",
-    label: "Uploads",
+    label: "Runs",
     match: (p: string) => p.startsWith("/runs") && p !== "/upload",
   },
   { href: "/upload", label: "Upload", match: (p: string) => p === "/upload" },

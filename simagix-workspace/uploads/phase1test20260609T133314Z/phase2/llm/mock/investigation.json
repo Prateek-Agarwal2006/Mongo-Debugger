@@ -11,7 +11,7 @@
     {
       "finding_name": "Replication Lag Issues",
       "what_observed": "Secondary nodes falling behind primary, potentially causing stale reads Symptoms: Replication lag on host-1: p95=8119.0s (score: 0) — 59 occurrences over 365m (peak: 9100.0); High update rate: 12786 ops/s",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -22,7 +22,7 @@
     {
       "finding_name": "Missing Indexes",
       "what_observed": "High query targeting ratios indicate collection scans or inefficient index usage Symptoms: Keys examined per doc returned: p95=837:1 (score: 0); Docs examined per doc returned: p95=752:1 (score: 0); Objects scanned per key: avg=17159:1 (score: 0)",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -33,7 +33,7 @@
     {
       "finding_name": "CPU Saturation",
       "what_observed": "High CPU usage may indicate inefficient queries or under-provisioned hardware Symptoms: Low CPU idle: p5=2% (score: 0); High CPU user: p95=76% (score: 0); High CPU system: p95=18% (score: 0)",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -44,7 +44,7 @@
     {
       "finding_name": "Memory Fragmentation",
       "what_observed": "tcmalloc memory fragmentation causing inefficient memory usage Symptoms: Memory fragmentation: p95=47% (score: 11)",
-      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results.",
+      "why_it_happened": "[mock] Not inferred — live agent must derive mechanism from metric/log tool results.",
       "contributing_factors": [],
       "related_metrics": [
         "repl_lag_host-1",
@@ -104,11 +104,10 @@
     }
   ],
   "mechanism_hypotheses": [
-    "[mock] Not inferred — live agent must derive mechanism from metric/profiler/log tool results."
+    "[mock] Not inferred — live agent must derive mechanism from metric/log tool results."
   ],
   "tool_calls_made": [
-    "get_metric_window",
-    "get_profiler_samples"
+    "get_metric_window"
   ],
   "metric_insights": [
     "metric:cache_used unavailable in fixture",
@@ -117,9 +116,6 @@
   ],
   "log_insights": [
     "graylog: not queried in mock mode"
-  ],
-  "profiler_insights": [
-    "profiler: 1 samples uploaded"
   ],
   "web_insights": [
     "https://www.mongodb.com/docs/manual/core/wiredtiger/ — schema demo placeholder URL"

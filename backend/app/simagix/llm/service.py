@@ -498,6 +498,7 @@ def post_chatbot_message(
     llm: str,
     content: str,
     attachments: list[dict[str, Any]] | None = None,
+    enabled_mcp_ids: list[str] | None = None,
     force_mock: bool = False,
     llm_provider: str | None = None,
 ) -> dict[str, Any]:
@@ -552,7 +553,7 @@ def post_chatbot_message(
     )
 
     provider = get_llm_provider(force_mock=force_mock, llm_provider=llm_provider, llm=llm)
-    result = provider.run_chatbot(session, prompt)
+    result = provider.run_chatbot(session, prompt, enabled_mcp_ids=enabled_mcp_ids)
     messages.append(_chat_message("assistant", result.content))
     data["messages"] = messages
     save_chatbot(session, data)
