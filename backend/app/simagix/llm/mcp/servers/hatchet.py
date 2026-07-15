@@ -2,30 +2,28 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
 from backend.app.simagix.budget import RetrievalBudget
-from backend.app.simagix.hatchet_tools import HatchetEvidenceTools
+from backend.app.simagix.evidence.hatchet_tools import HatchetTools
 
 mcp = FastMCP("hatchet-evidence")
 
-_SERVICE: HatchetEvidenceTools | None = None
+_SERVICE: HatchetTools | None = None
 
 
-def _build_service() -> HatchetEvidenceTools:
+def _build_service() -> HatchetTools:
     run_id = os.environ["SIMAGIX_RUN_ID"]
-    workspace_root = Path(os.environ["SIMAGIX_WORKSPACE_ROOT"])
-    budget_path = Path(os.environ["SIMAGIX_BUDGET_STATE_PATH"])
+    llm = os.environ["SIMAGIX_LLM"]
     max_tool_calls = int(os.environ.get("SIMAGIX_MAX_TOOL_CALLS", "12"))
-    budget = RetrievalBudget(max_tool_calls=max_tool_calls, sync_path=budget_path)
+    budget = RetrievalBudget(max_tool_calls=max_tool_calls, run_id=run_id, llm=llm)
     budget.sync_load()
-    return HatchetEvidenceTools(workspace_root, run_id, budget=budget)
+    return HatchetTools(run_id, budget=budget)
 
 
-def _service() -> HatchetEvidenceTools:
+def _service() -> HatchetTools:
     global _SERVICE
     if _SERVICE is None:
         _SERVICE = _build_service()
@@ -62,7 +60,7 @@ def get_hatchet_connection_timeline(limit: int = 48) -> dict[str, Any]:
 
 
 def main() -> None:
-    required = ("SIMAGIX_RUN_ID", "SIMAGIX_WORKSPACE_ROOT", "SIMAGIX_BUDGET_STATE_PATH")
+    required = ("SIMAGIX_RUN_ID", "SIMAGIX_LLM", "DATABASE_URL")
     missing = [name for name in required if not os.environ.get(name)]
     if missing:
         print(f"Missing required env vars: {', '.join(missing)}", file=sys.stderr)

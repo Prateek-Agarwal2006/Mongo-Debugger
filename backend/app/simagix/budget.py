@@ -1,41 +1,53 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 
 @dataclass
 class RetrievalBudget:
-    """Fallback retrieval budget for Phase 2 LLM tool loops."""
+    """Fallback retrieval budget for Phase 2 LLM tool loops.
+
+    When run_id and llm are set, state syncs through the phase2_state table
+    ('budget' key) so the orchestrator and MCP server subprocesses share one
+    counter across processes and pods.
+    """
 
     max_tool_calls: int = 12
     tool_calls_used: int = 0
     tool_call_history: list[str] = field(default_factory=list)
-    sync_path: Path | None = field(default=None, repr=False)
+    run_id: str | None = field(default=None, repr=False)
+    llm: str | None = field(default=None, repr=False)
+
+    def _synced(self) -> bool:
+        return bool(self.run_id and self.llm)
 
     def sync_load(self) -> None:
-        if self.sync_path is None or not self.sync_path.exists():
+        if not self._synced():
             return
-        payload = json.loads(self.sync_path.read_text(encoding="utf-8"))
+        from backend.app.simagix.llm.state import load_state
+
+        payload = load_state(self.run_id, self.llm, "budget")
+        if payload is None:
+            return
         self.max_tool_calls = payload.get("max_tool_calls", self.max_tool_calls)
         self.tool_calls_used = payload.get("tool_calls_used", self.tool_calls_used)
         self.tool_call_history = list(payload.get("tool_call_history", self.tool_call_history))
 
     def sync_save(self) -> None:
-        if self.sync_path is None:
+        if not self._synced():
             return
-        self.sync_path.parent.mkdir(parents=True, exist_ok=True)
-        self.sync_path.write_text(
-            json.dumps(
-                {
-                    "max_tool_calls": self.max_tool_calls,
-                    "tool_calls_used": self.tool_calls_used,
-                    "tool_call_history": self.tool_call_history,
-                }
-            ),
-            encoding="utf-8",
+        from backend.app.simagix.llm.state import save_state
+
+        save_state(
+            self.run_id,
+            self.llm,
+            "budget",
+            {
+                "max_tool_calls": self.max_tool_calls,
+                "tool_calls_used": self.tool_calls_used,
+                "tool_call_history": self.tool_call_history,
+            },
         )
 
     def consume_tool_call(self, tool_name: str) -> None:

@@ -1,13 +1,17 @@
 # Mongo Debugger
 
-**AI-powered MongoDB FTDC analyzer** — upload `diagnostic.data`, run deterministic analysis with [simagix/mongo-ftdc](https://github.com/simagix/mongo-ftdc), optionally parse **MongoDB logs with Hatchet**, then generate **agentic root-cause reports** via a 3-phase LLM workflow (Cursor SDK + MCP evidence tools).
+**AI-powered MongoDB FTDC analyzer** — upload `diagnostic.data`, run deterministic analysis with [simagix/mongo-ftdc](https://github.com/simagix/mongo-ftdc), optionally parse **MongoDB logs with Hatchet**, store metrics in **Postgres**, then generate **agentic root-cause reports** via a 3-phase LLM workflow (Cursor SDK / Gemini ADK + MCP evidence tools).
 
 ```text
-Upload → pipeline worker (Docker) → tiered evidence bundle → Web UI + FastAPI
-       → optional Hatchet log parse → summary.json for Phase 2
-       → Phase A: investigate (MCP) → Phase B: clarify → Phase C: final RCA
-       → JSON/HTML report + post-report chatbot + Grafana charts (new tab)
+Browser → ui nginx (:8000) → api FastAPI (ClusterIP)
+Upload → Postgres job queue → worker (baked Go binaries)
+     → tiered evidence + metrics COPY into Postgres
+     → optional Hatchet log parse → summary.json
+     → SPA /runs/{id}: Decoding → Ready → Phase A/B/C RCA
+     → JSON/HTML report + chatbot + Grafana SimpleJSON charts
 ```
+
+**Status:** [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) · **Changelog:** [docs/CHANGELOG.md](docs/CHANGELOG.md) · **Docs hub:** [docs/README.md](docs/README.md)
 
 ---
 
@@ -16,264 +20,274 @@ Upload → pipeline worker (Docker) → tiered evidence bundle → Web UI + Fast
 | Area | What you get |
 |------|----------------|
 | **Deterministic lab** | mongo-ftdc diagnosis, assessment scores, anomaly windows, tiered LLM export |
-| **Web app** | Upload `.zip`/`.tar.gz`, browse runs, RCA panel, Grafana dashboard links, post-report chatbot |
-| **MongoDB logs (Hatchet)** | Optional `mongod.log` upload on the run page; Docker parse → `summary.json`; Phase 2 waits when logs present |
-| **Agentic RCA** | Investigation → up to 10 clarifying questions → final report with citations |
-| **Post-report chatbot** | Agentic follow-up per message (markdown, mermaid, copy); disk transcript + summarize/replay memory |
-| **Multi-LLM** | Per-slot artifacts (`cursor`, `gemini`, `mock`); switch LLM in the run UI without cross-contamination |
-| **Evidence-first** | Tier-1 findings are authoritative; LLM fetches metric slices via MCP, not raw dumps |
-| **Grafana charts** | Shared Docker stack (`:3030` / `:5408`); first visit auto-loads FTDC; reload keeps dashboard links visible |
-| **Optional signals** | Profiler upload, Graylog MCP, Hatchet tier-2 MCP tools, trusted HTTPS `web_fetch` |
-
-**Status:** [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) · **Changelog:** [docs/CHANGELOG.md](docs/CHANGELOG.md)
+| **Modern SPA** | Vite React shell + stitch iframes; upload, runs catalog, RCA workspace, MCP/Skill WorkAreas |
+| **Kind / Helm stack** | **ui** nginx NodePort, **api** ClusterIP (JSON-only), **worker**, **postgres** (PVC), **grafana** |
+| **MongoDB logs (Hatchet)** | Optional `mongod.log` upload on the run page → `summary.json`; Phase 2 waits when logs present |
+| **Agentic RCA** | Investigation → clarifying questions → final report with citations |
+| **Post-report chatbot** | Agentic follow-up (markdown, mermaid, copy); disk transcript + summarize/replay memory |
+| **Multi-LLM** | Per-slot artifacts (`cursor`, `gemini`, `mock`); switch LLM without cross-contamination |
+| **Evidence-first** | Tier-1 findings authoritative; LLM fetches metric slices via MCP, not raw dumps |
+| **Grafana charts** | Helm Grafana + SimpleJSON over Postgres (`/grafana/simple`); Anomaly View + All Metrics |
+| **Operator WorkAreas** | MCP connectors + skill ZIP catalog; run-page MCP checkboxes; skills auto-attach |
 
 ---
 
-## Quick start
+## Architecture (runtime)
+
+The system splits **deterministic analysis** (worker / Go tools find health issues) from **reasoning** (the LLM only explains and correlates). In Kind, the browser talks only to **ui nginx** on `:8000`. The API is internal (ClusterIP). Metrics and jobs live in **Postgres**; Grafana reads them via SimpleJSON — not the old Docker FTDC API `:5408` path.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 70, 'rankSpacing': 100}, 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart LR
+  Operator(["User / operator"])
+
+  subgraph edge [Kind edge — localhost]
+    UI["ui nginx NodePort :8000<br/>Vite SPA + /static stitch<br/>proxy /simagix /grafana /docs /health"]
+    GrafNP["Grafana NodePort<br/>localhost:3030 ← 30300"]
+  end
+
+  subgraph cluster [Kubernetes cluster]
+    API["api FastAPI ClusterIP<br/>JSON only — no Jinja<br/>catalog · upload · Phase 2 · SimpleJSON"]
+    Worker["worker<br/>poll Postgres queue<br/>llm-export · ingest · Hatchet"]
+    PG[("Postgres + PVC<br/>jobs · metrics · skills · MCP registry")]
+    Graf["Grafana pod<br/>datasource → http://api:8000/grafana/simple"]
+  end
+
+  subgraph data [Run artifacts DATA_ROOT / emptyDir]
+    Inputs["uploads/run_id/inputs<br/>diagnostic.data · mongod.log"]
+    Evidence["phase1/mongo-ftdc<br/>tiered JSON · then ingest"]
+    Reports["phase2/llm/slot<br/>reports · chatbot"]
+  end
+
+  subgraph rca [Phase 2 — Cursor path]
+    Phase2["service.py<br/>A investigate · B clarify · C final"]
+    Provider["CursorLLMProvider<br/>AgentOptions + mcp_servers"]
+    SDK["Cursor SDK<br/>spawn MCP stdio · tool loop"]
+    Cloud["Cursor Cloud<br/>model only"]
+    MCP["MCP servers<br/>simagix-evidence · optional WorkArea"]
+  end
+
+  Operator --> UI
+  UI -->|"SPA + REST"| API
+  Operator --> GrafNP --> Graf
+  Graf -->|"SimpleJSON query"| API
+
+  API --> PG
+  API -->|"enqueue job"| PG
+  Worker -->|"claim / update"| PG
+  API --> Inputs
+  Worker --> Inputs
+  Worker --> Evidence
+  Evidence -->|"COPY metrics"| PG
+  Worker --> Reports
+
+  API --> Phase2 --> Provider -->|"mcp_servers"| SDK
+  SDK -->|"stdio MCP"| MCP
+  MCP -->|"tier-1 / slices"| PG
+  MCP -.->|"bundle paths"| Evidence
+  SDK <-->|"tool calls"| Cloud
+  Provider --> Reports
+  Reports --> UI
+```
+
+### Ports (Kind)
+
+| What | How you reach it |
+|------|------------------|
+| **App UI + API proxy** | **http://localhost:8000** → Kind maps NodePort `30000` (`deploy/kind/cluster.yaml`) |
+| **Grafana** | **http://localhost:3030** → NodePort `30300` (same Kind config). If missing: `kubectl port-forward svc/grafana 3030:3000` |
+| **API inside cluster** | `http://api:8000` (ClusterIP — not on localhost) |
+
+### Layer map
+
+| Layer | Role |
+|-------|------|
+| **ui nginx** | Serves SPA + stitch assets; sole browser entry; proxies API paths |
+| **api** | Upload, `GET /simagix/catalog`, Phase 2, SimpleJSON Grafana datasource |
+| **worker** | Claims jobs from Postgres; runs baked `llm-export` / Hatchet; ingests metrics |
+| **Postgres (+ PVC)** | Durable jobs, FTDC metrics, operator skills/MCP registry |
+| **mongo-ftdc / Hatchet** | Deterministic decode & log parse (binaries in worker image) |
+| **Cursor SDK / Gemini ADK** | Agent runtime; we ship MCP **servers** + skill attachment |
+| **Phase 2** | Investigate → clarify once → final RCA → chatbot |
+| **Grafana** | Charts over Postgres SimpleJSON (Anomaly View / All Metrics) |
+
+**Excalidraw (older lane diagram):** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — still useful for Cursor/MCP tool-loop storytelling; Kind topology above is current.
+
+Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md) · Tradeoffs: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) §14
+
+---
+
+## Quick start — Kind (recommended for full stack)
 
 ### 1. Prerequisites
 
-- **macOS or Linux**
-- [Docker](https://docs.docker.com/get-docker/) — on Mac, [Colima](https://github.com/abiosoft/colima) is recommended
-- **Python 3.11** and [uv](https://docs.astral.sh/uv/)
+- Docker (Colima on Mac recommended)
+- [Kind](https://kind.sigs.k8s.io/) + `kubectl` + [Helm](https://helm.sh/)
+- Enough RAM (8 GB+ Colima / Docker Desktop)
 
 ```bash
-brew install docker docker-compose colima   # Mac
+brew install docker docker-compose colima kind kubectl helm
 colima start --cpu 4 --memory 8 --disk 60
-uv python install 3.11
 ```
 
-### 2. Clone and install
+### 2. Create Kind cluster (with port maps)
+
+```bash
+cd mongo-debugger   # repo root
+kind create cluster --name mongo-debugger --config deploy/kind/cluster.yaml
+```
+
+This maps **8000→30000** (ui) and **3030→30300** (Grafana). If Grafana is unreachable on `:3030`, the cluster was likely created without this config — use port-forward (below) or recreate.
+
+### 3. Build images, load, Helm install
+
+```bash
+./deploy/scripts/load-images.sh
+helm upgrade --install mongo-debugger deploy/helm \
+  --set postgres.password=password \
+  -f deploy/values-local.yaml \
+  --wait --timeout 10m
+kubectl get pods -l 'app in (ui,api,worker,postgres,grafana)'
+```
+
+Open **http://localhost:8000**.
+
+Optional Grafana check:
+
+```bash
+curl -sS http://localhost:3030/api/health || kubectl port-forward svc/grafana 3030:3000
+# admin / admin
+```
+
+### 4. Typical operator flow
+
+1. **Upload** → `http://localhost:8000/upload` (zip of `diagnostic.data` or `metrics.*`)
+2. Redirect to **`/runs/{run_id}`** — SPA shows **Decoding** / **Loading metrics** until Phase 1 succeeds
+3. **Run RCA** (Mock works without keys; Cursor/Gemini need `.env` / secrets in Helm)
+4. Optional: **MCP WorkArea** / **Skill WorkArea**; enable MCP checkboxes on the run page
+5. **Grafana** links on Evidence tab (time range from capture window)
+
+### 5. Rebuild after code changes
+
+```bash
+./deploy/scripts/load-images.sh
+kubectl rollout restart deploy/ui deploy/api deploy/worker
+kubectl rollout status deploy/ui deploy/api deploy/worker --timeout=180s
+```
+
+UI-only (spinner / SPA copy):
+
+```bash
+docker build -f deploy/docker/Dockerfile.ui -t mongo-debugger-ui:latest .
+kind load docker-image mongo-debugger-ui:latest --name mongo-debugger
+kubectl rollout restart deploy/ui
+```
+
+Postgres stuck / catalog 500 — see [docs/OPERATIONS.md](docs/OPERATIONS.md) § Catalog / Postgres CrashLoop.
+
+---
+
+## Quick start — local uv (API + worker on host)
+
+Use this for fast backend iteration without Kind. Pipeline still needs Docker for decode unless you use Kind’s worker image pattern.
+
+### 1. Install
 
 ```bash
 git clone https://github.com/Prateek-Agarwal2006/Mongo-Debugger.git mongo-debugger
 cd mongo-debugger
+uv python install 3.11
 uv sync --extra dev --extra llm
-cp .env.example .env   # optional: set CURSOR_API_KEY for live Phase 2
+cp .env.example .env   # CURSOR_API_KEY / GEMINI_API_KEY optional
 ```
 
-### 3. Simagix toolchain (Docker pipeline)
+### 2. Simagix toolchain (Docker images for pipeline)
 
 ```bash
 ./scripts/setup-simagix-repos.sh
 cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker && cd -
 ```
 
-This builds the `simagix/ftdc` image used by the upload pipeline. For Grafana charts, also build the patched local FTDC server image once:
+### 3. Postgres
+
+Local Mode expects `DATABASE_URL` (see `.env.example`). Kind already runs Postgres in-cluster.
+
+### 4. Two processes
 
 ```bash
-simagix-workspace/scripts/build-ftdc-local.sh
-```
-
-### 4. Run the app (two processes)
-
-```bash
-colima start --cpu 4 --memory 8   # if not already running
-
-# Terminal 1 — API + web UI
-uv run uvicorn backend.app.main:app --reload --port 8000
-
-# Terminal 2 — pipeline worker (upload decode + Hatchet jobs)
-uv run python -m backend.app.jobs.worker
-```
-
-Open **http://localhost:8000** → **Upload** or browse the included test run `phase1test20260609T133314Z`.
-
-**Stop / restart the API** (required after changing `.env` — settings are cached per process):
-
-```bash
-# In the uvicorn terminal: Ctrl+C
-
-# Or from any shell:
-pkill -f "uvicorn backend.app.main:app" || true
-lsof -ti :8000 | xargs kill -9   # only if port still in use
-
-cd mongo-debugger   # repo root — `.env` is read from here
-uv run uvicorn backend.app.main:app --reload --port 8000
-```
-
-Restart the worker separately if needed (`pkill -f "backend.app.jobs.worker"` then start worker again). After updating `CURSOR_API_KEY`, confirm Cursor is available:
-
-```bash
-curl -s http://localhost:8000/simagix/runs/phase2/llm-providers | jq '.options[] | select(.id=="cursor")'
-```
-
-### 5. Grafana charts (optional)
-
-```bash
-./simagix-workspace/scripts/run-grafana-stack.sh
-```
-
-On a run page, FTDC loads automatically on first visit; open **Anomaly View** or **All Metrics** in a new tab. See [docs/OPERATIONS.md](docs/OPERATIONS.md) for troubleshooting (reload during decode, empty panels).
-
-#### Colima / Docker stuck (Mac)
-
-Sometimes Colima reports **Running** but Docker commands fail with:
-
-```text
-Cannot connect to the Docker daemon at unix:///Users/<you>/.colima/default/docker.sock. Is the docker daemon running?
-```
-
-That breaks the upload pipeline, Grafana (`503` on **Load FTDC**), and `./simagix-workspace/scripts/run-grafana-stack.sh`. `colima start` may print `already running, ignoring` and **not** fix it — the VM is up but the Docker socket forward is dead.
-
-**Recovery (run in order):**
-
-```bash
-colima stop
 colima start --cpu 4 --memory 8
-docker ps    # must succeed before continuing
-```
 
-Then restart what you need:
+# Terminal 1 — API (JSON + SPA assets if you serve them; Kind UI image is preferred for Modern SPA)
+uv run uvicorn backend.app.main:app --reload --port 8000
 
-```bash
-# Grafana stack (if charts / Load FTDC fail)
-./simagix-workspace/scripts/run-grafana-stack.sh
-
-# Pipeline worker (if uploads stay queued / "Docker daemon" in job error)
+# Terminal 2 — worker
 uv run python -m backend.app.jobs.worker
 ```
 
-**Verify:**
+Build SPA for local static serving when developing UI:
 
 ```bash
-curl -s http://localhost:8000/simagix/runs/grafana/status | jq
-# expect "ftdc_api": true, "grafana": true
+cd frontend && npm install && npm run build && cd -
 ```
 
-**Tips:** Run `colima start --cpu 4 --memory 8` on its own line — do not paste trailing comment text from docs (some shells pass extra words and Colima errors with `accepts at most 1 arg`). Use `docker context use colima` if `docker ps` still hits `/var/run/docker.sock`.
+**Mock RCA:** select **Mock** on the run page (no API key).
 
-Full ops notes: [docs/OPERATIONS.md](docs/OPERATIONS.md) (Grafana + Colima sections).
-
-### 6. Tests and demo
+### 5. Tests
 
 ```bash
 uv run pytest backend/tests -q
-./scripts/demo.sh   # requires server on :8000
+./scripts/demo.sh   # needs server on :8000
 ```
-
-**Mock RCA** (no API key): select **Mock** in the LLM dropdown on the run page, or pass `{"llm":"mock"}` to Phase 2 APIs.
-
----
-
-## Architecture (30 seconds)
-
-The system deliberately splits **deterministic analysis** (Docker tools find the health issues) from **reasoning** (the LLM only explains and correlates) — so the agent never re-derives findings from raw metrics. Grafana runs in Docker (`:3030` + FTDC API `:5408`), `CursorLLMProvider` configures MCP on `AgentOptions` and the **Cursor SDK** spawns MCP subprocesses and runs the tool loop against Cursor Cloud, and Grafana loads the run's uploaded `diagnostic.data` path through the FTDC API rather than reading the evidence bundle.
-
-```mermaid
-%%{init: {'flowchart': {'nodeSpacing': 85, 'rankSpacing': 120}, 'themeVariables': {'fontSize': '18px'}}}%%
-flowchart LR
-  Operator(["User / operator"])
-
-  subgraph ui [Browser / Web UI]
-    Web["FastAPI Web UI :8000 | upload page | run page | RCA + Grafana controls"]
-  end
-
-  subgraph api [Backend Process]
-    FastAPI["FastAPI :8000 | upload APIs | run state | path resolver"]
-    Worker["Pipeline worker | DATA_ROOT file queue | Docker job runner"]
-  end
-
-  subgraph data [Run Workspace on DATA_ROOT]
-    Inputs["Run inputs | diagnostic.data | mongod.log"]
-    Evidence["Evidence bundle | mongo-ftdc tiered JSON | Hatchet summary"]
-    Reports["Report artifacts | latest_report.json | HTML view | chatbot transcript"]
-  end
-
-  subgraph dockerAnalysis [Deterministic Docker Analysis]
-    MongoFTDC["mongo-ftdc Docker | decode FTDC | score | diagnose"]
-    Hatchet["Hatchet Docker | parse mongod.log | SQLite | summary.json"]
-  end
-
-  subgraph rca [Phase 2 RCA — Cursor path]
-    Phase2["Phase2 service.py | Phase A investigate | B clarify | C final"]
-    Provider["CursorLLMProvider | builds AgentOptions + mcp_servers config"]
-    SDK["Cursor SDK Agent.create | agent.send tool loop | MCP client"]
-    Cloud["Cursor Cloud | model only — no direct bundle access"]
-    MCP["MCP servers subprocess | mcp/servers/* | graylog | hatchet"]
-  end
-
-  subgraph charts [Grafana Docker Stack]
-    GrafanaSvc["Grafana FastAPI routes :8000 | stack status | load request"]
-    FTDCAPI["FTDC API Docker :5408 | /grafana/dir | loads diagnostic.data"]
-    Grafana["Grafana Docker :3030 | dashboards | new browser tab"]
-  end
-
-  Operator --> Web --> FastAPI
-  FastAPI --> Inputs
-  FastAPI --> Worker
-  Worker --> MongoFTDC
-  Worker --> Hatchet
-  Inputs --> MongoFTDC --> Evidence
-  Inputs --> Hatchet --> Evidence
-
-  FastAPI --> Phase2
-  Phase2 --> Provider
-  Provider -->|"AgentOptions.mcp_servers"| SDK
-  SDK -->|"spawn subprocess + stdio MCP"| MCP
-  MCP -->|"reads"| Evidence
-  SDK <-->|"tool call requests / results"| Cloud
-  Provider --> Reports --> Web
-
-  Web --> GrafanaSvc
-  GrafanaSvc -->|"passes run diagnostic.data path"| FTDCAPI
-  Inputs -.->|"source for /grafana/dir"| FTDCAPI
-  FTDCAPI --> Grafana --> Web
-```
-
-Ports: **FastAPI** `:8000` (the only thing the browser talks to) · **Grafana** `:3030` and **FTDC API** `:5408` (shared Docker stack, opened in a new tab). LLM providers are external (Cursor Cloud, Gemini).
-
-Key read: **Cursor Cloud does not call MCP directly**. `CursorLLMProvider` passes `mcp_servers` into `AgentOptions`; the **Cursor SDK** spawns MCP as subprocesses, routes tool calls over stdio, and loops with the cloud model. Gemini ADK uses in-process function tools instead (same Phase 2 phases, different wiring). Grafana is separate from Phase 2 RCA: its Docker FTDC API loads the run's uploaded `diagnostic.data` for charts.
-
-**Excalidraw:** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — on [excalidraw.com](https://excalidraw.com), use **☰ → Open** and select this file (must include `"type": "excalidraw"` in the JSON). Or reload via Excalidraw MCP session `mongo-debugger-runtime-flow`.
-
-| Layer | Role |
-|-------|------|
-| **mongo-ftdc** (Docker) | Decode FTDC, score, diagnose, export tiered bundle |
-| **Hatchet** (Docker) | Parse `mongod.log` → SQLite → compact tier-1 summary for Phase 2 |
-| **Pipeline worker** | File queue on `DATA_ROOT`; runs mongo-ftdc + Hatchet jobs outside the API process |
-| **FastAPI backend** | Upload jobs, REST/MCP evidence access, web UI |
-| **Cursor SDK** | Agent runtime — tool loop (ReAct); we implement MCP **servers** only |
-| **Gemini ADK** | Second LLM slot with shared evidence tools + `web_fetch` policy |
-| **Grafana stack** | Shared `mongo-debugger/ftdc:local` + Grafana; per-run load via `/grafana/dir` |
-| **Phase 2** | 3-step RCA: investigate → ask operator once → final report → chatbot |
-
-Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Design rationale & tradeoffs: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) (§13 code walkthrough, §14 tradeoffs)
 
 ---
 
 ## Repository layout
 
 ```text
-backend/app/              FastAPI, Phase 2 LLM, Grafana, Hatchet jobs, web route wiring
-frontend/                 Bootstrap UI (templates + static; swappable without backend changes)
-docs/                     Full documentation index
-scripts/                  demo.sh, setup-simagix-repos.sh
+backend/app/                 FastAPI, Phase 2 LLM, jobs, catalog, SimpleJSON Grafana
+frontend/                    Vite SPA (src/) + stitch HTML/JS/CSS (static/)
+deploy/
+  kind/cluster.yaml          Kind ports 8000 + 3030
+  helm/                      ui · api · worker · postgres · grafana
+  docker/                    Dockerfile.ui · Dockerfile.api · Dockerfile.worker
+  scripts/load-images.sh     Build + kind load
+docs/                        Full documentation (hub: docs/README.md)
+scripts/                     demo.sh, setup-simagix-repos.sh
 simagix-workspace/
-  uploads/<run_id>/       One tree per upload (inputs, phase1/mongo-ftdc, phase1/hatchet, phase2/)
-  docker/                 Grafana compose
-  patches/                Local patches (FTDC deferred load, Hatchet merge gate)
-  scripts/                Docker pipeline + Grafana + Hatchet wrappers
-  repos/                  Cloned simagix tools (gitignored — run setup script)
+  uploads/<run_id>/          inputs · phase1 · phase2
+  operator/                  sample MCP test servers + mongo-rca-playbook skill
+  scripts/                   pipeline wrappers (Kind uses baked binaries in worker)
 ```
 
 ---
 
-## Configuration
+## Configuration (high signal)
 
 | Variable | Purpose |
 |----------|---------|
-| `CURSOR_API_KEY` | Live Phase 2 agent (Cursor SDK) |
-| `CURSOR_MODEL` | Default `composer-2.5` |
+| `DATABASE_URL` | Postgres (required for catalog, jobs, metrics, skills) |
+| `DATA_ROOT` | Workspace root (Kind: `/data`; local: repo root) |
+| `CURSOR_API_KEY` / `CURSOR_MODEL` | Live Cursor Phase 2 |
 | `GEMINI_API_KEY` | Optional Gemini ADK slot |
-| `PHASE2_*_MAX_TOOL_CALLS` | MCP retrieval budget per phase |
-| `PHASE2_CHATBOT_*` | Chatbot memory window + summarize thresholds |
-| `PHASE2_WEB_FETCH_*` | Trusted HTTPS fetch policy for agent `web_fetch` |
-| `GRAYLOG_*` | Optional log search in investigation |
-| `GRAFANA_URL` / `FTDC_API_URL` | Grafana stack endpoints (default `:3030` / `:5408`) |
-| `DATA_ROOT` | Mount root for uploads + worker queue (default: repo root) |
+| `PHASE2_*_MAX_TOOL_CALLS` | MCP budget per phase |
+| `PHASE2_CHATBOT_*` | Chatbot memory window |
+| `PHASE2_WEB_FETCH_*` | Trusted HTTPS `web_fetch` policy |
+| `GRAFANA_URL` | Browser Grafana URL (default `http://localhost:3030`) |
 
-See [.env.example](.env.example) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
+Full list: [.env.example](.env.example) · [docs/OPERATIONS.md](docs/OPERATIONS.md)
+
+---
+
+## Operator tips (Kind)
+
+| Symptom | Fix |
+|---------|-----|
+| **Catalog / Database unavailable** | Postgres CrashLoop or recovering — [OPERATIONS](docs/OPERATIONS.md); wait or wipe PVC |
+| **Grafana won’t open on :3030** | Kind missing port map → `kubectl port-forward svc/grafana 3030:3000` |
+| **Upload sits on Decoding** | Check `kubectl logs deploy/worker`; ensure Postgres Ready |
+| **Double upload** | Busy spinner disables submit; wait for POST to finish before expecting `/runs/{id}` |
+| **Skill ZIP** | Upload at `/skill-workarea`; stored in **Postgres** (zip not kept on disk) |
+| **Test MCP on Kind** | Prefer HTTPS echo MCP; host `127.0.0.1` / `test-ping-mcp` need files/`uv` not in API image |
 
 ---
 
@@ -281,11 +295,13 @@ See [.env.example](.env.example) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 | Doc | Description |
 |-----|-------------|
-| [**docs/README.md**](docs/README.md) | **Documentation hub** — start here |
-| [frontend/README.md](frontend/README.md) | UI layer map (templates, static assets) |
-| [OPERATIONS.md](docs/OPERATIONS.md) | Colima, upload, pipeline worker, Grafana, Hatchet, troubleshooting |
-| [PHASE2_LLM.md](docs/PHASE2_LLM.md) | Cursor agent, MCP tools, 3-phase flow |
-| [RCA_BACKEND.md](docs/RCA_BACKEND.md) | REST API reference |
+| [**docs/README.md**](docs/README.md) | Documentation hub |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System map + zoom diagrams |
+| [PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md) | K8s decisions (Postgres-only, baked binaries, …) |
+| [OPERATIONS.md](docs/OPERATIONS.md) | Kind rebuild, upload, Grafana, Postgres probes |
+| [PHASE2_LLM.md](docs/PHASE2_LLM.md) | Cursor / ADK, MCP, 3-phase RCA, WorkAreas |
+| [RCA_BACKEND.md](docs/RCA_BACKEND.md) | REST + catalog API |
+| [DESIGN_NOTES.md](docs/DESIGN_NOTES.md) | Demo / interview · **§14 tradeoffs** |
 | [export_contract.md](docs/export_contract.md) | Evidence bundle schema |
 
 **Contributors / agents:** [AGENTS.md](AGENTS.md) · [docs/DOC_MAINTENANCE.md](docs/DOC_MAINTENANCE.md)

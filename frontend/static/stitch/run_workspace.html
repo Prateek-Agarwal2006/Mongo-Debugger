@@ -61,11 +61,11 @@ body {
 ::-webkit-scrollbar-thumb { background: #d2c3bf; border-radius: 4px; }
 #chatbot:has(#agent-chat-panel:not([hidden])) #chatbot-unavailable { display: none; }
 </style>
-<link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+<link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260715-btn-busy"/>
 </head>
 <body class="flex flex-col min-h-screen">
 <div id="mdb-stitch-nav-mount"></div>
-<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+<script src="/static/js/stitch-nav.js?v=20260715-btn-busy"></script>
 
 <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
 <!-- Breadcrumb + run header -->
@@ -118,10 +118,10 @@ body {
 
 <!-- Tabs -->
 <div class="border-b border-outline-variant mb-6 flex gap-4 sm:gap-6 overflow-x-auto">
-<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-evidence" onclick="switchTab('evidence')">
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-primary text-primary shrink-0" id="btn-evidence" onclick="switchTab('evidence')">
 <span class="material-symbols-outlined text-base align-middle mr-1">dataset</span>Evidence
 </button>
-<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-primary text-primary shrink-0" id="btn-investigation" onclick="switchTab('investigation')">
+<button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-investigation" onclick="switchTab('investigation')">
 <span class="material-symbols-outlined text-base align-middle mr-1">troubleshoot</span>Investigation
 </button>
 <button type="button" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-on-surface shrink-0" id="btn-report" onclick="switchTab('report')">
@@ -147,7 +147,7 @@ body {
 <p id="hatchet-log-list" class="text-sm text-on-surface-variant mb-3 hidden"></p>
 <div id="hatchet-block-alert" class="hidden text-sm bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2 mb-3"></div>
 <form id="hatchet-log-upload-form" class="flex flex-wrap gap-2 items-end">
-<input type="file" id="hatchet-log-files" name="files" multiple accept=".log,.txt,.gz,.zip,.tar,.tgz" class="text-sm flex-1 min-w-[200px]"/>
+<input type="file" id="hatchet-log-files" name="files" multiple accept=".log,.txt,.gz,.log.gz,.zip,.tar,.tgz,.tar.gz" class="text-sm flex-1 min-w-[200px]"/>
 <button type="submit" id="hatchet-upload-btn" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium">Upload logs</button>
 <button type="button" id="hatchet-retry-btn" class="hidden bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Retry Hatchet</button>
 </form>
@@ -158,15 +158,14 @@ body {
 <h2 class="text-lg font-semibold mb-2 flex items-center gap-2">
 <span class="material-symbols-outlined text-primary">show_chart</span>Metrics (Grafana)
 </h2>
-<p class="text-sm text-on-surface-variant mb-3">Charts open in Grafana (localhost:3030) in a new tab.</p>
-<div id="grafana-status" class="text-sm bg-surface-container-low rounded-lg px-3 py-2 mb-3">Checking Grafana stack…</div>
+<p class="text-sm text-on-surface-variant mb-3">Charts read ingested metrics from Postgres. Anomaly View zooms to scored windows; All Metrics shows the full capture.</p>
+<div id="grafana-status" class="text-sm bg-surface-container-low rounded-lg px-3 py-2 mb-3">Preparing Grafana links…</div>
 <div class="flex flex-wrap gap-2">
-<button type="button" id="grafana-load-btn" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium">Load FTDC for this run</button>
-<button type="button" id="grafana-open-anomaly" class="hidden bg-surface-container-high px-4 py-2 rounded-lg text-sm font-medium" disabled>Anomaly view</button>
-<button type="button" id="grafana-open-all" class="hidden bg-surface-container-high px-4 py-2 rounded-lg text-sm font-medium" disabled>All metrics</button>
+<button type="button" id="grafana-open-anomaly" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-medium">Anomaly View</button>
+<button type="button" id="grafana-open-all" class="bg-surface-container-highest text-on-surface px-4 py-2 rounded-lg text-sm font-medium border border-outline-variant">All Metrics</button>
 </div>
-<div id="grafana-meta" class="text-xs text-on-surface-variant mt-3 hidden"></div>
 </section>
+
 </div>
 </div>
 
@@ -443,14 +442,15 @@ switchTab("investigation");
 <script src="/static/js/clarify-wizard.js?v=4"></script>
 <script src="/static/js/report-viewer.js?v=5"></script>
 <script src="/static/js/agent-chat.js?v=8"></script>
-<script src="/static/js/grafana.js?v=5"></script>
 <script src="/static/js/api-error-text.js"></script>
-<script src="/static/js/rca.js?v=10"></script>
+<script src="/static/js/btn-busy.js"></script>
+<script src="/static/js/grafana.js?v=9"></script>
+<script src="/static/js/rca.js?v=12"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   if (!window.RUN_ID) return;
-  if (window.FtdcGrafana) window.FtdcGrafana.init(window.RUN_ID);
   if (window.FtdcRca) window.FtdcRca.init(window.INITIAL_LLM);
+  if (window.FtdcGrafana) window.FtdcGrafana.init(window.RUN_ID);
 
   const uploadForm = document.getElementById("hatchet-log-upload-form");
   if (uploadForm) {

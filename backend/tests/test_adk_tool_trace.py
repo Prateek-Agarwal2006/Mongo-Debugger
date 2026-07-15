@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 from backend.app.simagix.llm.tool_trace import (
@@ -50,9 +49,8 @@ def test_adk_tool_trace_call_id_none_without_function_call_id() -> None:
     assert adk_tool_trace_call_id(Ctx()) is None
 
 
-def test_adk_tool_trace_call_id_scoped_by_phase(tmp_path: Path) -> None:
-    trace_path = tmp_path / "tool_trace.json"
-    trace = ToolTraceCollector(trace_path, agent_id="gemini-adk:test")
+def test_adk_tool_trace_call_id_scoped_by_phase() -> None:
+    trace = ToolTraceCollector("adk-trace-test-run", "gemini", agent_id="gemini-adk:test")
 
     class Ctx:
         def __init__(self, function_call_id: str) -> None:
@@ -74,9 +72,8 @@ def test_adk_tool_trace_call_id_scoped_by_phase(tmp_path: Path) -> None:
     assert len(trace.entries) == 2
 
 
-def test_adk_tool_trace_call_id_dedupes_distinct_calls(tmp_path: Path) -> None:
-    trace_path = tmp_path / "tool_trace.json"
-    trace = ToolTraceCollector(trace_path, agent_id="gemini-adk:test")
+def test_adk_tool_trace_call_id_dedupes_distinct_calls() -> None:
+    trace = ToolTraceCollector("adk-trace-test-run", "gemini", agent_id="gemini-adk:test")
 
     class Ctx:
         def __init__(self, function_call_id: str) -> None:
@@ -113,9 +110,8 @@ def test_adk_tool_trace_identity_evidence() -> None:
     assert server == "simagix-evidence"
 
 
-def test_record_grounding_metadata_writes_web_row(tmp_path: Path) -> None:
-    trace_path = tmp_path / "tool_trace.json"
-    trace = ToolTraceCollector(trace_path, agent_id="gemini-adk:test")
+def test_record_grounding_metadata_writes_web_row() -> None:
+    trace = ToolTraceCollector("adk-trace-test-run", "gemini", agent_id="gemini-adk:test")
     metadata = SimpleNamespace(
         web_search_queries=["MongoDB replication lag"],
         grounding_chunks=[
@@ -126,10 +122,13 @@ def test_record_grounding_metadata_writes_web_row(tmp_path: Path) -> None:
     record_grounding_metadata(trace, "investigation", [event])
     trace.save()
 
-    payload = trace_path.read_text(encoding="utf-8")
-    assert "google_search" in payload
-    assert "replication" in payload
-    assert '"category": "web"' in payload
+    from backend.app.simagix.llm.tool_trace import load_tool_trace
+
+    payload = load_tool_trace("adk-trace-test-run", "gemini")
+    entries = payload["entries"]
+    assert any(e["tool_name"] == "google_search" for e in entries)
+    assert any("replication" in (e.get("args_summary") or "") for e in entries)
+    assert any(e["category"] == "web" for e in entries)
 
 
 def test_adk_tool_trace_identity_prefixed_evidence() -> None:

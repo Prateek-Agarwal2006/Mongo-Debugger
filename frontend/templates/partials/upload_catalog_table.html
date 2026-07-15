@@ -20,15 +20,15 @@
         {% if not compact %}<td class="small text-secondary text-nowrap">{{ entry.upload_time_utc or '—' }}</td>{% endif %}
         <td>
           {% if entry.phase1_status == 'finished' %}
-          <span class="badge text-bg-success">FTDC</span>
+          <span class="badge text-bg-success">{{ entry.phase1_label or 'Ready' }}</span>
           {% elif entry.phase1_status == 'processing' %}
-          <span class="badge text-bg-warning text-dark">FTDC…</span>
+          <span class="badge text-bg-warning text-dark">{{ entry.phase1_label or 'Decoding' }}…</span>
               {% elif entry.phase1_status == 'failed' %}
-              <span class="badge text-bg-danger">FTDC failed</span>
+              <span class="badge text-bg-danger">{{ entry.phase1_label or 'Failed' }}</span>
               {% elif entry.phase1_status == 'stale' %}
-              <span class="badge text-bg-dark">FTDC stale</span>
+              <span class="badge text-bg-dark">{{ entry.phase1_label or 'Stale' }}</span>
               {% else %}
-          <span class="badge text-bg-secondary">FTDC queued</span>
+          <span class="badge text-bg-secondary">{{ entry.phase1_label or 'Queued' }}</span>
           {% endif %}
           {% if entry.hatchet_status == 'finished' %}
           <span class="badge text-bg-success ms-1">Hatchet</span>

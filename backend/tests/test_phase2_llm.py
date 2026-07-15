@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -26,7 +28,7 @@ from backend.app.simagix.llm.web_fetch import validate_web_fetch_url
 from backend.app.simagix.llm.tool_trace import classify_tool_category, resolve_tool_identity
 from backend.app.simagix.llm.service import run_investigation, run_phase2
 from backend.app.simagix.llm.session import Phase2SessionStore, phase2_session_store
-from backend.app.simagix.evidence_service import SimagixEvidenceService
+from backend.app.simagix.rca_service import SimagixEvidenceService
 from backend.app.simagix.output_schema import RCAReportDraft
 
 from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists, fixture_exports_dir
@@ -56,18 +58,41 @@ def session_store() -> Phase2SessionStore:
     return Phase2SessionStore()
 
 
+def _poll_status_until(
+    client: TestClient,
+    run_id: str,
+    llm: str,
+    done_statuses: set[str],
+    *,
+    timeout_s: float = 60.0,
+) -> dict:
+    """Poll GET /phase2/status until the background stage settles (async, Decision 11)."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        resp = client.get(f"/simagix/runs/{run_id}/phase2/status?llm={llm}")
+        assert resp.status_code == 200
+        body = resp.json()
+        if body.get("status") in done_statuses:
+            return body
+        time.sleep(0.1)
+    raise AssertionError(f"phase2 status never reached {done_statuses}: last={body}")
+
+
 def _complete_mock_rca(client: TestClient, run_id: str) -> dict:
     start = client.post(f"/simagix/runs/{run_id}/phase2/run", json={"llm": "mock"})
-    assert start.status_code == 200
-    body = start.json()
-    qids = [q["id"] for q in body["clarifying_questions"]["questions"]]
+    assert start.status_code == 202
+    state = _poll_status_until(client, run_id, "mock", {"awaiting_clarifications", "failed"})
+    assert state["status"] == "awaiting_clarifications", state.get("error")
+    qids = [q["id"] for q in state["questions"]["questions"]]
     answers = {qids[0]: "No maintenance during window"} if qids else {}
     clarify = client.post(
         f"/simagix/runs/{run_id}/phase2/clarify?llm=mock",
         json={"answers": answers},
     )
-    assert clarify.status_code == 200
-    return clarify.json()
+    assert clarify.status_code == 202
+    state = _poll_status_until(client, run_id, "mock", {"completed", "failed"})
+    assert state["status"] == "completed", state.get("error")
+    return state
 
 
 def test_parse_rca_report_from_json_fence() -> None:
@@ -291,11 +316,30 @@ def test_resolve_tool_identity_prefixed_operator_tool() -> None:
 
 
 def test_mcp_server_env_includes_pythonpath(fixture_run_id: str, session_store: Phase2SessionStore) -> None:
+    from backend.app.core.run_workspace import repo_root
+
     session = session_store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock")
     env = session.mcp_server_env()
     assert "PYTHONPATH" in env
+    # Code root first — required when DATA_ROOT != repo (Kind api pod).
+    assert env["PYTHONPATH"].split(os.pathsep)[0] == str(repo_root())
     assert str(WORKSPACE_ROOT) in env["PYTHONPATH"]
-    assert env["SIMAGIX_BUDGET_STATE_PATH"].endswith("phase2/llm/mock/budget_state.json")
+    assert env["SIMAGIX_LLM"] == "mock"
+    assert env["SIMAGIX_RUN_ID"] == fixture_run_id
+    assert "DATABASE_URL" in env
+
+
+def test_builtin_mcp_specs_use_repo_root_cwd(fixture_run_id: str, session_store: Phase2SessionStore) -> None:
+    from backend.app.core.config import get_settings
+    from backend.app.core.run_workspace import repo_root
+    from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs
+
+    session = session_store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock")
+    specs = build_mcp_server_specs(session, get_settings())
+    evidence = next(s for s in specs if s.server_id == "simagix-evidence")
+    assert evidence.cwd == str(repo_root())
+    assert evidence.env is not None
+    assert evidence.env["SIMAGIX_WORKSPACE_ROOT"] == str(WORKSPACE_ROOT.resolve())
 
 def test_mcp_evidence_tools_with_fixture(fixture_run_id: str, monkeypatch: pytest.MonkeyPatch) -> None:
     if not (fixture_exports_dir() / "llm/fallback_retrieval_index.json").exists():
@@ -321,11 +365,8 @@ def test_mcp_evidence_tools_with_fixture(fixture_run_id: str, monkeypatch: pytes
     assert session.budget_status()["tool_calls_used"] >= 1
 
 
-def test_session_budget_shared_via_sync_file(fixture_run_id: str) -> None:
+def test_session_budget_shared_via_postgres(fixture_run_id: str) -> None:
     store = Phase2SessionStore()
-    budget_path = _mock_session_dir(fixture_run_id) / "budget_state.json"
-    if budget_path.exists():
-        budget_path.unlink()
     store.reset(fixture_run_id, "mock")
 
     session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock", max_tool_calls=12)
@@ -358,13 +399,14 @@ def test_phase2_run_api_mock(fixture_run_id: str) -> None:
         f"/simagix/runs/{fixture_run_id}/phase2/run",
         json={"llm": "mock"},
     )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "awaiting_clarifications"
+    assert response.status_code == 202
+    assert response.json()["status"] == "running_investigation"
+    body = _poll_status_until(client, fixture_run_id, "mock", {"awaiting_clarifications", "failed"})
+    assert body["status"] == "awaiting_clarifications", body.get("error")
     assert body["run_id"] == fixture_run_id
     investigation = body.get("investigation", {})
     assert investigation.get("summary")
-    assert body.get("clarifying_questions", {}).get("questions")
+    assert body.get("questions", {}).get("questions")
     assert investigation.get("web_insights")
     assert len(investigation.get("finding_analyses", [])) >= 1
     assert "[mock]" in investigation["finding_analyses"][0].get("why_it_happened", "")
@@ -406,6 +448,7 @@ def test_final_rca_prompt_has_evidence_rules(fixture_run_id: str) -> None:
 def test_phase2_tool_trace_api(fixture_run_id: str) -> None:
     client = TestClient(create_app())
     client.post(f"/simagix/runs/{fixture_run_id}/phase2/run", json={"llm": "mock"})
+    _poll_status_until(client, fixture_run_id, "mock", {"awaiting_clarifications", "failed"})
     trace = client.get(f"/simagix/runs/{fixture_run_id}/phase2/tool-trace?llm=mock")
     assert trace.status_code == 200
     body = trace.json()
@@ -424,9 +467,7 @@ def test_phase2_tool_trace_api(fixture_run_id: str) -> None:
 def test_phase2_status_api(fixture_run_id: str) -> None:
     client = TestClient(create_app())
     client.post(f"/simagix/runs/{fixture_run_id}/phase2/run", json={"llm": "mock"})
-    status = client.get(f"/simagix/runs/{fixture_run_id}/phase2/status?llm=mock")
-    assert status.status_code == 200
-    body = status.json()
+    body = _poll_status_until(client, fixture_run_id, "mock", {"awaiting_clarifications", "failed"})
     assert body["status"] == "awaiting_clarifications"
     assert "investigation" in body
 
@@ -524,8 +565,9 @@ def test_phase2_run_accepts_llm_provider_mock(fixture_run_id: str) -> None:
         f"/simagix/runs/{fixture_run_id}/phase2/run",
         json={"llm_provider": "mock"},
     )
-    assert start.status_code == 200
-    assert start.json()["llm_provider"] == "mock"
+    assert start.status_code == 202
+    state = _poll_status_until(client, fixture_run_id, "mock", {"awaiting_clarifications", "failed"})
+    assert state["llm_provider"] == "mock"
 
 
 def test_llm_providers_api() -> None:
@@ -539,27 +581,16 @@ def test_llm_providers_api() -> None:
 
 
 def test_chatbot_404_without_report(fixture_run_id: str) -> None:
-    session_dir = _mock_session_dir(fixture_run_id)
-    report_path = session_dir / "latest_report.json"
-    backup = report_path.read_text(encoding="utf-8") if report_path.exists() else None
-    if report_path.exists():
-        report_path.unlink()
+    # phase2_state is truncated per test (conftest), so there is no report yet.
     phase2_session_store.reset(fixture_run_id, "mock")
-    try:
-        client = TestClient(create_app())
-        resp = client.get(f"/simagix/runs/{fixture_run_id}/phase2/chatbot?llm=mock")
-        assert resp.status_code == 404
-    finally:
-        if backup is not None:
-            report_path.write_text(backup, encoding="utf-8")
+    client = TestClient(create_app())
+    resp = client.get(f"/simagix/runs/{fixture_run_id}/phase2/chatbot?llm=mock")
+    assert resp.status_code == 404
 
 
 def test_chatbot_api_mock(fixture_run_id: str) -> None:
     client = TestClient(create_app())
     _complete_mock_rca(client, fixture_run_id)
-    chat_path = _mock_session_dir(fixture_run_id) / "chatbot_chat.json"
-    if chat_path.exists():
-        chat_path.unlink()
     phase2_session_store.reset(fixture_run_id, "mock")
     before = client.get(f"/simagix/runs/{fixture_run_id}/phase2/chatbot?llm=mock")
     assert before.status_code == 200
@@ -581,9 +612,6 @@ def test_chatbot_enabled_mcp_ids_passthrough(
 ) -> None:
     client = TestClient(create_app())
     _complete_mock_rca(client, fixture_run_id)
-    chat_path = _mock_session_dir(fixture_run_id) / "chatbot_chat.json"
-    if chat_path.exists():
-        chat_path.unlink()
     phase2_session_store.reset(fixture_run_id, "mock")
 
     captured: dict[str, object] = {}
@@ -601,7 +629,9 @@ def test_chatbot_enabled_mcp_ids_passthrough(
     )
     assert post.status_code == 200
     assert captured.get("enabled_mcp_ids") == ["github-prod"]
-    saved = json.loads(chat_path.read_text(encoding="utf-8"))
+    from backend.app.simagix.llm.state import load_state
+
+    saved = load_state(fixture_run_id, "mock", "chatbot") or {}
     for msg in saved.get("messages", []):
         assert "enabled_mcp_ids" not in msg
     assert "enabled_mcp_ids" not in saved
@@ -610,9 +640,6 @@ def test_chatbot_enabled_mcp_ids_passthrough(
 def test_chatbot_attachment_upload_and_message(fixture_run_id: str) -> None:
     client = TestClient(create_app())
     _complete_mock_rca(client, fixture_run_id)
-    chat_path = _mock_session_dir(fixture_run_id) / "chatbot_chat.json"
-    if chat_path.exists():
-        chat_path.unlink()
     phase2_session_store.reset(fixture_run_id, "mock")
 
     upload = client.post(

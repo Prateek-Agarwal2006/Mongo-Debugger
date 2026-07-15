@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-debugger-config
+  labels:
+    app.kubernetes.io/name: mongo-debugger
+data:
+  DATA_ROOT: {{ .Values.env.DATA_ROOT | quote }}
+  PIPELINE_WORKER_POLL_SECONDS: {{ .Values.env.PIPELINE_WORKER_POLL_SECONDS | quote }}
+  LLM_PROVIDER: {{ .Values.env.LLM_PROVIDER | quote }}
+  CURSOR_MODEL: {{ .Values.env.cursorModel | quote }}
+  GRAFANA_URL: {{ .Values.env.GRAFANA_URL | quote }}
+  PHASE2_INVESTIGATION_MAX_TOOL_CALLS: {{ .Values.env.PHASE2_INVESTIGATION_MAX_TOOL_CALLS | quote }}
+  PHASE2_RCA_MAX_TOOL_CALLS: {{ .Values.env.PHASE2_RCA_MAX_TOOL_CALLS | quote }}
+  PHASE2_CHATBOT_MAX_TOOL_CALLS: {{ .Values.env.PHASE2_CHATBOT_MAX_TOOL_CALLS | quote }}

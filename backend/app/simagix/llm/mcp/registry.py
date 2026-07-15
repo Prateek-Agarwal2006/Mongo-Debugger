@@ -4,13 +4,14 @@ import sys
 from typing import Any
 
 from backend.app.core.config import Settings
-from backend.app.simagix.hatchet_tools import hatchet_evidence_available
+from backend.app.core.run_workspace import repo_root
+from backend.app.simagix.evidence.hatchet_tools import hatchet_evidence_available
 from backend.app.simagix.llm.mcp.connectors import (
     McpConnectorRegistry,
     STDIO_TEMPLATES,
     McpConnectorRecord,
 )
-from backend.app.simagix.llm.mcp.specs import ADK_MCP_STDIO_TIMEOUT_SEC, BARE_TOOL_MCP_SERVER_NAMES, McpServerSpec
+from backend.app.simagix.llm.mcp.specs import ADK_MCP_STDIO_TIMEOUT_SEC, McpServerSpec
 from backend.app.simagix.llm.session import Phase2Session
 
 EVIDENCE_SERVER_MODULE = "backend.app.simagix.llm.mcp.servers.evidence"
@@ -97,10 +98,12 @@ def build_mcp_server_specs(
             return specs
 
     env = session.mcp_server_env()
-    workspace_cwd = str(session.workspace_root)
+    # Builtin servers are `python -m backend…` — cwd must be the code root (/app in
+    # Kind), not DATA_ROOT. Workspace path travels via SIMAGIX_WORKSPACE_ROOT in env.
+    module_cwd = str(repo_root())
 
     if include_builtins:
-        specs.append(_stdio_python_module(EVIDENCE_SERVER_MODULE, env=env, cwd=workspace_cwd))
+        specs.append(_stdio_python_module(EVIDENCE_SERVER_MODULE, env=env, cwd=module_cwd))
         if settings.graylog_api_url and settings.graylog_api_token:
             graylog_env = {
                 **env,
@@ -111,10 +114,10 @@ def build_mcp_server_specs(
                 "GRAYLOG_SEARCH_LIMIT": str(settings.graylog_search_limit),
             }
             specs.append(
-                _stdio_python_module(GRAYLOG_SERVER_MODULE, env=graylog_env, cwd=workspace_cwd)
+                _stdio_python_module(GRAYLOG_SERVER_MODULE, env=graylog_env, cwd=module_cwd)
             )
-        if hatchet_evidence_available(session.workspace_root, session.run_id):
-            specs.append(_stdio_python_module(HATCHET_SERVER_MODULE, env=env, cwd=workspace_cwd))
+        if hatchet_evidence_available(session.run_id):
+            specs.append(_stdio_python_module(HATCHET_SERVER_MODULE, env=env, cwd=module_cwd))
 
     if enabled_mcp_ids:
         registry = McpConnectorRegistry(session.workspace_root)

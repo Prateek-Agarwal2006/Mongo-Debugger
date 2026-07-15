@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from backend.app.simagix.evidence_service import SimagixEvidenceService
+from backend.app.simagix.rca_service import SimagixEvidenceService
 
 
 def load_golden_incident(workspace_root: Path) -> dict[str, Any]:

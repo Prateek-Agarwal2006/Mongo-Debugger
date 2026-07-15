@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from backend.app.core.config import get_settings
 from backend.app.core.run_workspace import get_run_workspace, repo_root
+from backend.app.simagix.evidence.loader import EvidenceLoader
 from backend.app.jobs.catalog import (
     hatchet_display_status,
     list_hatchet_attempts,
@@ -16,11 +14,13 @@ from backend.app.jobs.catalog import (
     list_run_catalog,
     latest_hatchet_job_for_run,
     latest_job_for_run,
+    phase1_progress_label,
     pipeline_display_status,
     upload_time_utc_from_run_id,
 )
+from backend.app.jobs.store import JobState
 from backend.app.simagix.format_report import format_rca_report_pretty
-from backend.app.simagix.llm.llm_paths import LLM_FOLDER_NAMES
+from backend.app.simagix.llm.state import LLM_FOLDER_NAMES
 from backend.app.simagix.llm.service import list_run_llm_sessions, llm_provider_options
 from backend.app.simagix.llm.session import phase2_session_store
 from backend.app.simagix.tool_usage import resolve_tool_usage
@@ -36,10 +36,6 @@ _LLM_LABELS = {
     "cursor": "Cursor SDK",
     "gemini": "Gemini ADK",
 }
-
-
-def _list_run_ids() -> list[str]:
-    return get_run_workspace().list_run_ids()
 
 
 def _llm_context_options(settings) -> list[dict[str, object]]:
@@ -89,17 +85,18 @@ def runs_list(request: Request) -> HTMLResponse:
 def run_pipeline_status(request: Request, run_id: str) -> HTMLResponse:
     workspace = get_run_workspace()
     job = latest_job_for_run(workspace.root, run_id)
-    if job is None and not (workspace.resolve_exports_dir(run_id) / "manifest.json").exists():
+    if job is None and not EvidenceLoader(run_id).exists():
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
     status = "finished"
     if job is not None:
         status = pipeline_display_status(workspace, job)
-    elif (workspace.resolve_exports_dir(run_id) / "manifest.json").exists():
+    elif EvidenceLoader(run_id).exists():
         status = "finished"
     page_payload = {
         "page": "pipeline",
         "run_id": run_id,
         "pipeline_status": status,
+        "phase1_label": phase1_progress_label(status, job.message if job else None),
         "job_id": job.job_id if job else None,
         "job_message": job.message if job else None,
         "upload_time_utc": upload_time_utc_from_run_id(run_id),
@@ -111,6 +108,7 @@ def run_pipeline_status(request: Request, run_id: str) -> HTMLResponse:
             "run_id": run_id,
             "pipeline_status": status,
             "phase1_status": status,
+            "phase1_label": phase1_progress_label(status, job.message if job else None),
             "job": job.to_dict() if job else None,
             "job_id": job.job_id if job else None,
             "page_payload": page_payload,
@@ -123,9 +121,11 @@ def run_pipeline_status(request: Request, run_id: str) -> HTMLResponse:
 @router.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLResponse:
     workspace = get_run_workspace()
-    exports = workspace.resolve_exports_dir(run_id)
-    if not (exports / "manifest.json").exists():
-        job = latest_job_for_run(workspace.root, run_id)
+    job = latest_job_for_run(workspace.root, run_id)
+    # Gate RCA on Phase 1 success — evidence may land before metrics COPY finishes.
+    if job is not None and job.state != JobState.SUCCEEDED:
+        return run_pipeline_status(request, run_id)
+    if not EvidenceLoader(run_id).exists():
         if job is not None or workspace.upload_exists(run_id):
             return run_pipeline_status(request, run_id)
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
@@ -140,8 +140,7 @@ def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLRes
     metadata: dict[str, object] = {}
     if session is not None:
         report = session.load_persisted_report()
-        if session.metadata_path.exists():
-            metadata = json.loads(session.metadata_path.read_text(encoding="utf-8"))
+        metadata = session.load_metadata()
         if report is not None:
             has_report = True
             tool_usage = resolve_tool_usage(session)
@@ -153,7 +152,7 @@ def run_detail(request: Request, run_id: str, llm: str | None = None) -> HTMLRes
                 tool_usage=tool_usage,
             )
 
-    manifest = json.loads((exports / "manifest.json").read_text(encoding="utf-8"))
+    manifest = EvidenceLoader(run_id)._load("manifest") or {}
     has_logs = workspace.has_mongodb_log_inputs(run_id)
     has_hatchet_summary = workspace.hatchet_summary_ready(run_id)
     hatchet_job = latest_hatchet_job_for_run(workspace.root, run_id)

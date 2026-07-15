@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,6 @@ from backend.app.core.run_workspace import RunWorkspace
 from backend.app.main import create_app
 from backend.app.simagix.llm.mcp.connectors import (
     McpConnectorRegistry,
-    registry_path,
     validate_connector_payload,
 )
 from backend.app.simagix.llm.mcp.registry import build_user_mcp_servers
@@ -79,23 +77,29 @@ def test_validate_test_ping_stdio_template_no_env() -> None:
     assert record.env == {}
 
 
-def test_registry_persists_on_disk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_registry_persists_in_pg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.app.db.connection import db_conn
+
     monkeypatch.setenv("DATA_ROOT", str(tmp_path))
     workspace = RunWorkspace(tmp_path)
     registry = McpConnectorRegistry(workspace.root)
     record = registry.upsert(
         {
-            "id": "docs-mcp",
+            "id": "docs-mcp-pg",
             "name": "Docs MCP",
             "transport": "http",
             "url": "https://example.com/mcp",
         }
     )
-    assert record.id == "docs-mcp"
-    path = registry_path(workspace.root)
-    assert path.exists()
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["connectors"][0]["id"] == "docs-mcp"
+    assert record.id == "docs-mcp-pg"
+
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT data FROM mcp_connectors WHERE id = %s", ("docs-mcp-pg",)
+        ).fetchone()
+    assert row is not None
+    data = row[0]
+    assert data["id"] == "docs-mcp-pg"
 
 
 def test_build_user_mcp_servers_resolves_ids(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,14 +108,14 @@ def test_build_user_mcp_servers_resolves_ids(tmp_path: Path, monkeypatch: pytest
     registry = McpConnectorRegistry(workspace.root)
     registry.upsert(
         {
-            "id": "docs-mcp",
+            "id": "docs-mcp-resolve",
             "name": "Docs MCP",
             "transport": "http",
             "url": "https://example.com/mcp",
         }
     )
-    servers = build_user_mcp_servers(workspace.root, ["docs-mcp"])
-    assert "docs-mcp" in servers
+    servers = build_user_mcp_servers(workspace.root, ["docs-mcp-resolve"])
+    assert "docs-mcp-resolve" in servers
     assert build_user_mcp_servers(workspace.root, []) == {}
 
 
@@ -143,10 +147,10 @@ def test_mcp_connectors_api_list_and_create(client: TestClient) -> None:
     assert delete.status_code == 200
 
 
-def test_mcp_workarea_page(client: TestClient) -> None:
+def test_mcp_workarea_is_spa_not_api(client: TestClient) -> None:
+    """HTML UI is nginx SPA; API has no /mcp-workarea route."""
     resp = client.get("/mcp-workarea")
-    assert resp.status_code == 200
-    assert "MCP WorkArea" in resp.text
+    assert resp.status_code == 404
 
 
 def test_build_user_mcp_servers_unknown_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

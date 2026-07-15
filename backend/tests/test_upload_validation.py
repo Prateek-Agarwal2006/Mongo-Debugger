@@ -6,10 +6,12 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
 from backend.app.api.upload import _is_log_filename
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.jobs.catalog import count_phase1_attempts, list_phase1_attempts
 from backend.app.jobs.job_types import JOB_TYPE_HATCHET
+from backend.app.jobs.store import JobStore
 from backend.app.main import create_app
 
 
@@ -142,6 +144,36 @@ def test_upload_mongodb_logs_rejects_zip_without_logs(tmp_path: Path, monkeypatc
     assert "Archive must contain" in response.json()["detail"]
 
 
+def test_upload_accepts_zipped_diagnostic_data_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Zip of diagnostic.data/metrics.* (nested folder) must unpack and enqueue Phase 1."""
+    workspace = RunWorkspace(tmp_path)
+    monkeypatch.setattr("backend.app.api.upload.get_run_workspace", lambda: workspace)
+    monkeypatch.setattr("backend.app.api.upload.get_settings", lambda: type("S", (), {"database_url": None})())
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("diagnostic.data/metrics.2024-01-01T00-00-00Z-00000", b"ftdc-a")
+        zf.writestr("diagnostic.data/metrics.2024-01-01T01-00-00Z-00000", b"ftdc-b")
+    buf.seek(0)
+
+    client = TestClient(create_app())
+    response = client.post(
+        "/simagix/uploads",
+        files={"file": ("diagnostic.zip", buf.getvalue(), "application/zip")},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    run_id = body["run_id"]
+    diag = workspace.upload_diagnostic_dir(run_id)
+    names = sorted(p.name for p in diag.iterdir() if p.is_file())
+    assert names == [
+        "metrics.2024-01-01T00-00-00Z-00000",
+        "metrics.2024-01-01T01-00-00Z-00000",
+    ]
+    assert body["job_id"]
+
+
 def test_upload_rejects_invalid_archive_and_removes_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workspace = RunWorkspace(tmp_path)
     monkeypatch.setattr("backend.app.api.upload.get_run_workspace", lambda: workspace)
@@ -161,19 +193,14 @@ def test_upload_rejects_invalid_archive_and_removes_folder(tmp_path: Path, monke
     assert list(workspace.uploads_root().glob("upload*")) == []
 
 
-def test_phase1_attempt_count_ignores_latest_symlink(tmp_path: Path) -> None:
+def test_phase1_attempt_count_counts_only_ftdc_jobs_for_run(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     run_id = "upload20260620T120000Z"
-    jobs_dir = workspace.phase1_jobs_dir(run_id)
-    jobs_dir.mkdir(parents=True)
-    job_json = jobs_dir / "job-a.json"
-    job_json.write_text(
-        '{"job_id":"job-a","run_id":"upload20260620T120000Z","state":"succeeded",'
-        '"created_at":1,"updated_at":2,"message":"ok"}',
-        encoding="utf-8",
-    )
-    latest = workspace.uploads_root() / "latest"
-    latest.symlink_to(workspace.upload_dir(run_id), target_is_directory=True)
+    store = JobStore()
+    store.create(run_id, workspace_root=tmp_path)
+    store.create(run_id, workspace_root=tmp_path)
+    store.create(run_id, job_type=JOB_TYPE_HATCHET, workspace_root=tmp_path)
+    store.create("upload20260620T130000Z", workspace_root=tmp_path)
 
-    assert count_phase1_attempts(workspace, run_id) == 1
-    assert len(list_phase1_attempts(tmp_path, run_id)) == 1
+    assert count_phase1_attempts(workspace, run_id) == 2
+    assert len(list_phase1_attempts(tmp_path, run_id)) == 2

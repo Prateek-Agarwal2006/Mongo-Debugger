@@ -49,6 +49,7 @@ function mapOverallStatus(phase2Status?: string, hasReport?: boolean): ResultsDa
   if (phase2Status === "failed") return "failed";
   if (
     phase2Status === "awaiting_clarifications" ||
+    phase2Status === "running_investigation" ||
     phase2Status === "running_rca" ||
     phase2Status === "in_progress"
   ) {

@@ -135,7 +135,7 @@ class MockLLMProvider(LLMProvider):
             "https://www.mongodb.com/docs/manual/core/wiredtiger/ — schema demo placeholder URL",
         ]
 
-        write_mock_tool_trace(session.tool_trace_path, run_id=session.run_id, phase="investigation")
+        write_mock_tool_trace(session.run_id, session.llm, phase="investigation")
 
         return InvestigationSummary(
             run_id=session.run_id,
@@ -283,7 +283,7 @@ class MockLLMProvider(LLMProvider):
             reference_urls=reference_urls,
             confidence=None,
         )
-        write_mock_tool_trace(session.tool_trace_path, run_id=session.run_id, phase="final_rca")
+        write_mock_tool_trace(session.run_id, session.llm, phase="final_rca")
         session.persist_report(report)
 
         return Phase2RunResult(
@@ -318,7 +318,7 @@ class MockLLMProvider(LLMProvider):
                 f"[mock chatbot] From report summary: {report.summary}\n"
                 "Ask about root cause, fixes, or summary. Live agents use MCP + tools."
             )
-        write_mock_tool_trace(session.tool_trace_path, run_id=session.run_id, phase="chatbot")
+        write_mock_tool_trace(session.run_id, session.llm, phase="chatbot")
         return ChatbotResult(content=reply, tool_calls_used=0)
 
     def summarize_chat_history(

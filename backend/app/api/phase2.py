@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
@@ -11,7 +9,11 @@ from pydantic import BaseModel, Field
 from backend.app.core.config import get_settings
 from backend.app.core.run_workspace import get_run_workspace
 from backend.app.simagix.format_report import format_rca_report_pretty
-from backend.app.simagix.llm.llm_paths import llm_folder_name
+from backend.app.simagix.llm.state import llm_folder_name
+from backend.app.simagix.llm.runner import (
+    start_phase2_run_async,
+    submit_clarifications_async,
+)
 from backend.app.simagix.llm.service import (
     get_chatbot_history,
     list_run_llm_sessions,
@@ -19,8 +21,6 @@ from backend.app.simagix.llm.service import (
     llm_provider_options,
     post_chatbot_message,
     prepare_phase2_run,
-    start_phase2_run,
-    submit_clarifications_and_run,
     upload_chatbot_attachment,
 )
 from backend.app.simagix.llm.session import phase2_session_store
@@ -29,7 +29,7 @@ from backend.app.simagix.output_schema import ClarifyingAnswers
 from backend.app.simagix.report_html import render_report_html
 from backend.app.simagix.tool_usage import resolve_tool_usage
 from backend.app.simagix.anomaly_correlation import build_correlation_package
-from backend.app.simagix.hatchet_readiness import HatchetNotReadyError
+from backend.app.simagix.evidence.hatchet_tools import HatchetNotReadyError
 from backend.app.simagix.llm.providers.adk.gemini_errors import http_exception_for_gemini_api_error
 
 ReportFormat = Literal["json", "pretty"]
@@ -103,8 +103,13 @@ def list_run_llm_slots(run_id: str) -> dict[str, object]:
     return {"run_id": run_id, "llm_sessions": sessions}
 
 
-@router.post("/{run_id}/phase2/run")
+@router.post("/{run_id}/phase2/run", status_code=202)
 def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[str, object]:
+    """Validate and enqueue the investigation + clarifying-questions stage.
+
+    Returns immediately with the running status; the frontend polls
+    GET /phase2/status until awaiting_clarifications | failed.
+    """
     force_mock = body.force_mock if body else False
     llm_provider = body.llm_provider if body else None
     llm = body.llm if body else None
@@ -114,7 +119,7 @@ def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[
             detail="Request body must include 'llm' (mock, cursor, gemini) or llm_provider",
         )
     try:
-        return start_phase2_run(
+        return start_phase2_run_async(
             get_run_workspace().root,
             run_id,
             force_mock=force_mock,
@@ -130,15 +135,10 @@ def run_phase2_start(run_id: str, body: Phase2RunRequest | None = None) -> dict[
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        gemini_exc = http_exception_for_gemini_api_error(exc)
-        if gemini_exc:
-            raise gemini_exc from exc
-        raise
 
 
 def _tool_trace_payload(session) -> dict[str, object]:
-    trace = load_tool_trace(session.tool_trace_path)
+    trace = load_tool_trace(session.run_id, session.llm)
     return {
         "agent_id": trace.get("agent_id") or session.agent_id,
         "entries": trace.get("entries", []),
@@ -196,7 +196,7 @@ def get_phase2_tool_trace(
     return {"run_id": run_id, "llm": folder, **trace}
 
 
-@router.post("/{run_id}/phase2/clarify")
+@router.post("/{run_id}/phase2/clarify", status_code=202)
 def run_phase2_clarify(
     run_id: str,
     body: Phase2ClarifyRequest,
@@ -204,13 +204,14 @@ def run_phase2_clarify(
     llm_provider: Annotated[str | None, Query(description="LLM backend (legacy)")] = None,
     llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
 ) -> dict[str, object]:
+    """Validate and enqueue the final RCA stage; poll GET /phase2/status until completed."""
     if not llm and not llm_provider and not force_mock:
         raise HTTPException(
             status_code=400,
             detail="Query parameter 'llm' is required (mock, cursor, or gemini)",
         )
     try:
-        return submit_clarifications_and_run(
+        return submit_clarifications_async(
             get_run_workspace().root,
             run_id,
             ClarifyingAnswers(answers=body.answers),
@@ -221,15 +222,12 @@ def run_phase2_clarify(
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except HatchetNotReadyError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        gemini_exc = http_exception_for_gemini_api_error(exc)
-        if gemini_exc:
-            raise gemini_exc from exc
-        raise
 
 
 @router.get("/{run_id}/phase2/reports/latest")
@@ -250,9 +248,7 @@ def get_latest_phase2_report(
         )
 
     tool_usage = resolve_tool_usage(session)
-    metadata = {}
-    if session.metadata_path.exists():
-        metadata = json.loads(session.metadata_path.read_text(encoding="utf-8"))
+    metadata = session.load_metadata()
     report_text = format_rca_report_pretty(
         report,
         run_id=run_id,

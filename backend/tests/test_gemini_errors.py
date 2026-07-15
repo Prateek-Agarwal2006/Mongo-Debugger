@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import HTTPException
 
 from backend.app.simagix.llm.providers.adk.gemini_errors import http_exception_for_gemini_api_error
 

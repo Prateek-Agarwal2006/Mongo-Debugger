@@ -78,36 +78,12 @@ class RunWorkspace:
         """Alias for mongo_ftdc_dir (mongo-ftdc export bundle)."""
         return self.mongo_ftdc_dir(run_id)
 
-    def phase1_jobs_dir(self, run_id: str) -> Path:
-        return self.phase1_dir(run_id) / "jobs"
-
-    def job_record_path(self, run_id: str, job_id: str) -> Path:
-        return self.phase1_jobs_dir(run_id) / f"{job_id}.json"
-
-    def phase1_queue_root(self, run_id: str) -> Path:
-        return self.phase1_dir(run_id) / "queue"
-
-    def job_queue_pending_dir(self, run_id: str) -> Path:
-        return self.phase1_queue_root(run_id) / "pending"
-
-    def job_queue_processing_dir(self, run_id: str) -> Path:
-        return self.phase1_queue_root(run_id) / "processing"
-
-    def job_queue_pending_path(self, run_id: str, job_id: str) -> Path:
-        return self.job_queue_pending_dir(run_id) / f"{job_id}.json"
-
-    def job_queue_processing_path(self, run_id: str, job_id: str) -> Path:
-        return self.job_queue_processing_dir(run_id) / f"{job_id}.json"
-
     def exports_root(self) -> Path:
         """Legacy name — prefer uploads_root + mongo_ftdc_dir(run_id)."""
         return self.simagix_root / "exports/mongo-ftdc"
 
     def run_manifest_path(self, run_id: str) -> Path:
         return self.phase1_dir(run_id) / "run_manifest.json"
-
-    def job_status_path(self, run_id: str) -> Path:
-        return self.phase1_dir(run_id) / "job_status.json"
 
     def phase2_dir(self, run_id: str) -> Path:
         return self.upload_dir(run_id) / "phase2"
@@ -147,29 +123,8 @@ class RunWorkspace:
     def legacy_upload_diagnostic_dir_data_uploads(self, run_id: str) -> Path:
         return self.simagix_root / "data/uploads" / run_id / "diagnostic.data"
 
-    def legacy_jobs_root(self) -> Path:
-        return self.simagix_root / "data/jobs"
-
-    def legacy_job_record_path(self, job_id: str) -> Path:
-        return self.legacy_jobs_root() / f"{job_id}.json"
-
-    def legacy_job_queue_pending_dir(self) -> Path:
-        return self.simagix_root / "data/job_queue/pending"
-
-    def legacy_job_queue_processing_dir(self) -> Path:
-        return self.simagix_root / "data/job_queue/processing"
-
-    def legacy_job_queue_pending_path(self, job_id: str) -> Path:
-        return self.legacy_job_queue_pending_dir() / f"{job_id}.json"
-
-    def legacy_job_queue_processing_path(self, job_id: str) -> Path:
-        return self.legacy_job_queue_processing_dir() / f"{job_id}.json"
-
     def legacy_run_manifest_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "run_manifest.json"
-
-    def legacy_job_status_path(self, run_id: str) -> Path:
-        return self.run_dir(run_id) / "job_status.json"
 
     def legacy_phase2_dir(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "phase2"
@@ -222,10 +177,19 @@ class RunWorkspace:
         return sorted(files, key=lambda item: item.name)
 
     def has_mongodb_log_inputs(self, run_id: str) -> bool:
-        return bool(self.list_mongodb_log_files(run_id))
+        if bool(self.list_mongodb_log_files(run_id)):
+            return True
+        # Disk files may be gone after pod restart; fall back to PG ingested rows.
+        from backend.app.db.connection import db_conn
+        with db_conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM hatchet_logs WHERE run_id = %s LIMIT 1", (run_id,)
+            ).fetchone()
+        return row is not None
 
     def hatchet_summary_ready(self, run_id: str) -> bool:
-        return self.resolve_hatchet_summary_path(run_id).is_file()
+        from backend.app.simagix.evidence.loader import EvidenceLoader
+        return EvidenceLoader(run_id)._load("hatchet_summary") is not None
 
     def hatchet_script(self) -> Path:
         return self.simagix_root / "scripts/run-hatchet-job.sh"
@@ -261,64 +225,9 @@ class RunWorkspace:
             run_dirs.append(item)
         return run_dirs
 
-    def find_job_record_path(self, job_id: str) -> Path | None:
-        for run_dir in self.iter_upload_run_dirs():
-            path = run_dir / "phase1" / "jobs" / f"{job_id}.json"
-            if path.is_file():
-                return path
-        legacy = self.legacy_job_record_path(job_id)
-        if legacy.is_file():
-            return legacy
-        return None
-
-    def iter_phase1_queue_pending_paths(self) -> list[Path]:
-        paths: list[Path] = []
-        for run_dir in self.iter_upload_run_dirs():
-            pending = run_dir / "phase1" / "queue" / "pending"
-            if pending.is_dir():
-                paths.extend(sorted(pending.glob("*.json")))
-        legacy_pending = self.legacy_job_queue_pending_dir()
-        if legacy_pending.is_dir():
-            paths.extend(sorted(legacy_pending.glob("*.json")))
-        return paths
-
-    def iter_phase1_queue_processing_paths(self) -> list[Path]:
-        paths: list[Path] = []
-        for run_dir in self.iter_upload_run_dirs():
-            processing = run_dir / "phase1" / "queue" / "processing"
-            if processing.is_dir():
-                paths.extend(sorted(processing.glob("*.json")))
-        legacy_processing = self.legacy_job_queue_processing_dir()
-        if legacy_processing.is_dir():
-            paths.extend(sorted(legacy_processing.glob("*.json")))
-        return paths
-
     def pipeline_script(self) -> Path:
         return self.simagix_root / "scripts/run-mongo-ftdc-pipeline.sh"
 
-    def grafana_compose_file(self) -> Path:
-        return self.simagix_root / "docker/grafana-compose.yaml"
-
-    def grafana_anomaly_dashboard_path(self) -> Path:
-        return self.simagix_root / "grafana/dashboards/anomaly-focus.json"
-
-    def _run_has_export_bundle(self, run_dir: Path) -> bool:
-        run_id = run_dir.name
-        return (self.mongo_ftdc_dir(run_id) / "manifest.json").is_file() or (
-            self.legacy_mongo_ftdc_dir(run_id) / "manifest.json"
-        ).is_file()
-
-    def list_run_ids(self) -> list[str]:
-        run_ids: set[str] = set()
-        for item in self.iter_upload_run_dirs():
-            if self._run_has_export_bundle(item):
-                run_ids.add(item.name)
-        legacy_exports = self.exports_root()
-        if legacy_exports.is_dir():
-            for item in legacy_exports.iterdir():
-                if item.is_dir() and (item / "manifest.json").is_file():
-                    run_ids.add(item.name)
-        return sorted(run_ids, reverse=True)
 
 
 def get_run_workspace() -> RunWorkspace:

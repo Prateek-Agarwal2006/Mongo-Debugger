@@ -157,9 +157,9 @@ def parse_rca_report(text: str, run_id: str) -> RCAReportDraft:
     return report
 
 
-def load_persisted_rca_report(raw_json: str, run_id: str) -> RCAReportDraft:
-    """Load report JSON from disk; strips legacy fields (e.g. profiler citations)."""
-    payload = json.loads(raw_json)
+def load_persisted_rca_report(raw_json: str | dict, run_id: str) -> RCAReportDraft:
+    """Load a persisted report (JSON string or decoded JSONB dict); strips legacy fields."""
+    payload = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
     return RCAReportDraft.model_validate(_normalize_rca_payload(payload, run_id))
 
 

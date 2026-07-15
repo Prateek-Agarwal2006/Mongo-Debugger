@@ -113,3 +113,26 @@
 .mdb-stitch-footer__link:hover {
   color: #603d45;
 }
+
+/* Busy button — circular spinner while upload / RCA runs */
+.mdb-btn-spinner {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: mdb-btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mdb-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+button[aria-busy="true"] {
+  opacity: 0.85;
+  cursor: wait;
+}

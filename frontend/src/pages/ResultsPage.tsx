@@ -202,14 +202,13 @@ export default function ResultsPage({
           </div>
         </div>
         <div className="flex gap-3 flex-wrap">
-          <button
-            type="button"
+          <a
+            href={`/runs/${encodeURIComponent(runId)}?llm=${encodeURIComponent(llm)}`}
             className="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface-variant rounded-lg font-bold hover:bg-surface-variant transition-all active:scale-95"
-            onClick={() => window.applyAppTheme?.("classic")}
           >
             <StitchIcon name="open_in_new" size={20} />
-            Full workspace
-          </button>
+            Open workspace
+          </a>
           {data.has_report && (
             <a
               href={reportUrl}
@@ -221,18 +220,6 @@ export default function ResultsPage({
               Export report
             </a>
           )}
-          <a
-            href={`/runs/${encodeURIComponent(runId)}?llm=${encodeURIComponent(llm)}`}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent-terracotta text-white rounded-lg font-bold shadow-lg shadow-accent-terracotta/20 hover:brightness-110 transition-all active:scale-95"
-            onClick={(e) => {
-              e.preventDefault();
-              window.applyAppTheme?.("classic");
-              window.location.href = `/runs/${encodeURIComponent(runId)}?llm=${encodeURIComponent(llm)}`;
-            }}
-          >
-            <StitchIcon name="refresh" size={20} />
-            Rerun in Classic
-          </a>
         </div>
       </div>
 

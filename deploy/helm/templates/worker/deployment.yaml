@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app.kubernetes.io/name: mongo-debugger
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      # Init container copies the K8s-native pipeline scripts from the image
+      # into /data/simagix-workspace/scripts/ so run_workspace.py finds them
+      # at DATA_ROOT/simagix-workspace/scripts/run-mongo-ftdc-pipeline.sh.
+      initContainers:
+        - name: init-scripts
+          image: {{ .Values.worker.image }}
+          imagePullPolicy: {{ .Values.worker.imagePullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/simagix-workspace/scripts
+              cp /app/pipeline-scripts/*.sh /data/simagix-workspace/scripts/
+              chmod +x /data/simagix-workspace/scripts/*.sh
+              echo "Pipeline scripts staged at /data/simagix-workspace/scripts/"
+          volumeMounts:
+            - name: scratch
+              mountPath: /data
+
+      containers:
+        - name: worker
+          image: {{ .Values.worker.image }}
+          imagePullPolicy: {{ .Values.worker.imagePullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: mongo-debugger-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-debugger-secrets
+                  key: DATABASE_URL
+            - name: CURSOR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-debugger-secrets
+                  key: CURSOR_API_KEY
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-debugger-secrets
+                  key: GOOGLE_API_KEY
+          volumeMounts:
+            - name: scratch
+              mountPath: /data
+
+      volumes:
+        - name: scratch
+          emptyDir:
+            sizeLimit: {{ .Values.worker.scratchSizeLimit }}

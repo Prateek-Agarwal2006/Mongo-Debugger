@@ -22,15 +22,15 @@
     <div class="d-flex align-items-center gap-3 mb-3">
       <span class="h5 mb-0">Phase 1 status</span>
       {% if pipeline_status == 'finished' %}
-      <span class="badge text-bg-success">Complete</span>
+      <span class="badge text-bg-success">{{ phase1_label }}</span>
       {% elif pipeline_status == 'processing' %}
-      <span class="badge text-bg-warning text-dark">Decoding…</span>
+      <span class="badge text-bg-warning text-dark">{{ phase1_label }}…</span>
       {% elif pipeline_status == 'failed' %}
-      <span class="badge text-bg-danger">Failed</span>
+      <span class="badge text-bg-danger">{{ phase1_label }}</span>
       {% elif pipeline_status == 'stale' %}
-      <span class="badge text-bg-dark">Not enqueued</span>
+      <span class="badge text-bg-dark">{{ phase1_label }}</span>
       {% else %}
-      <span class="badge text-bg-secondary">Queued</span>
+      <span class="badge text-bg-secondary">{{ phase1_label }}</span>
       {% endif %}
     </div>
     {% if job %}
@@ -105,11 +105,14 @@
     try {
       const job = await window.MdbPageData.fetchJob(jobId);
       if (job.state === "succeeded") {
-        window.location.href = "/runs/" + runId;
+        // Same URL while gated to pipeline — must reload to paint RCA.
+        const path = window.location.pathname.replace(/\/$/, "");
+        if (path === "/runs/" + runId) window.location.reload();
+        else window.location.href = "/runs/" + runId;
         return;
       }
       if (job.state === "failed") {
-        window.location.href = "/runs/" + runId + "/pipeline?failed=1";
+        window.location.href = "/runs/" + runId + "?failed=1";
         return;
       }
     } catch (err) {

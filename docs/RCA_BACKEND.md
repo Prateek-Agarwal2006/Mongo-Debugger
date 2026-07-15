@@ -6,7 +6,7 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-15
 
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
@@ -21,7 +21,9 @@ API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `
 | `GET /mcp-workarea` | Configure operator MCP connectors (registry on disk) |
 | `GET /skill-workarea` | Upload operator skill packages (ZIP by slot name) |
 | `GET /runs` | List runs |
-| `GET /runs/{run_id}` | Run detail, Grafana charts, RCA panel (MCP checkboxes before Run RCA) |
+| `GET /simagix/catalog` | Run catalog JSON for Modern SPA home/runs |
+| `GET /simagix/catalog/{run_id}` | SPA bootstrap: `view=pipeline` or `run_workspace` (Phase 1 gate) |
+
 
 ---
 
@@ -265,13 +267,9 @@ GET /simagix/runs/{run_id}/tools/normalized-series?metric=cpu_idle&metric=write_
 
 Returns a map of metric name to window result.
 
-### Get raw path (forensic)
+### List raw paths / get raw window (tier 3)
 
-```http
-GET /simagix/runs/{run_id}/tools/raw-path?path_contains=serverStatus&limit=100
-```
-
-Only available when the bundle was exported with `-tier=forensic` or `-raw=true`.
+Tier-3 forensic access is MCP-first (`list_raw_paths`, `get_raw_window`). There is no REST `raw-path` stub — the old `get_raw_path` endpoint was removed after Postgres migration (it always returned empty).
 
 ### List fallback metrics
 
@@ -548,7 +546,7 @@ Full layout: [PHASE2_LLM.md](PHASE2_LLM.md) § Unified MCP layout. Tradeoffs: [D
 | `GET /` | Home — recent runs and jobs |
 | `GET /upload` | Upload FTDC archive |
 | `GET /runs` | List analysis runs |
-| `GET /runs/{run_id}` | Run detail, Grafana charts, RCA panel |
+| `GET /runs/{run_id}` | Run detail / RCA when Phase 1 succeeded (or fixture with evidence); else pipeline page |
 
 ### Phase 2 persistence
 

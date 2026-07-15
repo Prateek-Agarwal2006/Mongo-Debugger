@@ -1,0 +1,64 @@
+# Default values — override with values-local.yaml for secrets.
+
+# Sole external entry (Kind NodePort → localhost:8000). Proxies API; serves SPA.
+ui:
+  image: mongo-debugger-ui:latest
+  imagePullPolicy: Never
+  replicas: 1
+  port: 8080
+  nodePort: 30000
+
+api:
+  image: mongo-debugger-api:latest
+  imagePullPolicy: Never          # Kind: images are loaded locally, never pull
+  replicas: 1
+  port: 8000
+  # ClusterIP only — browsers reach API via nginx UI proxy (Merged Dev LD5).
+
+worker:
+  image: mongo-debugger-worker:latest
+  imagePullPolicy: Never
+  replicas: 1
+  # emptyDir scratch — raw bytes go to PG, no PVC needed for worker
+  scratchSizeLimit: "4Gi"
+
+postgres:
+  image: postgres:16-alpine
+  imagePullPolicy: IfNotPresent
+  database: debugger
+  user: postgres
+  storageSize: 10Gi
+  storageClass: standard          # Kind default StorageClass
+
+grafana:
+  image: grafana/grafana:10.4.7
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  port: 3000
+  nodePort: 30300                 # maps to localhost:3030 via Kind extraPortMappings
+  adminUser: admin
+  adminPassword: admin
+  anonymousEnabled: "true"
+  rootUrl: "http://localhost:3030"
+  dataSizeLimit: "512Mi"
+
+# Shared environment — non-secret values only.
+# Secrets (DATABASE_URL, API keys) live in the Secret template.
+env:
+  DATA_ROOT: "/data"
+  PIPELINE_WORKER_POLL_SECONDS: "2.0"
+  LLM_PROVIDER: "cursor"
+  cursorModel: "grok-4.5"
+  GRAFANA_URL: "http://localhost:3030"
+  # Effectively unbounded tool budgets for Kind demos / long investigations.
+  PHASE2_INVESTIGATION_MAX_TOOL_CALLS: "1000000"
+  PHASE2_RCA_MAX_TOOL_CALLS: "1000000"
+  PHASE2_CHATBOT_MAX_TOOL_CALLS: "1000000"
+
+# Secret values — override in values-local.yaml (never commit that file).
+secrets:
+  cursorApiKey: ""
+  googleApiKey: ""
+  # DATABASE_URL is auto-constructed from postgres.* above; override here if
+  # pointing at an external PG instance.
+  databaseUrlOverride: ""

@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from backend.app.simagix.llm.detail_requirements import warn_prompt_example_echo
 from backend.app.simagix.llm.session import Phase2SessionStore
+from backend.app.simagix.llm.state import save_state
 from backend.app.simagix.llm.tool_trace import ToolTraceEntry, ToolTraceCollector
 from backend.app.simagix.output_schema import RCAReportDraft
 from backend.app.simagix.tool_usage import resolve_tool_usage, tool_usage_summary
 
-from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists, fixture_exports_dir
+from backend.tests.fixture_paths import FIXTURE_RUN_ID, fixture_bundle_exists
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 
@@ -29,7 +29,7 @@ def test_tool_usage_summary_prefers_trace_mcp_over_zero_budget(fixture_run_id: s
     session = store.get_or_create(fixture_run_id, WORKSPACE_ROOT, llm="mock", max_tool_calls=12)
     session.configure_budget(12, reset=True)
 
-    collector = ToolTraceCollector(session.tool_trace_path, agent_id="test-agent")
+    collector = ToolTraceCollector(session.run_id, session.llm, agent_id="test-agent")
     collector.append_entry(
         ToolTraceEntry(
             phase="investigation",
@@ -59,7 +59,7 @@ def test_persist_report_stores_tool_usage(fixture_run_id: str) -> None:
     )
     session.persist_report(report, agent_id="agent-test", provider="mock")
 
-    meta = json.loads(session.metadata_path.read_text(encoding="utf-8"))
+    meta = session.load_metadata()
     assert "tool_usage" in meta
     assert "mcp_evidence_calls" in meta["tool_usage"]
     assert "total_sdk_calls" in meta["tool_usage"]
@@ -75,10 +75,7 @@ def test_resolve_tool_usage_uses_persisted_snapshot(fixture_run_id: str) -> None
         "by_category": {"mcp": 9, "web": 3, "local": 3},
         "tool_call_history": ["get_metric_window"],
     }
-    session.metadata_path.write_text(
-        json.dumps({"tool_usage": snapshot}, indent=2),
-        encoding="utf-8",
-    )
+    save_state(fixture_run_id, "mock", "metadata", {"tool_usage": snapshot})
     assert resolve_tool_usage(session) == snapshot
 
 

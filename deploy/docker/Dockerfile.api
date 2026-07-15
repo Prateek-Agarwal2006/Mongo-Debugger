@@ -1,0 +1,42 @@
+# ── Stage 1: ftdc-slice for Phase 2 tier-3 MCP (get_raw_window) ───────────────
+FROM golang:1.25-alpine AS go-builder
+
+RUN apk add --no-cache git bash
+
+WORKDIR /build
+
+COPY simagix-workspace/repos/mongo-ftdc/go.mod simagix-workspace/repos/mongo-ftdc/go.sum ./
+RUN go mod download
+
+COPY simagix-workspace/repos/mongo-ftdc/ .
+RUN CGO_ENABLED=0 go build -o /out/ftdc-slice ./cmd/ftdc-slice
+
+# ── Stage 2: API (FastAPI + frontend + ftdc-slice on PATH) ────────────────────
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system deps (needed for psycopg binary wheel)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Deps layer: only invalidated when pyproject.toml changes.
+# Stub package satisfies setuptools; real code is COPY'd below + reinstalled --no-deps.
+# (BuildKit pip cache mounts need docker-buildx — not assumed on Colima/legacy builder.)
+COPY pyproject.toml .
+RUN mkdir -p backend && printf '"""pip-layer stub — replaced by COPY backend/"""\n' > backend/__init__.py
+RUN pip install --no-cache-dir ".[prod,llm]"
+
+# App code only — UI is a separate nginx image (no Jinja/static on API).
+COPY backend/ backend/
+RUN pip install --no-cache-dir --no-deps .
+
+# ~4.5MB — required so simagix-evidence get_raw_window works in the API pod.
+COPY --from=go-builder /out/ftdc-slice /usr/local/bin/ftdc-slice
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", \
+     "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

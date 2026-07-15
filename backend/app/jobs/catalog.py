@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.jobs.job_types import JOB_TYPE_HATCHET, JOB_TYPE_MONGO_FTDC
-from backend.app.jobs.queue import FileJobQueue
-from backend.app.jobs.store import JobState, JobStatus
-from backend.app.simagix.llm.llm_paths import list_llm_sessions
+from backend.app.jobs.queue import JobQueue
+from backend.app.jobs.store import JobState, JobStatus, job_store
+from backend.app.simagix.evidence.loader import EvidenceLoader
+from backend.app.simagix.evidence.loader import list_run_ids as list_evidence_run_ids
+from backend.app.simagix.llm.state import list_llm_sessions
 
 Phase1DisplayStatus = Literal["queued", "processing", "finished", "failed", "stale"]
 Phase2DisplayStatus = Literal["not_ready", "not_started", "in_progress", "completed"]
@@ -43,6 +44,7 @@ class RunCatalogEntry:
         return {
             "run_id": self.run_id,
             "phase1_status": self.phase1_status,
+            "phase1_label": phase1_progress_label(self.phase1_status, self.message),
             "phase2_status": self.phase2_status,
             "pipeline_status": self.phase1_status,
             "job_id": self.job_id,
@@ -57,37 +59,37 @@ class RunCatalogEntry:
         }
 
 
+def phase1_progress_label(status: Phase1DisplayStatus, message: str | None = None) -> str:
+    """Short UI badge for Phase 1 — distinguish decode vs Postgres ingest."""
+    if status == "finished":
+        return "Ready"
+    if status == "failed":
+        return "Failed"
+    if status == "queued":
+        return "Queued"
+    if status == "stale":
+        return "Stale"
+    if status == "processing":
+        msg = (message or "").lower()
+        if "ingest" in msg:
+            return "Loading metrics"
+        return "Decoding"
+    return status
+
+
 def upload_time_utc_from_run_id(run_id: str) -> str | None:
     """Human UTC time from upload run_id (uploadYYYYMMDDTHHMMSSZ)."""
     if not run_id.startswith("upload") or len(run_id) < 22 or run_id[14] != "T":
         return None
     try:
-        dt = datetime.strptime(run_id[6:21], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+        dt = datetime.strptime(run_id[6:21], "%Y%m%dT%H%M%S").replace(tzinfo=UTC)
         return dt.strftime("%Y-%m-%d %H:%M UTC")
     except ValueError:
         return None
 
 
 def _read_all_jobs(workspace: RunWorkspace) -> list[JobStatus]:
-    jobs: list[JobStatus] = []
-    seen_job_ids: set[str] = set()
-    for run_dir in workspace.iter_upload_run_dirs():
-        jobs_dir = run_dir / "phase1" / "jobs"
-        if not jobs_dir.is_dir():
-            continue
-        for path in jobs_dir.glob("*.json"):
-            if path.stem in seen_job_ids:
-                continue
-            seen_job_ids.add(path.stem)
-            jobs.append(JobStatus.from_dict(json.loads(path.read_text(encoding="utf-8"))))
-    legacy = workspace.legacy_jobs_root()
-    if legacy.is_dir():
-        for path in legacy.glob("*.json"):
-            if path.stem in seen_job_ids:
-                continue
-            seen_job_ids.add(path.stem)
-            jobs.append(JobStatus.from_dict(json.loads(path.read_text(encoding="utf-8"))))
-    return jobs
+    return job_store.list_all()
 
 
 def _read_jobs(workspace: RunWorkspace) -> dict[str, JobStatus]:
@@ -150,7 +152,7 @@ def phase2_display_status(
 ) -> Phase2DisplayStatus:
     if not has_export:
         return "not_ready"
-    sessions = list_llm_sessions(workspace_root, run_id)
+    sessions = list_llm_sessions(run_id)
     if not sessions:
         return "not_started"
     if any(session.get("has_report") for session in sessions):
@@ -163,7 +165,7 @@ def phase2_display_status(
 
 
 def pipeline_display_status(workspace: RunWorkspace, job: JobStatus) -> Phase1DisplayStatus:
-    queue = FileJobQueue(workspace)
+    queue = JobQueue(workspace)
     if queue.job_is_processing(job.run_id, job.job_id):
         return "processing"
     if job.state == JobState.RUNNING:
@@ -171,8 +173,7 @@ def pipeline_display_status(workspace: RunWorkspace, job: JobStatus) -> Phase1Di
     if job.state == JobState.FAILED:
         return "failed"
     if job.state == JobState.SUCCEEDED:
-        has_export = (workspace.resolve_exports_dir(job.run_id) / "manifest.json").exists()
-        return "finished" if has_export else "processing"
+        return "finished" if EvidenceLoader(job.run_id).exists() else "processing"
     if queue.job_is_queued(job.run_id, job.job_id):
         return "queued"
     if job.state == JobState.PENDING:
@@ -193,7 +194,7 @@ def hatchet_display_status(
         return "finished"
     if job is None:
         return "stale"
-    queue = FileJobQueue(workspace)
+    queue = JobQueue(workspace)
     if queue.job_is_processing(job.run_id, job.job_id):
         return "processing"
     if job.state == JobState.RUNNING:
@@ -236,11 +237,11 @@ def list_run_catalog(workspace_root: Path) -> list[RunCatalogEntry]:
     workspace = RunWorkspace(workspace_root)
     latest_jobs = _read_jobs(workspace)
     latest_hatchet_jobs = _read_hatchet_jobs(workspace)
-    run_ids = set(latest_jobs) | set(latest_hatchet_jobs) | set(workspace.list_run_ids())
+    run_ids = set(latest_jobs) | set(latest_hatchet_jobs) | set(list_evidence_run_ids())
 
     entries: list[RunCatalogEntry] = []
     for run_id in run_ids:
-        has_export = (workspace.resolve_exports_dir(run_id) / "manifest.json").exists()
+        has_export = EvidenceLoader(run_id).exists()
         has_logs = workspace.has_mongodb_log_inputs(run_id)
         has_hatchet_summary = workspace.hatchet_summary_ready(run_id)
         job = latest_jobs.get(run_id)

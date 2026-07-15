@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mongo-debugger
+description: AI-powered MongoDB FTDC analyzer — API, worker, and Postgres
+type: application
+version: 0.1.0
+appVersion: "0.2.0"

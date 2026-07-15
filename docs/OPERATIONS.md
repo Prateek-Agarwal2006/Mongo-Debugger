@@ -1,6 +1,6 @@
 # Operations Guide
 
-**Last updated:** 2026-06-30
+**Last updated:** 2026-07-16
 
 ## Prerequisites
 
@@ -93,9 +93,7 @@ MONGO_FTDC_RUN_ID=myincident20260609 ./simagix-workspace/scripts/run-mongo-ftdc-
 | `MONGO_URI` | — | Required for Keyhole |
 | `DATA_ROOT` | — (repo root) | Root for all Run artifacts (`simagix-workspace/...`). Set to `/data` in K8s when PVC is mounted. See `RunWorkspace` in `backend/app/core/run_workspace.py`. |
 | `PIPELINE_WORKER_POLL_SECONDS` | `2.0` | How often the standalone worker polls an empty queue. |
-| `GRAFANA_URL` | `http://localhost:3030` | Grafana UI base |
-| `FTDC_API_URL` | `http://localhost:5408` | FTDC API for `/grafana/dir` load |
-| `FTDC_LOAD_TIMEOUT_SECONDS` | `300` | Max wait for large FTDC decode into Grafana |
+| `GRAFANA_URL` | `http://localhost:3030` | Grafana UI base (deep links from Evidence tab) |
 
 ### Export tier reference
 
@@ -105,103 +103,91 @@ MONGO_FTDC_RUN_ID=myincident20260609 ./simagix-workspace/scripts/run-mongo-ftdc-
 | `normalized` | Medium (~100 MB) | tier_1 + normalized time series |
 | `forensic` | Large (~700 MB+) | tier_1 + tier_2 + raw decoder values |
 
-## Grafana charts (recommended for metrics)
+## Grafana charts (Postgres SimpleJSON)
 
-One **shared** Docker stack per machine (not per run): Grafana on `:3030`, FTDC API on `:5408`. Chart.js and iframe embed were removed; dashboards open in a **new browser tab**.
+Grafana reads **ingested** metrics from Postgres via the API SimpleJSON datasource (`/grafana/simple`). There is **no** FTDC load step and **no** Docker ftdc-api.
 
-```bash
-colima start --cpu 4 --memory 8
-./simagix-workspace/scripts/run-grafana-stack.sh   # builds mongo-debugger/ftdc:local + starts stack
-```
+**Kind / Helm:** Grafana is a chart Deployment. Datasource URL inside the cluster is `http://api:8000/grafana/simple`. UI opens `http://localhost:3030` (NodePort `30300`, or `kubectl port-forward svc/grafana 3030:3000` on older Kind clusters without that mapping).
 
-The FTDC container starts **without** a bootstrap `diagnostic.data` directory. Data is loaded per run via `POST /grafana/dir` (UI **Load FTDC** or pipeline warm). No `tmp/diagnostic.data` required for upload-only workflows.
+On a run page (**Evidence** tab):
 
-On a run page (**http://localhost:8000/runs/{run_id}**):
+1. Click **Anomaly View** — triage dashboard (`simagix-grafana-anomaly`); time = anomaly windows when present, else full capture.
+2. Click **All Metrics** — full analytics dashboard (`simagix-grafana`); time = full capture (`GET /grafana/simple/runs/{run_id}/range`).
+3. Switch runs with the Grafana **Run** dropdown. After switching, reopen from Evidence (or widen the time picker) if panels go empty.
+4. Red shaded regions are anomaly annotations from `executive_context`.
 
-1. **First visit this browser session** — if the Docker stack is up, the page **silently loads** this run's FTDC into the FTDC API (~2 min for large sets). Dashboard links appear immediately; data fills in when decode finishes.
-2. **Reload** — links stay visible; no second decode unless you click **Load FTDC for this run** (or open a new browser session).
-3. Click **Anomaly View** or **Open All Metrics** — each opens **one** Grafana tab (`localhost:3030`).
-
-**Important:** The FTDC API is single-threaded. While it decodes, HTTP health probes may time out. The backend treats a recent successful probe as still-up for 180s so reload does not hide the dashboard buttons.
-
-### What “Load FTDC for this run” does
-
-The FTDC API (`:5408`) is a **singleton**: it holds one `diagnostic.data` directory in memory at a time. Grafana dashboards read metrics from that API, not from the export bundle JSON on disk.
-
-When you load (UI button or `POST /simagix/runs/{run_id}/grafana/load`):
-
-1. Ensures the Docker Grafana stack is running (`GrafanaStackManager.ensure_running`).
-2. Resolves the **host path** to this run’s raw FTDC capture via `run_manifest.json` → `input` (e.g. an upload path under `uploads/{run_id}/inputs/` or legacy `raw/`). Falls back to export `manifest.json` or `tmp/diagnostic.data` if needed.
-3. Maps that path to the container path `/workspace/...` and `POST`s it to the FTDC API `POST /grafana/dir`.
-4. Returns dashboard URLs with the correct time windows (anomaly-padded window vs full capture range).
-
-**You must load the run you are viewing** before charts show data. Opening Grafana without loading (or after loading a different run) produces empty panels.
-
-Upload jobs may warm Grafana automatically after pipeline export.
-
-| Link | Dashboard | Scope |
-|------|-----------|--------|
-| **Open Anomaly View** | `simagix-grafana-anomaly` | Top anomaly metrics, padded incident window |
-| **Open All Metrics** | `simagix-grafana` | Full mongo-ftdc dashboard, entire FTDC time range |
-
-API:
+### Quick checks
 
 ```bash
-curl -X POST "http://localhost:8000/simagix/runs/<run_id>/grafana/load"
-curl "http://localhost:8000/simagix/runs/<run_id>/grafana/urls"
-curl "http://localhost:8000/simagix/runs/grafana/status"
+curl -s http://localhost:8000/grafana/simple/
+curl -s http://localhost:8000/grafana/simple/config | jq
+curl -s http://localhost:8000/grafana/simple/runs/<run_id>/range | jq
+curl -s -X POST http://localhost:8000/grafana/simple/search -H 'Content-Type: application/json' -d '{"target":"runs"}' | jq
 ```
 
-Requires Docker (`mongo-debugger/ftdc:local` from patched mongo-ftdc + locally built `mongo-debugger-grafana-ftdc`). Build FTDC once: `simagix-workspace/scripts/build-ftdc-local.sh` (also run automatically on first Grafana load if the image is missing).
+Login (local Helm defaults): `admin` / `admin` (anonymous Viewer is also enabled).
 
-### Colima “Running” but Docker unreachable (Mac)
+### Grafana troubleshooting
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `Cannot connect to the Docker daemon at .../.colima/default/docker.sock` | Colima VM listed as **Running** but Docker socket forward is stale or SSH tunnel died | `colima stop` then `colima start --cpu 4 --memory 8` — **not** `colima start` alone when it says “already running” |
-| `run-grafana-stack.sh` or pipeline jobs fail with same Docker error | Same broken Colima state | After stop/start, confirm `docker ps`, then re-run Grafana script or pipeline worker |
-| `colima start ... # comment` → `accepts at most 1 arg(s), received 5` | Shell passed words after `#` as arguments | Run `colima start --cpu 4 --memory 8` alone on one line |
-| App returns **503** on `POST .../grafana/load` | Backend cannot reach Docker to ensure Grafana stack | Fix Colima first; then `./simagix-workspace/scripts/run-grafana-stack.sh` |
+| Symptom | Fix |
+|---------|-----|
+| **Anomaly View** / **All Metrics** fails to connect | Kind: ensure Grafana pod is Ready; `kubectl port-forward svc/grafana 3030:3000` if NodePort mapping is missing |
+| Empty panels | Confirm the run was ingested; open via Evidence so `from`/`to` match the capture; `GET /grafana/simple/runs/<id>/range` shows the window |
+| Only a few panels | Use **All Metrics** (full catalog). **Anomaly View** is the triage subset |
+| Wrong run | Use the Grafana **Run** template variable (or reopen from the Evidence tab) |
+
+## Kind rebuild (UI + API + worker)
+
+Wipe old images from the Kind nodes, rebuild, reload, and roll pods:
 
 ```bash
-colima stop
-colima start --cpu 4 --memory 8
-docker ps
-curl -s http://localhost:8000/simagix/runs/grafana/status | jq
+# From repo root — full rebuild + load
+./deploy/scripts/load-images.sh
+
+# Or wipe Kind-local image tags first, then rebuild:
+docker rmi mongo-debugger-ui:latest mongo-debugger-api:latest mongo-debugger-worker:latest 2>/dev/null || true
+./deploy/scripts/load-images.sh
+helm upgrade --install mongo-debugger deploy/helm \
+  --set postgres.password=password \
+  -f deploy/values-local.yaml \
+  --wait --timeout 5m
+kubectl rollout restart deploy/ui deploy/api deploy/worker
+kubectl rollout status deploy/ui deploy/api deploy/worker --timeout=180s
+kubectl get pods -l 'app in (ui,api,worker)'
 ```
 
-See also root [README.md](../README.md) quick start — **Colima / Docker stuck**.
+Entry point: **http://localhost:8000** → **ui** nginx (SPA) → **api** ClusterIP.
 
-### Grafana troubleshooting (run page)
+### Catalog “Database unavailable” / Postgres CrashLoop
 
-| Symptom | What was going wrong | Fix (in code) |
-|---------|----------------------|---------------|
-| **Anomaly / All Metrics buttons never appear** (Stitch run page) | `_applyOpenLinks` cleared HTML `hidden` only; Stitch buttons also have Tailwind `class="hidden"` | `setGrafanaElVisible()` in `grafana.js` (2026-06-30) |
-| **Reload hides Anomaly / All Metrics links**; status says *"FTDC decode in progress — stack is busy"* even though Docker containers are still up | Health probes to `:5408` / `:3030` time out while FTDC is decoding. A per-request `GrafanaStackManager` had an **empty health cache every time**, so `/grafana/urls` reported the stack down and the UI hid links. | **Module-level health cache** (`_HEALTH_CACHE` in `stack.py`, 180s TTL): after a recent successful probe, a timeout still counts as up. Frontend always shows links when `/urls` succeeds. |
-| **Grafana "restarts" or feels broken after reload** | Page reload re-triggered `POST /grafana/load`, stacking decodes on the busy FTDC API; compose recovery could restart containers when probes failed. | **Session guards** in `grafana.js`: auto-load only on first visit (`sessionStorage` `wasLoaded`); skip if `:started` within 5 min (`_loadInProgress`). `ensure_stack_ready_for_load()` waits before restarting FTDC; compose uses `restart: unless-stopped`, no `--build` on recovery. |
-| **One click opens multiple Grafana tabs** | Native `<a target="_blank">` opens one tab **per click event**; double/triple-click fired multiple navigations. | Open buttons are `<button>` elements with a single debounced `window.open()` (500ms). |
-| **Dashboard opens but panels are empty** | FTDC API never received this run's `diagnostic.data` (auto-load skipped or load still running). | Wait for first-visit silent load to finish, or click **Load FTDC for this run**. Confirm `POST /grafana/load` returns `load.ok: 1`. |
+SPA home/runs/run pages call `/simagix/catalog*`. Those need Postgres. If Postgres is crash-looping, catalog returns 500 and the SPA shows **Database unavailable**.
 
-**Operator checks:**
+**Common Kind cause:** after a heavy ingest / unclean shutdown, Postgres does WAL redo. A tight **liveness** probe (`timeoutSeconds: 1`, short `initialDelaySeconds`) kills the container mid-recovery → death spiral.
+
+**Fix:** Helm postgres probes allow ~2+ minutes for recovery (`initialDelaySeconds: 120` on liveness, `timeoutSeconds: 5`). Then:
 
 ```bash
-curl -s http://localhost:8000/simagix/runs/grafana/status | jq
-curl -s "http://localhost:8000/simagix/runs/<run_id>/grafana/urls" | jq '.stack'
-docker compose -f simagix-workspace/docker/grafana-compose.yaml ps
+helm upgrade --install mongo-debugger deploy/helm \
+  --set postgres.password=password \
+  -f deploy/values-local.yaml
+kubectl rollout status deploy/postgres --timeout=300s
+kubectl rollout restart deploy/api deploy/worker
+kubectl get pods -l 'app in (postgres,api,worker)'
+curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:8000/simagix/catalog
 ```
 
-If status shows both services up but charts are empty, the run was not loaded into the FTDC API yet — use **Load FTDC** or wait for the first-visit auto-load to complete.
+---
 
 ## Web upload (recommended)
 
-Requires **Docker** for the background pipeline (Colima on Mac).
-
+Requires **Docker** for the background pipeline (Colima on Mac) when running locally; Kind uses the worker image with baked binaries.
 1. `colima start --cpu 4 --memory 8` (if not already running).
 2. Start the backend (see below).
 3. Open **http://localhost:8000/upload**.
-4. Upload a `.zip` or `.tar.gz` containing `metrics.*` files, or a single `metrics.*` file.
-   On Mac, if the file picker is awkward, zip first: `cd tmp && zip -r diagnostic.zip diagnostic.data`
-5. The app saves uploads under `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/` and **enqueues** a Phase 1 job under `uploads/<run_id>/phase1/queue/pending/`. A **separate worker process** must be running to execute the pipeline (see **Starting the pipeline worker** below). Poll job status until `succeeded`, then open the run page.
+4. Upload a **`.zip` (or `.tar.gz`) of your `diagnostic.data` folder** (nested `metrics.*` inside is fine), or a single `metrics.*` file.
+   Do **not** drag an unzipped folder into the browser — zip it first: `zip -r diagnostic.zip diagnostic.data`
+   The file picker is intentionally unfiltered (macOS greys out valid zips when `accept` lists `.tar.gz` / `metrics.*`); the API validates format.
+5. After the upload POST accepts, the UI redirects to **`/runs/<run_id>`**. The SPA calls **`GET /simagix/catalog/{run_id}`** — unfinished Phase 1 shows **Decoding** / **Loading metrics**; success shows the RCA workspace. A **separate worker** must be running (Kind: `deploy/worker`).
 
 6. **Optional — MongoDB logs (Hatchet):** on **http://localhost:8000/runs/{run_id}**, use **Upload logs** in the Hatchet card. Select individual `mongod.log` / rotated `mongod.log.*` files **or** zip them first (`zip case-7-logs.zip mongod*.log*`). Files land in `inputs/mongodb-logs/` and enqueue `job_type: hatchet`. **Retry** or a new log upload **deletes** prior `phase1/hatchet/hatchet.db*` so each run starts a fresh SQLite parse (avoids half-finished DBs from interrupted Docker). Large logs (~435 MB+) often take **30–45 minutes** — one worker only; do not run manual `run-hatchet-job.sh` in parallel. Phase 2 stays blocked until `phase1/hatchet/summary.json` exists when logs were uploaded.
 
@@ -366,9 +352,7 @@ simagix-workspace/uploads/latest          # symlink to latest run dir
 | Report vs export mismatch | Different `run_id` or `-latest` | Use `run-mongo-ftdc-pipeline.sh` |
 | Raw export too large | `-raw=true` default in old scripts | Set `MONGO_FTDC_RAW_EXPORT=false` |
 | `429` on tool calls | Retrieval budget exhausted | New evidence-service instance per session |
-| Grafana links disappear on reload | FTDC busy → health probe timeout; dead per-request cache | Wait for decode; hard-refresh after backend update; see **Grafana troubleshooting** above |
-| Multiple Grafana tabs from one click | Double/triple-click on link | Use single click; fixed in `grafana.js` debounced buttons |
-| Grafana empty panels | Run not loaded into FTDC API | **Load FTDC for this run**; wait ~2 min |
+| Grafana empty panels | Time range misses capture, run not ingested, or SimpleJSON plugin disabled | Open from Evidence (sets `from`/`to`); or `GET /grafana/simple/runs/<id>/range`; confirm search lists the run; `GF_PLUGINS_ANGULAR_SUPPORT_ENABLED=true` |
 
 ## Blocked workflows
 

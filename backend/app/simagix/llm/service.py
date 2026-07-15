@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import time
 import uuid
 from datetime import datetime, timezone
@@ -8,10 +7,16 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.core.config import Settings, get_settings
-from backend.app.simagix.llm.llm_paths import llm_folder_name, list_llm_sessions, update_llm_index
+from backend.app.simagix.llm.state import (
+    list_llm_sessions,
+    llm_folder_name,
+    load_state,
+    save_state,
+)
 from backend.app.simagix.llm.providers import CursorLLMProvider, GeminiAdkLLMProvider, MockLLMProvider
 from backend.app.simagix.llm.chatbot_attachments import (
     format_user_content_with_attachments,
+    materialize_attachments,
     save_chatbot_attachment,
     validate_attachment_refs,
 )
@@ -22,7 +27,7 @@ from backend.app.simagix.llm.prompts import (
     build_phase2_user_message,
 )
 from backend.app.simagix.llm.provider import LLMProvider, Phase2RunResult
-from backend.app.simagix.hatchet_readiness import assert_hatchet_ready_for_phase2
+from backend.app.simagix.evidence.hatchet_tools import assert_hatchet_ready_for_phase2
 from backend.app.simagix.llm.session import Phase2Session, phase2_session_store
 from backend.app.simagix.output_schema import (
     ClarifyingAnswers,
@@ -239,15 +244,11 @@ def generate_clarifying_questions_for_run(
 
 
 def save_iterative_state(session: Phase2Session, state: dict[str, Any]) -> None:
-    path = session.session_dir / "iterative_state.json"
-    path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    save_state(session.run_id, session.llm, "iterative_state", state)
 
 
 def load_iterative_state(session: Phase2Session) -> dict[str, Any] | None:
-    path = session.session_dir / "iterative_state.json"
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return load_state(session.run_id, session.llm, "iterative_state")
 
 
 def start_phase2_run(
@@ -293,7 +294,6 @@ def start_phase2_run(
             "answers": {},
         },
     )
-    update_llm_index(workspace_root, run_id, folder, status="awaiting_clarifications")
     return {
         "run_id": run_id,
         "llm": folder,
@@ -359,7 +359,6 @@ def submit_clarifications_and_run(
             "report_run_id": run_id,
         },
     )
-    update_llm_index(workspace_root, run_id, folder, status="completed")
     return {
         "run_id": run_id,
         "llm": folder,
@@ -412,7 +411,7 @@ def run_phase2(
 
 
 def list_run_llm_sessions(workspace_root: Path, run_id: str) -> list[dict[str, Any]]:
-    return list_llm_sessions(workspace_root, run_id)
+    return list_llm_sessions(run_id)
 
 
 def _empty_chatbot_state() -> dict[str, Any]:
@@ -424,10 +423,9 @@ def _empty_chatbot_state() -> dict[str, Any]:
 
 
 def load_chatbot(session: Phase2Session) -> dict[str, Any]:
-    path = session.chatbot_chat_path
-    if not path.exists():
+    data = load_state(session.run_id, session.llm, "chatbot")
+    if data is None:
         return _empty_chatbot_state()
-    data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data.get("messages"), list):
         data["messages"] = []
     return data
@@ -435,7 +433,7 @@ def load_chatbot(session: Phase2Session) -> dict[str, Any]:
 
 def save_chatbot(session: Phase2Session, data: dict[str, Any]) -> None:
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
-    session.chatbot_chat_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    save_state(session.run_id, session.llm, "chatbot", data)
 
 
 def _chat_message(
@@ -457,10 +455,7 @@ def maybe_summarize_chatbot(session: Phase2Session, provider: LLMProvider) -> No
     settings = get_settings()
     data = load_chatbot(session)
     messages = data.get("messages") or []
-    threshold = settings.phase2_chatbot_summarize_after_messages
     replay_n = settings.phase2_chatbot_max_replay_messages
-    if len(messages) <= threshold:
-        return
     fold_count = max(0, len(messages) - replay_n)
     if fold_count <= 0:
         return
@@ -543,6 +538,7 @@ def post_chatbot_message(
         }
         for m in recent[:-1]
     ]
+    materialize_attachments(session)
     prompt = build_chatbot_prompt(
         report=report.model_dump(),
         investigation=investigation.model_dump() if investigation else None,

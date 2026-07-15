@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -19,7 +18,7 @@ from backend.app.simagix.llm.parse_output import (
 )
 from backend.app.simagix.llm.provider import LLMProvider, ChatbotResult, Phase2RunResult
 from backend.app.simagix.llm.session import Phase2Session
-from backend.app.simagix.llm.tool_trace import ToolTraceCollector, ToolTracePhase
+from backend.app.simagix.llm.tool_trace import ToolTraceCollector
 from backend.app.simagix.llm.web_fetch import build_cursor_sdk_web_tools
 from backend.app.simagix.output_schema import ClarifyingQuestionsBlock, InvestigationSummary
 
@@ -81,16 +80,14 @@ class CursorLLMProvider(LLMProvider):
         phase: AgentPhase | None = None,
         enabled_mcp_ids: list[str] | None = None,
     ) -> AgentOptions:
-        bundle_cwd = str(session.evidence.bundle_dir)
-        scratch_cwd = str(session.ensure_chatbot_scratch_dir())
-        agent_cwd = scratch_cwd if include_mcp else bundle_cwd
+        agent_cwd = str(session.ensure_chatbot_scratch_dir())
         # ponytail: sandbox always off — headless uvicorn cannot use Cursor local sandbox (Phase B clarify included)
         sandbox = SandboxOptions(enabled=False)
         custom_tools = {}
         setting_sources: list[str] = []
         if include_mcp:
             if list_skill_dirs(session.workspace_root):
-                copy_all_to_cursor_scratch(session.workspace_root, Path(scratch_cwd))
+                copy_all_to_cursor_scratch(session.workspace_root, Path(agent_cwd))
                 setting_sources = ["project"]
         if include_mcp and trace is not None and phase is not None:
             custom_tools = build_cursor_sdk_web_tools(trace, phase, settings=self.settings)
@@ -118,7 +115,7 @@ class CursorLLMProvider(LLMProvider):
         enabled_mcp_ids: list[str] | None = None,
     ) -> str:
         assistant_chunks: list[str] = []
-        trace = ToolTraceCollector(session.tool_trace_path, agent_id=session.agent_id)
+        trace = ToolTraceCollector(session.run_id, session.llm, agent_id=session.agent_id)
         with Agent.create(
             self._agent_options(
                 session,

@@ -1,25 +1,24 @@
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
 from backend.app.core.run_workspace import RunWorkspace
-from backend.app.jobs.hatchet import run_hatchet_job
+from backend.app.jobs.hatchet_job import run_hatchet_job
 from backend.app.jobs.hatchet_retry import HatchetRetryError, retry_hatchet_for_run
 from backend.app.jobs.job_types import JOB_TYPE_HATCHET, JOB_TYPE_MONGO_FTDC
-from backend.app.jobs.queue import FileJobQueue
-from backend.app.jobs.store import JobState, JobStore
+from backend.app.jobs.queue import JobQueue
+from backend.app.jobs.store import JobStore
 from backend.app.jobs.worker import PipelineWorker
-from backend.app.simagix.hatchet_readiness import HatchetNotReadyError, assert_hatchet_ready_for_phase2
+from backend.app.simagix.evidence.hatchet_tools import HatchetNotReadyError, assert_hatchet_ready_for_phase2
 
 RUN_ID = "upload20260618T120000Z"
 
 
 def test_queue_persists_job_type(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
-    queue = FileJobQueue(workspace)
+    queue = JobQueue(workspace)
     log_dir = workspace.mongodb_logs_dir(RUN_ID)
     log_dir.mkdir(parents=True)
     job = JobStore().create(
@@ -31,8 +30,10 @@ def test_queue_persists_job_type(tmp_path: Path) -> None:
 
     queue.enqueue(job, log_dir)
 
-    payload = json.loads(workspace.job_queue_pending_path(RUN_ID, job.job_id).read_text(encoding="utf-8"))
-    assert payload["job_type"] == JOB_TYPE_HATCHET
+    claimed = queue.claim_next()
+    assert claimed is not None
+    assert claimed.job_id == job.job_id
+    assert claimed.job_type == JOB_TYPE_HATCHET
 
 
 def test_worker_dispatches_hatchet_job(tmp_path: Path) -> None:
@@ -48,7 +49,7 @@ def test_worker_dispatches_hatchet_job(tmp_path: Path) -> None:
         job_type=JOB_TYPE_HATCHET,
         workspace_root=tmp_path,
     )
-    FileJobQueue(workspace).enqueue(job, log_dir)
+    JobQueue(workspace).enqueue(job, log_dir)
 
     worker = PipelineWorker(tmp_path)
     with patch("backend.app.jobs.worker.run_hatchet_job") as mock_run:
@@ -63,9 +64,9 @@ def test_hatchet_readiness_blocks_when_logs_without_summary(tmp_path: Path) -> N
     log_dir.mkdir(parents=True)
     (log_dir / "mongod.log").write_text("log", encoding="utf-8")
 
-    with patch("backend.app.simagix.hatchet_readiness.hatchet_blocks_phase2", return_value=True):
+    with patch("backend.app.jobs.catalog.hatchet_blocks_phase2", return_value=True):
         with patch(
-            "backend.app.simagix.hatchet_readiness.hatchet_block_message",
+            "backend.app.jobs.catalog.hatchet_block_message",
             return_value="waiting",
         ):
             try:
@@ -104,7 +105,7 @@ def test_retry_hatchet_clears_partial_db(tmp_path: Path) -> None:
     (hatchet_dir / "hatchet.db-wal").write_bytes(b"wal")
     workspace.hatchet_summary_path(RUN_ID).write_text("{}", encoding="utf-8")
 
-    with patch("backend.app.jobs.hatchet_retry.FileJobQueue") as mock_queue_cls:
+    with patch("backend.app.jobs.hatchet_retry.JobQueue") as mock_queue_cls:
         mock_queue_cls.return_value.has_active_job_for_run.return_value = False
         retry_hatchet_for_run(tmp_path, RUN_ID)
 
@@ -142,8 +143,8 @@ def test_run_hatchet_job_invokes_bash(tmp_path: Path) -> None:
     )
 
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-    with patch("backend.app.jobs.hatchet.subprocess.run", return_value=completed) as mock_run:
-        with patch("backend.app.jobs.hatchet.write_hatchet_artifacts"):
+    with patch("backend.app.jobs.hatchet_job.subprocess.run", return_value=completed) as mock_run:
+        with patch("backend.app.jobs.hatchet_job.ingest_hatchet_run"):
             run_hatchet_job(tmp_path, job.job_id, RUN_ID, log_dir)
 
     command = mock_run.call_args.args[0]

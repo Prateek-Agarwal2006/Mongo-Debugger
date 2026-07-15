@@ -1,0 +1,1516 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 0,
+        "datasource": {
+          "type": "grafana-simple-json-datasource",
+          "uid": "mongo-debugger-pg"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "red",
+        "name": "Anomaly windows",
+        "query": "$run_id",
+        "type": "tags"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 38,
+      "panels": [],
+      "title": "Assessment",
+      "type": "row"
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 44,
+      "panels": [],
+      "title": "WiredTiger",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 8,
+        "h": 4
+      },
+      "hiddenSeries": false,
+      "id": 20,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/ticket_avail_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/ticket_avail_write",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "WiredTiger Tickets",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 16,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/wt_cache_max",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/wt_cache_used",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/wt_cache_dirty",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "WiredTiger Cache",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 8,
+        "y": 12,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 57,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/wt_modified_evicted",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/wt_unmodified_evicted",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "WiredTiger Cache Pages Evicted",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 16,
+        "y": 12,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 18,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "C",
+          "target": "$run_id/wt_cache_read_in",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/wt_cache_written_from",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "WiredTiger Cache I/O",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 16,
+        "y": 17,
+        "w": 8,
+        "h": 4
+      },
+      "hiddenSeries": false,
+      "id": 56,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/wt_blkmgr_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/wt_blkmgr_written",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/wt_blkmgr_written_checkpoint",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "WiredTiger Block Manager",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 8,
+        "y": 17,
+        "w": 8,
+        "h": 4
+      },
+      "hiddenSeries": false,
+      "id": 59,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/wt_dhandles_active",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "WiredTiger Data Handle",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 48,
+      "panels": [],
+      "title": "Server Status",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 2,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/mem_virtual",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/mem_resident",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Memory",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 6,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 12,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/latency_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/latency_write",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/latency_command",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Latency",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 6,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/conns_current",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/conns_created/s",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/conns_available",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/conns_active",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Connections",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 18,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 52,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/net_requests",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Network Requests",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 4,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/mem_page_faults",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Page Faults",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 6,
+        "y": 27,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/ops_query",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/ops_insert",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/ops_update",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/ops_delete",
+          "type": "timeserie"
+        },
+        {
+          "refId": "E",
+          "target": "$run_id/ops_getmore",
+          "type": "timeserie"
+        },
+        {
+          "refId": "F",
+          "target": "$run_id/ops_command",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Ops Counters",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 55,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/q_queued_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/q_queued_write",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Queued Ops",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 18,
+        "y": 27,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 53,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/net_in",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/net_out",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Network Bytes In/Out",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 22,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/repl_lag",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Replication Lags",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 6,
+        "y": 32,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 14,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/scan_objects",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/scan_keys",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/scan_sort",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Query Executor",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 10,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/q_active_read",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/q_active_write",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Ops In Progress",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 18,
+        "y": 32,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 54,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "B",
+          "target": "$run_id/net_physical_in",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/net_physical_out",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Network Physical Bytes In/Out",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "id": 100,
+      "panels": [],
+      "title": "Query Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 8,
+        "h": 6
+      },
+      "hiddenSeries": false,
+      "id": 101,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/query_targeting_keys",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/query_targeting_objects",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Query Targeting (Scanned/Returned Ratio)",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 8,
+        "y": 38,
+        "w": 8,
+        "h": 6
+      },
+      "hiddenSeries": false,
+      "id": 102,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/doc_returned/s",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/doc_inserted/s",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/doc_updated/s",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/doc_deleted/s",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Document Metrics",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 16,
+        "y": 38,
+        "w": 8,
+        "h": 6
+      },
+      "hiddenSeries": false,
+      "id": 103,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/write_conflicts/s",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Write Conflicts",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "id": 60,
+      "panels": [],
+      "title": "MongoDB 7.0+ Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 12,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 61,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/queues_read_out",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/queues_write_out",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/queues_read_available",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/queues_write_available",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Admission Control Queues",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 62,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/txn_active",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/txn_inactive",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/txn_open",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Active Transactions",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 8,
+        "y": 45,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 63,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/txn_started/s",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/txn_committed/s",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/txn_aborted/s",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Transaction Ops/s",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 64,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/flowctl_rate_limit",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Flow Control Rate Limit",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 12,
+        "y": 50,
+        "w": 12,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 65,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/tcmalloc_in_use",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/tcmalloc_allocated",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/tcmalloc_heap",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/tcmalloc_physical",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "tcmalloc Memory",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 8,
+        "y": 55,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 66,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/flowctl_acquiring_us",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Flow Control Time Acquiring (\u00b5s/s)",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 16,
+        "y": 55,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 67,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/flowctl_lagged_count",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Flow Control Lagged (/s)",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 60
+      },
+      "id": 42,
+      "panels": [],
+      "title": "System Metrics (CPU & Disks)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 61,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 24,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/cpu_system",
+          "type": "timeserie"
+        },
+        {
+          "refId": "B",
+          "target": "$run_id/cpu_user",
+          "type": "timeserie"
+        },
+        {
+          "refId": "C",
+          "target": "$run_id/cpu_iowait",
+          "type": "timeserie"
+        },
+        {
+          "refId": "D",
+          "target": "$run_id/cpu_idle",
+          "type": "timeserie"
+        },
+        {
+          "refId": "E",
+          "target": "$run_id/cpu_nice",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 8,
+        "y": 61,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 28,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/disks_iops",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Disk IOPS",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 16,
+        "y": 61,
+        "w": 8,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 26,
+      "links": [],
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/disks_utils",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Disk Utilization",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 32,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/disks_queue_length",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "I/O In Progress",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 6,
+        "y": 66,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 40,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/io_queued_ms",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Disk Total Wait Time",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 12,
+        "y": 66,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 45,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/read_time_ms",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Disk Read Wait Time",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana-simple-json-datasource",
+        "uid": "mongo-debugger-pg"
+      },
+      "fillGradient": 0,
+      "gridPos": {
+        "x": 18,
+        "y": 66,
+        "w": 6,
+        "h": 5
+      },
+      "hiddenSeries": false,
+      "id": 46,
+      "options": {
+        "dataLinks": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "$run_id/write_time_ms",
+          "type": "timeserie"
+        }
+      ],
+      "timeRegions": [],
+      "title": "Disk Write Wait Time",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": [
+    "ftdc",
+    "all-metrics"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-simple-json-datasource",
+          "uid": "mongo-debugger-pg"
+        },
+        "definition": "runs",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Run",
+        "multi": false,
+        "name": "run_id",
+        "options": [],
+        "query": "runs",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MongoDB FTDC Analytics",
+  "uid": "simagix-grafana",
+  "version": 1
+}

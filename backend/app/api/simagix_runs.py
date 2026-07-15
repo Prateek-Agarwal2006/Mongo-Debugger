@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.core.run_workspace import get_run_workspace
 from backend.app.simagix.eval import evaluate_run
-from backend.app.simagix.evidence_service import SimagixEvidenceService
+from backend.app.simagix.evidence.loader import list_run_ids as _pg_list_run_ids
+from backend.app.simagix.rca_service import SimagixEvidenceService
 
 router = APIRouter(prefix="/simagix/runs", tags=["simagix-runs"])
 
@@ -23,7 +23,7 @@ def _evidence_service(run_id: str) -> SimagixEvidenceService:
 
 @router.get("")
 def list_runs() -> dict[str, object]:
-    return {"runs": get_run_workspace().list_run_ids()}
+    return {"runs": _pg_list_run_ids()}
 
 
 @router.get("/{run_id}/context")
@@ -61,20 +61,6 @@ def get_normalized_series(
 ) -> dict[str, object]:
     try:
         return _evidence_service(run_id).get_normalized_series(metric, start=start, end=end, limit=limit)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=429, detail=str(exc)) from exc
-
-
-@router.get("/{run_id}/tools/raw-path")
-def get_raw_path(
-    run_id: str,
-    path_contains: str,
-    start: datetime | None = None,
-    end: datetime | None = None,
-    limit: int = 100,
-) -> dict[str, object]:
-    try:
-        return _evidence_service(run_id).get_raw_path(path_contains, start=start, end=end, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
 

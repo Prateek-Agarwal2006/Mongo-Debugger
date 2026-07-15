@@ -72,6 +72,6 @@ _Avoid_: model, engine
 The final per-run deliverable — JSON plus an HTML view, with citations back to evidence — followed by an optional post-report **chatbot**.
 _Avoid_: result, analysis, summary
 
-**Grafana stack**:
-The shared Docker pair — Grafana (`:3030`) plus the FTDC API (`:5408`) — that renders a run's metrics as dashboards in a new tab. One stack per machine.
-_Avoid_: dashboards service, charts server
+**Grafana**:
+Grafana OSS (Helm pod) showing a run's metrics via the API SimpleJSON datasource over Postgres. Opens in a new tab with `var-run_id`.
+_Avoid_: dashboards service, charts server, FTDC API load
