@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-07-16 — CI: Postgres service for backend tests
+
+**What:** GitHub Actions `Backend Tests` starts Postgres 16 and sets `DATABASE_URL` so pytest can load `conftest.py`.
+
+**How:** `services.postgres` + health check in `.github/workflows/test.yml`.
+
+**Why:** Suite is Postgres-backed; CI failed immediately with `DATABASE_URL must be set`.
+
+---
+
 ## 2026-07-16 — README + architecture diagrams (Kind / nginx / Postgres)
 
 **What:** Root README is Kind-first and detailed: ui nginx entry, catalog gate, Postgres jobs/metrics, Grafana SimpleJSON, WorkAreas, rebuild/troubleshoot. Architecture master diagram updated on the same lines; docs hub points at root README.
