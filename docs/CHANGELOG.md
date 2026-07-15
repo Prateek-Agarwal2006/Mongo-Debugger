@@ -11,11 +11,11 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ## 2026-07-16 — CI: Postgres service for backend tests
 
-**What:** GitHub Actions `Backend Tests` starts Postgres 16 and sets `DATABASE_URL` so pytest can load `conftest.py`.
+**What:** GitHub Actions `Backend Tests` starts Postgres 16, sets `DATABASE_URL`, and syncs `--extra prod` so `psycopg_pool` is installed.
 
-**How:** `services.postgres` + health check in `.github/workflows/test.yml`.
+**How:** `services.postgres` + health check + `uv sync --extra prod --extra dev --extra llm` in `.github/workflows/test.yml`.
 
-**Why:** Suite is Postgres-backed; CI failed immediately with `DATABASE_URL must be set`.
+**Why:** Suite is Postgres-backed; first CI run failed on missing `DATABASE_URL`, second on `No module named 'psycopg_pool'` (pool only in the `prod` extra).
 
 ---
 

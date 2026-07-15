@@ -306,11 +306,11 @@ Tests need Postgres (`DATABASE_URL`). Example local DB:
 docker run -d --name mongo-debugger-pg -e POSTGRES_PASSWORD=dev \
   -e POSTGRES_DB=mongodebugger -p 5544:5432 postgres:16-alpine
 export DATABASE_URL=postgresql://postgres:dev@localhost:5544/mongodebugger
-uv sync --extra dev --extra llm   # Cursor SDK + google-adk for Phase 2
+uv sync --extra prod --extra dev --extra llm   # psycopg pool + Cursor SDK + google-adk
 uv run pytest backend/tests -q
 ```
 
-GitHub Actions (`.github/workflows/test.yml`) starts Postgres 16 as a service and sets `DATABASE_URL` automatically.
+GitHub Actions (`.github/workflows/test.yml`) starts Postgres 16 as a service, syncs `--extra prod`, and sets `DATABASE_URL` automatically.
 
 Simagix-specific tests:
 
