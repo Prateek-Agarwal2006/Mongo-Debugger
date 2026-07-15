@@ -153,10 +153,13 @@ def test_skills_api_list_upload_delete(client: TestClient) -> None:
     assert delete.status_code == 200
 
 
-def test_skill_workarea_page(client: TestClient) -> None:
+def test_skill_workarea_is_spa_not_api(client: TestClient) -> None:
+    """HTML UI is nginx SPA; API has no /skill-workarea route (JSON under /simagix/skills)."""
     resp = client.get("/skill-workarea")
-    assert resp.status_code == 200
-    assert "Skill WorkArea" in resp.text
+    assert resp.status_code == 404
+    api = client.get("/simagix/skills")
+    assert api.status_code == 200
+    assert "skills" in api.json()
 
 
 def test_to_adk_mcp_toolsets_builds_stdio_and_http() -> None:

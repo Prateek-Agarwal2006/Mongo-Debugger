@@ -11,11 +11,11 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ## 2026-07-16 — CI: Postgres service for backend tests
 
-**What:** GitHub Actions `Backend Tests` starts Postgres 16, sets `DATABASE_URL`, and syncs `--extra prod` so `psycopg_pool` is installed.
+**What:** GitHub Actions `Backend Tests` starts Postgres 16, sets `DATABASE_URL`, and syncs `--extra prod` so `psycopg_pool` is installed. Tests expect JSON catalog / SPA (no Jinja HTML routes on API).
 
-**How:** `services.postgres` + health check + `uv sync --extra prod --extra dev --extra llm` in `.github/workflows/test.yml`.
+**How:** `services.postgres` + health check + `uv sync --extra prod --extra dev --extra llm` in `.github/workflows/test.yml`; update skill/catalog tests for nginx SPA.
 
-**Why:** Suite is Postgres-backed; first CI run failed on missing `DATABASE_URL`, second on `No module named 'psycopg_pool'` (pool only in the `prod` extra).
+**Why:** Suite is Postgres-backed; first CI run failed on missing `DATABASE_URL`, second on `psycopg_pool`, third on stale HTML assertions.
 
 ---
 

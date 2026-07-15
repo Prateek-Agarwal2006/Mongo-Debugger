@@ -87,7 +87,7 @@ def test_catalog_run_workspace_for_fixture(client: TestClient) -> None:
     body = response.json()
     assert body["run_id"] == FIXTURE_RUN_ID
     assert body["view"] in {"run_workspace", "pipeline"}
-    assert "/static/js/rca.js" in response.text
+    assert body.get("selected_llm") or body.get("pipeline_status")
 
 
 def test_anomaly_correlation_api(client: TestClient) -> None:
