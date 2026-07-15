@@ -34,68 +34,111 @@ Upload → Postgres job queue → worker (baked Go binaries)
 
 ## Architecture (runtime)
 
-The system splits **deterministic analysis** (worker / Go tools find health issues) from **reasoning** (the LLM only explains and correlates). In Kind, the browser talks only to **ui nginx** on `:8000`. The API is internal (ClusterIP). Metrics and jobs live in **Postgres**; Grafana reads them via SimpleJSON — not the old Docker FTDC API `:5408` path.
+Same layout style as the Latency Dashboard: **UI nginx is the sole entry**, API and worker are separate pods, durable state is Postgres. Deterministic Phase 1 runs on the **worker**; Phase 2 reasoning runs on the **API** (Cursor SDK or Gemini ADK). For both LLM slots, **MCP stdio servers are subprocesses on the API pod** — vendor clouds are model-only.
+
+Grafana NodePort `:3030` is **Kind playground only**, not a production exposure pattern.
 
 ```mermaid
-%%{init: {'flowchart': {'nodeSpacing': 70, 'rankSpacing': 100}, 'themeVariables': {'fontSize': '16px'}}}%%
+%%{init: {'flowchart': {'nodeSpacing': 85, 'rankSpacing': 120}, 'themeVariables': {'fontSize': '16px'}}}%%
 flowchart LR
   Operator(["User / operator"])
 
-  subgraph edge [Kind edge — localhost]
-    UI["ui nginx NodePort :8000<br/>Vite SPA + /static stitch<br/>proxy /simagix /grafana /docs /health"]
-    GrafNP["Grafana NodePort<br/>localhost:3030 ← 30300"]
+  subgraph browser [Browser]
+    Web["Modern SPA + stitch | upload | /runs/id catalog gate | RCA | WorkAreas"]
   end
 
-  subgraph cluster [Kubernetes cluster]
-    API["api FastAPI ClusterIP<br/>JSON only — no Jinja<br/>catalog · upload · Phase 2 · SimpleJSON"]
-    Worker["worker<br/>poll Postgres queue<br/>llm-export · ingest · Hatchet"]
-    PG[("Postgres + PVC<br/>jobs · metrics · skills · MCP registry")]
-    Graf["Grafana pod<br/>datasource → http://api:8000/grafana/simple"]
+  subgraph uiPod [UI Pod — nginx]
+    Nginx["nginx | Vite SPA + /static | proxy /simagix /docs /health → api"]
   end
 
-  subgraph data [Run artifacts DATA_ROOT / emptyDir]
-    Inputs["uploads/run_id/inputs<br/>diagnostic.data · mongod.log"]
-    Evidence["phase1/mongo-ftdc<br/>tiered JSON · then ingest"]
-    Reports["phase2/llm/slot<br/>reports · chatbot"]
+  subgraph apiPod [API Pod — FastAPI]
+    FastAPI["FastAPI workers=1 | upload enqueue | catalog JSON | SimpleJSON"]
+    Phase2API["Phase 2 HTTP | investigate | clarify | RCA | chatbot"]
+    Pool["phase2 ThreadPoolExecutor | max_workers=4"]
+    Specs["build_mcp_server_specs | same list for cursor and gemini"]
+    Provider["LLMProvider | cursor or gemini or mock"]
+
+    subgraph agentRuntime [Agent runtime in this pod]
+      CursorSDK["Cursor SDK | Agent.create + tool loop"]
+      ADK["Gemini ADK | InMemoryRunner + McpToolset"]
+    end
+
+    subgraph mcpLocal [MCP stdio — always local to API pod]
+      McpChild["subprocess python -m … | simagix-evidence | hatchet | graylog | WorkArea stdio templates"]
+    end
+
+    subgraph modelCloud [Vendor cloud — model only]
+      Cloud["Cursor Cloud or Gemini API | tokens in/out | never spawns MCP | never opens Postgres"]
+    end
   end
 
-  subgraph rca [Phase 2 — Cursor path]
-    Phase2["service.py<br/>A investigate · B clarify · C final"]
-    Provider["CursorLLMProvider<br/>AgentOptions + mcp_servers"]
-    SDK["Cursor SDK<br/>spawn MCP stdio · tool loop"]
-    Cloud["Cursor Cloud<br/>model only"]
-    MCP["MCP servers<br/>simagix-evidence · optional WorkArea"]
+  subgraph workerPod [Worker Pod — Phase 1]
+    Poll["1 replica v1 | poll Postgres jobs | one job at a time"]
+    Decode["subprocess llm-export / mongo-ftdc"]
+    HatchetJob["subprocess Hatchet when logs uploaded"]
+    Ingest["ingest COPY metrics + evidence → Postgres"]
   end
 
-  Operator --> UI
-  UI -->|"SPA + REST"| API
-  Operator --> GrafNP --> Graf
-  Graf -->|"SimpleJSON query"| API
+  subgraph pgPod [Postgres Pod]
+    PG[("Postgres + PVC | jobs | metrics | evidence | skills | MCP registry")]
+  end
 
-  API --> PG
-  API -->|"enqueue job"| PG
-  Worker -->|"claim / update"| PG
-  API --> Inputs
-  Worker --> Inputs
-  Worker --> Evidence
-  Evidence -->|"COPY metrics"| PG
-  Worker --> Reports
+  subgraph k8s [Kubernetes deploy]
+    Helm["Helm mongo-debugger | ui api worker postgres"]
+    Secret["Secret | DB password | CURSOR_API_KEY | GEMINI_API_KEY"]
+  end
 
-  API --> Phase2 --> Provider -->|"mcp_servers"| SDK
-  SDK -->|"stdio MCP"| MCP
-  MCP -->|"tier-1 / slices"| PG
-  MCP -.->|"bundle paths"| Evidence
-  SDK <-->|"tool calls"| Cloud
-  Provider --> Reports
-  Reports --> UI
+  Operator --> Web --> Nginx -->|"proxy /simagix/*"| FastAPI
+  FastAPI --> Phase2API --> Pool --> Provider
+  Provider --> CursorSDK
+  Provider --> ADK
+  Provider --> Specs
+  Specs -->|"Cursor: AgentOptions.mcp_servers"| McpChild
+  Specs -->|"Gemini: to_adk_mcp_toolsets StdioConnectionParams"| McpChild
+  CursorSDK <-->|"tool calls / model text"| Cloud
+  ADK <-->|"tool calls / model text"| Cloud
+  McpChild -->|"SELECT slices / tier-1"| PG
+
+  FastAPI -->|"INSERT pending job"| PG
+  Poll -->|"claim job"| PG
+  Poll --> Decode --> Ingest --> PG
+  Poll --> HatchetJob --> Ingest
+
+  Helm --> uiPod
+  Helm --> apiPod
+  Helm --> workerPod
+  Helm --> pgPod
+  Secret --> FastAPI
+  Secret --> Poll
+  Secret --> PG
+
+  FastAPI -.->|"never runs Phase 1 decode"| workerPod
+  Cloud -.->|"never runs MCP"| McpChild
 ```
 
-### Ports (Kind)
+| Subgraph | Role |
+|----------|------|
+| **Browser / UI pod** | SPA shell; nginx sole entry; proxies API |
+| **API pod** | JSON API, Phase 2 agents, MCP stdio children, catalog gate |
+| **Worker pod** | Phase 1 only — one job at a time; decode/Hatchet subprocess + ingest |
+| **Postgres pod** | Durable jobs, metrics, skills, MCP registry |
+| **Vendor cloud** | Model tokens only — does not spawn MCP or open Postgres |
+| **Kubernetes deploy** | Helm + secrets |
+
+| Provider | Tool loop | MCP process |
+|----------|-----------|-------------|
+| **Cursor** | SDK in API pod | stdio **subprocess on API pod** |
+| **Gemini** | ADK in API pod | same specs → **stdio subprocess on API pod** |
+| **Either cloud** | model only | does **not** run MCP |
+
+HTTP WorkArea connectors call a remote URL from the API pod (not a local subprocess). Phase 2 concurrency is `ThreadPoolExecutor(max_workers=4)` on the API — separate from Phase 1 worker replicas.
+
+### Ports (Kind demo)
 
 | What | How you reach it |
 |------|------------------|
-| **App UI + API proxy** | **http://localhost:8000** → Kind maps NodePort `30000` (`deploy/kind/cluster.yaml`) |
-| **Grafana** | **http://localhost:3030** → NodePort `30300` (same Kind config). If missing: `kubectl port-forward svc/grafana 3030:3000` |
+| **App UI + API proxy** | **http://localhost:8000** → NodePort `30000` (`deploy/kind/cluster.yaml`) |
+| **Grafana (optional playground)** | **http://localhost:3030** or `kubectl port-forward svc/grafana 3030:3000` — not a prod exposure pattern |
 | **API inside cluster** | `http://api:8000` (ClusterIP — not on localhost) |
 
 ### Layer map
@@ -103,15 +146,14 @@ flowchart LR
 | Layer | Role |
 |-------|------|
 | **ui nginx** | Serves SPA + stitch assets; sole browser entry; proxies API paths |
-| **api** | Upload, `GET /simagix/catalog`, Phase 2, SimpleJSON Grafana datasource |
-| **worker** | Claims jobs from Postgres; runs baked `llm-export` / Hatchet; ingests metrics |
+| **api** | Upload, catalog, Phase 2, SimpleJSON; hosts Cursor/ADK + MCP children |
+| **worker** | Claims jobs; baked `llm-export` / Hatchet subprocess; ingests metrics |
 | **Postgres (+ PVC)** | Durable jobs, FTDC metrics, operator skills/MCP registry |
-| **mongo-ftdc / Hatchet** | Deterministic decode & log parse (binaries in worker image) |
-| **Cursor SDK / Gemini ADK** | Agent runtime; we ship MCP **servers** + skill attachment |
+| **Cursor SDK / Gemini ADK** | Agent runtime in API pod; shared `build_mcp_server_specs` |
 | **Phase 2** | Investigate → clarify once → final RCA → chatbot |
-| **Grafana** | Charts over Postgres SimpleJSON (Anomaly View / All Metrics) |
+| **Grafana** | Optional charts over Postgres SimpleJSON |
 
-**Excalidraw (older lane diagram):** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — still useful for Cursor/MCP tool-loop storytelling; Kind topology above is current.
+**Excalidraw (older lane diagram):** [docs/mongo-debugger-runtime-flow.excalidraw.json](docs/mongo-debugger-runtime-flow.excalidraw.json) — still useful for storytelling; pod diagram above is current.
 
 Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md) · Tradeoffs: [docs/DESIGN_NOTES.md](docs/DESIGN_NOTES.md) §14
 

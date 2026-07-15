@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-07-16 — README architecture: Latency Dashboard–style pods + shared MCP
+
+**What:** Root README runtime diagram matches Latency Dashboard style (UI nginx / API / worker / Postgres). Cursor and Gemini both use `build_mcp_server_specs` → **stdio MCP subprocesses on the API pod**; vendor clouds are model-only. Grafana `:3030` labeled Kind playground only.
+
+**How:** Replaced Kind/NodePort-heavy Mermaid with pod subgraphs + provider/MCP tables.
+
+**Why:** Mentors need accurate “where does MCP run?” for both LLM slots; `:3030` is not a prod pattern.
+
+---
+
 ## 2026-07-16 — CI: Postgres service for backend tests
 
 **What:** GitHub Actions `Backend Tests` starts Postgres 16, sets `DATABASE_URL`, and syncs `--extra prod` so `psycopg_pool` is installed. Tests expect JSON catalog / SPA (no Jinja HTML routes on API).
