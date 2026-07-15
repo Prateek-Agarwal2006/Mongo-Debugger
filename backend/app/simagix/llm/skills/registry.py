@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import re
 import shutil
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from backend.app.core.run_workspace import RunWorkspace
+from backend.app.db.connection import db_conn
 
 logger = logging.getLogger(__name__)
 
@@ -55,19 +58,26 @@ def _find_skill_markdown(root: Path) -> Path | None:
     return None
 
 
-def _read_description_best_effort(skill_root: Path) -> str | None:
-    skill_md = _find_skill_markdown(skill_root)
-    if skill_md is None:
-        return None
-    try:
-        text = skill_md.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    match = _FRONTMATTER_DESC_RE.search(text)
+def _extract_description_from_content(content: str) -> str | None:
+    match = _FRONTMATTER_DESC_RE.search(content)
     if not match:
         return None
     description = match.group(1).strip().strip("\"'")
     return description or None
+
+
+def _sync_skill_frontmatter_name_content(content: str, slot_name: str) -> str:
+    """Return content with `name:` in frontmatter set to slot_name."""
+    match = _FRONTMATTER_BLOCK_RE.match(content)
+    if match:
+        body = match.group(1)
+        rest = content[match.end():]
+        if _FRONTMATTER_NAME_LINE_RE.search(body):
+            body = _FRONTMATTER_NAME_LINE_RE.sub(f"name: {slot_name}", body, count=1)
+        else:
+            body = f"name: {slot_name}\n{body}"
+        return f"---\n{body}\n---{rest}"
+    return f"---\nname: {slot_name}\ndescription: Operator skill\n---\n{content}"
 
 
 def _resolve_extract_root(extract_dir: Path) -> Path:
@@ -102,51 +112,18 @@ def _safe_extract_zip(archive: bytes, dest_dir: Path) -> None:
         raise ValueError("Invalid zip archive") from exc
 
 
-def _sync_skill_frontmatter_name(slot_dir: Path, slot_name: str) -> None:
-    """ADK/Cursor require SKILL.md `name:` to match the slot directory name."""
-    skill_md = _find_skill_markdown(slot_dir)
-    if skill_md is None:
-        return
-    text = skill_md.read_text(encoding="utf-8")
-    match = _FRONTMATTER_BLOCK_RE.match(text)
-    if match:
-        body = match.group(1)
-        rest = text[match.end() :]
-        if _FRONTMATTER_NAME_LINE_RE.search(body):
-            body = _FRONTMATTER_NAME_LINE_RE.sub(f"name: {slot_name}", body, count=1)
-        else:
-            body = f"name: {slot_name}\n{body}"
-        text = f"---\n{body}\n---{rest}"
-    else:
-        text = f"---\nname: {slot_name}\ndescription: Operator skill\n---\n{text}"
-    skill_md.write_text(text, encoding="utf-8")
-
-
 def list_skill_dirs(workspace_root: Path) -> list[dict[str, Any]]:
-    root = operator_skills_dir(workspace_root)
-    if not root.is_dir():
-        return []
-    items: list[dict[str, Any]] = []
-    for entry in sorted(root.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("."):
-            continue
-        items.append(
-            {
-                "slot_name": entry.name,
-                "description": _read_description_best_effort(entry),
-            }
-        )
-    return items
+    with db_conn() as conn:
+        rows = conn.execute(
+            "SELECT slot_name, description FROM skills ORDER BY slot_name"
+        ).fetchall()
+    return [{"slot_name": row[0], "description": row[1]} for row in rows]
 
 
 def upload_skill_zip(workspace_root: Path, slot_name: str, archive: bytes) -> dict[str, Any]:
     normalized = validate_slot_name(slot_name)
     if not archive:
         raise ValueError("Empty zip archive")
-
-    skills_root = operator_skills_dir(workspace_root)
-    skills_root.mkdir(parents=True, exist_ok=True)
-    slot_dir = skills_root / normalized
 
     with tempfile.TemporaryDirectory(prefix="skill-upload-") as tmp:
         extract_dir = Path(tmp)
@@ -155,48 +132,62 @@ def upload_skill_zip(workspace_root: Path, slot_name: str, archive: bytes) -> di
         if _find_skill_markdown(skill_root) is None:
             raise ValueError("Zip must contain SKILL.md (or skill.md) somewhere in the package")
 
-        if slot_dir.exists():
-            shutil.rmtree(slot_dir)
-        shutil.copytree(skill_root, slot_dir)
+        files: dict[str, str] = {}
+        for file_path in sorted(skill_root.rglob("*")):
+            if file_path.is_dir():
+                continue
+            rel = str(file_path.relative_to(skill_root))
+            files[rel] = file_path.read_text(encoding="utf-8", errors="replace")
 
-    _sync_skill_frontmatter_name(slot_dir, normalized)
+    for md_name in _SKILL_MD_NAMES:
+        if md_name in files:
+            files[md_name] = _sync_skill_frontmatter_name_content(files[md_name], normalized)
+            break
 
-    return {
-        "slot_name": normalized,
-        "description": _read_description_best_effort(slot_dir),
-    }
+    skill_md_content = files.get("SKILL.md") or files.get("skill.md") or ""
+    description = _extract_description_from_content(skill_md_content)
+
+    with db_conn() as conn:
+        conn.execute(
+            "INSERT INTO skills (slot_name, files, description, updated_at)"
+            " VALUES (%s, %s, %s, %s)"
+            " ON CONFLICT (slot_name) DO UPDATE SET files = EXCLUDED.files,"
+            " description = EXCLUDED.description, updated_at = EXCLUDED.updated_at",
+            (normalized, json.dumps(files), description, time.time()),
+        )
+
+    return {"slot_name": normalized, "description": description}
 
 
 def delete_skill(workspace_root: Path, slot_name: str) -> bool:
     normalized = validate_slot_name(slot_name)
-    slot_dir = operator_skills_dir(workspace_root) / normalized
-    if not slot_dir.is_dir():
-        return False
-    shutil.rmtree(slot_dir)
-    return True
+    with db_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM skills WHERE slot_name = %s", (normalized,)
+        )
+    return (cur.rowcount or 0) > 0
 
 
 def copy_all_to_cursor_scratch(workspace_root: Path, scratch_dir: Path) -> None:
-    skills = list_skill_dirs(workspace_root)
-    if not skills:
+    with db_conn() as conn:
+        rows = conn.execute("SELECT slot_name, files FROM skills").fetchall()
+    if not rows:
         return
     cursor_skills_root = scratch_dir / ".cursor" / "skills"
     cursor_skills_root.mkdir(parents=True, exist_ok=True)
-    source_root = operator_skills_dir(workspace_root)
-    for item in skills:
-        slot_name = str(item["slot_name"])
-        source = source_root / slot_name
-        target = cursor_skills_root / slot_name
-        if target.exists():
-            shutil.rmtree(target)
-        shutil.copytree(source, target)
+    for slot_name, files_data in rows:
+        files: dict[str, str] = files_data if isinstance(files_data, dict) else json.loads(files_data)
+        slot_dir = cursor_skills_root / slot_name
+        if slot_dir.exists():
+            shutil.rmtree(slot_dir)
+        slot_dir.mkdir(parents=True)
+        for rel_path, content in files.items():
+            target = slot_dir / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
 
 
 def build_adk_skill_toolset_all(workspace_root: Path) -> Any | None:
-    skills_root = operator_skills_dir(workspace_root)
-    if not skills_root.is_dir():
-        return None
-
     try:
         from google.adk.skills import load_skill_from_dir
         from google.adk.tools.skill_toolset import SkillToolset
@@ -204,17 +195,32 @@ def build_adk_skill_toolset_all(workspace_root: Path) -> Any | None:
         logger.warning("google-adk skills unavailable; skipping SkillToolset")
         return None
 
+    with db_conn() as conn:
+        rows = conn.execute("SELECT slot_name, files FROM skills").fetchall()
+    if not rows:
+        return None
+
+    skills_root = operator_skills_dir(workspace_root)
+    skills_root.mkdir(parents=True, exist_ok=True)
+
     loaded: list[Any] = []
-    for entry in sorted(skills_root.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("."):
-            continue
-        if _find_skill_markdown(entry) is None:
-            logger.warning("Skipping skill %s: no SKILL.md found", entry.name)
+    for slot_name, files_data in rows:
+        files: dict[str, str] = files_data if isinstance(files_data, dict) else json.loads(files_data)
+        slot_dir = skills_root / slot_name
+        if slot_dir.exists():
+            shutil.rmtree(slot_dir)
+        slot_dir.mkdir(parents=True)
+        for rel_path, content in files.items():
+            target = slot_dir / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+        if _find_skill_markdown(slot_dir) is None:
+            logger.warning("Skipping skill %s: no SKILL.md found", slot_name)
             continue
         try:
-            loaded.append(load_skill_from_dir(entry))
+            loaded.append(load_skill_from_dir(slot_dir))
         except Exception:
-            logger.exception("Skipping skill %s: ADK load_skill_from_dir failed", entry.name)
+            logger.exception("Skipping skill %s: ADK load_skill_from_dir failed", slot_name)
 
     if not loaded:
         return None

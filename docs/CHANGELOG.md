@@ -3,9 +3,225 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-16
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-07-16 — CI: Postgres service for backend tests
+
+**What:** GitHub Actions `Backend Tests` starts Postgres 16, sets `DATABASE_URL`, and syncs `--extra prod` so `psycopg_pool` is installed. Tests expect JSON catalog / SPA (no Jinja HTML routes on API).
+
+**How:** `services.postgres` + health check + `uv sync --extra prod --extra dev --extra llm` in `.github/workflows/test.yml`; update skill/catalog tests for nginx SPA.
+
+**Why:** Suite is Postgres-backed; first CI run failed on missing `DATABASE_URL`, second on `psycopg_pool`, third on stale HTML assertions.
+
+---
+
+## 2026-07-16 — README + architecture diagrams (Kind / nginx / Postgres)
+
+**What:** Root README is Kind-first and detailed: ui nginx entry, catalog gate, Postgres jobs/metrics, Grafana SimpleJSON, WorkAreas, rebuild/troubleshoot. Architecture master diagram updated on the same lines; docs hub points at root README.
+
+**How:** Rewrote `README.md` Mermaid runtime lanes; refreshed `docs/ARCHITECTURE.md` steps 0–7; synced `docs/README.md` layout/flow.
+
+**Why:** GitHub/README still showed FastAPI-as-UI + Docker FTDC `:5408` Grafana; mentors need the current Kind topology.
+
+---
+
+## 2026-07-16 — Future work: retry/crash recovery, LISTEN/NOTIFY, SSE
+
+**What:** Documented three ops/UX upgrades as future work (not implemented).
+
+**How:** [PROJECT_STATUS.md](PROJECT_STATUS.md) § Other future work + [PRODUCTION_ARCHITECTURE.md](PRODUCTION_ARCHITECTURE.md) Deferred list — (1) lease heartbeat / stale-job reaper + bounded auto-retry, (2) Postgres `LISTEN`/`NOTIFY` to wake workers instead of only polling, (3) SSE for job/Phase 2 progress instead of browser poll loops.
+
+**Why:** Current crash recovery only self-requeues when the *same* worker returns; poll loops add latency and chatter. These are the natural next steps once multi-worker / prod UX matter more.
+
+---
+
+## 2026-07-16 — Postgres probe death spiral + catalog error copy
+
+**What:** Kind Postgres no longer CrashLoops mid-WAL-recovery; SPA shows **Database unavailable** instead of raw `Catalog failed (500)` when catalog cannot reach Postgres.
+
+**How:** Loosened Helm postgres readiness/liveness (`timeoutSeconds: 5`, liveness `initialDelaySeconds: 120`). `App.tsx` maps 500/502/503 catalog responses to a recovery hint.
+
+**Why:** Tight `pg_isready` probes killed postgres during redo after heavy ingest; API then `PoolTimeout` → home/runs unusable.
+
+---
+
+## 2026-07-15 — Upload opens `/runs/{id}` (pipeline until Ready)
+
+**What:** After upload, UI goes to **`/runs/{id}`** (not `/pipeline`). While Phase 1 runs, the same URL shows Decoding / Loading metrics; when the job succeeds the page reloads into RCA.
+
+**How:** Upload redirect target changed; pipeline poll **reloads** if already on `/runs/{id}` (same-URL navigation would not repaint). Gate in `run_detail` unchanged.
+
+**Why:** Operators asked for the run page; `/pipeline` felt like a dead-end while decode was still working.
+
+---
+
+**What:** Kind worker pod no longer crash-loops on startup (`ModuleNotFoundError` for `hatchet` / `pipeline` / `FileJobQueue`).
+
+**How:** `worker.py` now imports `hatchet_job`, `ftdc_job`, and `JobQueue` (Postgres queue) — matching the renamed modules.
+
+**Why:** Without a live worker, Phase 1 never finishes so the pipeline page never redirects to `/runs/{id}`.
+
+---
+
+## 2026-07-15 — Upload / Run RCA busy spinner
+
+**What:** Start pipeline and Run RCA show a circular spinner, stay disabled, and block double-submit while work runs.
+
+**How:** `static/js/btn-busy.js` + `.mdb-btn-spinner` in `stitch-nav.css`; upload form and `rca.js` call `MdbBtnBusy.start/stop`.
+
+**Why:** Long Kind uploads looked stuck and allowed accidental duplicate runs.
+
+---
+
+**What:** Kind entry is a **ui** nginx pod (NodePort → `localhost:8000`). It serves the Vite Modern SPA + `/static` stitch assets and proxies `/simagix`, `/grafana`, `/docs`, `/health` to an **api** ClusterIP service. Classic Jinja UI removed from the API; API image has no `frontend/`.
+
+**How:** `Dockerfile.ui` + `nginx-ui.conf`; Helm `ui/` Deployment+Service; API Service type ClusterIP; `GET /simagix/catalog` (+ `/{run_id}`) for SPA bootstrap and Phase 1 RCA gate; React boots from URL and fills `#mdb-page-data` for stitch iframes.
+
+**Why:** Same topology as Merged Dev — UI and API deploy independently; API does JSON only; Classic theme dropped.
+
+---
+
+**What:** After upload succeeds, UI goes straight to the Phase 1 pipeline page (no wait on Upload). Badges say **Decoding** vs **Loading metrics**. Run RCA only opens when Phase 1 job is **succeeded** (fixtures without a job still work).
+
+**How:** Stitch/classic upload redirect to `/runs/{id}/pipeline`. `phase1_progress_label()` from job message; catalog `phase1_label`. `run_detail` returns pipeline while job is running/failed even if evidence exists.
+
+**Why:** Operators thought decode was stuck / RCA was ready mid-COPY; redirect waited for full Phase 1.
+
+---
+
+## 2026-07-15 — Phase 1 “3600s timeout” was actually `ftdc-slice` index (120s)
+
+**What:** Full FTDC uploads no longer die as a fake `Pipeline timed out after 3600s` right after metrics COPY. UI “failed” was often a **120s** `ftdc-slice --mode index` timeout mislabeled by a broad `except TimeoutExpired`.
+
+**How:** Catch llm-export timeout only around the pipeline subprocess; ingest failures report `Ingest failed` with the real error. Index timeout scales with file count (`max(300, 90×n)`); catalog timeout 300s. Unit tests lock the mislabel fix.
+
+**Why:** Evidence + ~3.6M metrics were already in Postgres; only raw_file_index/catalog remained. Operators thought decode ran for an hour when wall clock was ~12 minutes.
+
+---
+
+## 2026-07-15 — Docker: pip dep-layer cache (code-only rebuilds skip wheels)
+
+**What:** API and worker images install Python deps from `pyproject.toml` **before** copying app code, so editing `backend/` / `frontend/` no longer re-runs the fat `pip install`.
+
+**How:** Stub `backend/` → `pip install` extras → `COPY` real code → `pip install --no-deps .` (fast, keeps site-packages current for MCP cwd≠/app). Worker stays `.[prod]` only. (BuildKit pip download mounts skipped — Colima here has no `docker-buildx`; Docker **layer** cache is the win.)
+
+**Why:** Day-to-day Kind rebuilds were dominated by re-downloading `cursor-sdk`/`google-adk` after any Python edit. First/clean builds stay slow; code-only rebuilds should drop to roughly minutes of COPY + thin reinstall (+ Kind load).
+
+---
+
+## 2026-07-15 — Worker image: `.[prod]` only (drop LLM pip)
+
+**What:** Worker Docker image no longer installs `cursor-sdk` / `google-adk` (`[llm]` extra).
+
+**How:** `Dockerfile.worker` uses `pip install ".[prod]"` only. API keeps `.[prod,llm]` (Phase 2 MCP).
+
+**Why:** Worker is Phase 1 (ingest / llm-export / ftdc-slice). LLM wheels were most of rebuild time and unused on the worker.
+
+---
+
+## 2026-07-15 — API ships `ftdc-slice`; tier-3 window correctness + Cursor smoke
+
+**What:** API image includes `ftdc-slice` (~4.5 MB) so Phase 2 `get_raw_window` works in the API pod. Integration tests assert series match an independent CLI oracle; local Cursor MCP smoke verified `point_count`/`first`/`last` against that oracle, then the smoke script was deleted.
+
+**How:** Multi-stage `Dockerfile.api` (same Go build as worker, copy binary to `/usr/local/bin`). `test_get_raw_window_matches_cli_oracle` compares PG-reassembled window to `ftdc-slice --mode window` on original FTDC bytes. Cursor smoke called `simagix-evidence/get_raw_window` and matched oracle `[1780650587, 510832455]`…`[1780650617, 510832455]` (31 points).
+
+**Why:** Without the binary on the API, tier-3 MCP fails after Postgres migration; non-empty series alone is a weak test — oracle equality proves correct bytes were retrieved.
+
+---
+
+## 2026-07-15 — Remove dead `get_raw_path` MCP/REST stub
+
+**What:** Dropped the legacy tier-3 `get_raw_path` tool (MCP + REST + prompts + tool-trace allowlist). Tier-3 is only `list_raw_paths` → `get_raw_window`.
+
+**How:** Deleted stub from `ftdc_tools` / `rca_service` / `evidence.py` MCP server; removed `GET …/tools/raw-path`; updated prompts and docs (§13.11, PHASE2_LLM, RCA_BACKEND).
+
+**Why:** Stub always returned “not available after Postgres migration” — wasted tool-call budget and distracted the LLM from working tools.
+
+---
+
+## 2026-07-15 — Grafana: Anomaly View + All Metrics dashboards
+
+**What:** Evidence tab again has **Anomaly View** and **All Metrics** buttons with full panel sets (not the 4-panel stub).
+
+**How:** Provisioned `anomaly-focus.json` (11 triage panels) + `all-metrics.json` (ported simagix analytics, 35 charts). `/grafana/simple/config` returns both UIDs; `/range` adds `anomaly_from`/`anomaly_to` from `top_anomaly_windows`. Stub `mongo-ftdc-metrics` removed.
+
+**Why:** Operators need the old dual-tab workflow — incident zoom vs full FTDC catalog — on Postgres SimpleJSON.
+
+---
+
+## 2026-07-15 — Grafana empty panels: deep-link capture window
+
+**What:** **Open in Grafana** shows the run's FTDC charts instead of blank panels.
+
+**How:** `GET /grafana/simple/runs/{run_id}/range` returns padded min/max metric `ts`; `grafana.js` appends `from`/`to` to the dashboard URL. Dashboard default widened to `now-90d` as a fallback when opened without a deep link.
+
+**Why:** FTDC timestamps are from the capture (often weeks old); Grafana defaulted to `now-6h`, so every panel was "No data" even when Postgres had metrics.
+
+---
+
+## 2026-07-15 — Metrics ingest: DELETE + COPY (replace), not row upserts
+
+**What:** Phase 1 metrics load for multi‑million-point FTDC no longer uses row-wise upserts.
+
+**How:** `_ingest_time_series` does `DELETE FROM metrics WHERE run_id=…` then Postgres `COPY … FROM STDIN` streaming from `time_series.jsonl.gz`. Evidence JSON commits in its own transaction before metrics. Local smoke on the **same** Kind-run series (`time_series.jsonl.gz` ~23.7 MB, **3,869,232** points): **COPY ≈ 385 s** (~6.4 min) vs prior Kind path **~20+ min** still in `executemany`; tiny unit test locks replace semantics. Smoke script deleted after the run.
+
+**Why:** Write-once-per-run series should be replace+bulk load; `ON CONFLICT` batches were the wrong tool. Remaining ~6 min is mostly Python decode/`write_row` + PK build (further win: binary COPY / drop-index-during-load later).
+
+---
+
+**What:** Large/any FTDC upload no longer freezes the API on “Uploading…”; schema apply no longer waits forever on a locked relation.
+
+**How:** Stream zip to disk; unpack/PG raw store/enqueue in `asyncio.to_thread`. Connection pool `timeout=30`; `SET lock_timeout = '10s'` before `ensure_schema()`. (Ops: terminate `idle in transaction` sessions that hold metric INSERT locks.)
+
+**Why:** Sync store on uvicorn’s only worker + a leftover `idle in transaction` INSERT blocked `ensure_schema` DDL — health stayed up (no DB) while upload hung.
+
+---
+
+**What:** Big `diagnostic.zip` uploads no longer hang the whole API (UI stuck on “Uploading…”; `/health` times out).
+
+**How:** Stream zip to disk; run unpack + Postgres raw-file store + enqueue in `asyncio.to_thread` so the single uvicorn worker keeps serving health/UI. Upload pages show size + 30m abort timeout.
+
+**Why:** Sync `file.read()` + `_store_ftdc_raw_files` on the event loop blocked Kind’s one API worker for the whole FTDC chunk write.
+
+---
+
+**What:** Modern (Stitch) upload picker no longer greys out a valid `.zip` of `diagnostic.data`. Copy clarifies zip-of-folder is the intended Mac path; unzipped folder drops show a clear tip.
+
+**How:** Removed `accept=".zip,.tar.gz,.tgz,.metrics.*"` from `frontend/static/stitch/upload.html` (multi-dot / `metrics.*` filters break macOS). Classic + Stitch copy updated; empty folder-drop message added. Test `test_upload_accepts_zipped_diagnostic_data_folder` locks nested `diagnostic.data/metrics.*` unpack.
+
+**Why:** Backend already unpacked nested zips; the Modern theme filter made “zipped folder” look unsupported in the file picker.
+
+---
+
+**What:** Investigation / RCA / chatbot MCP tool budgets default to **1_000_000** (demo “infinite”).
+
+**How:** `Settings.phase2_*_max_tool_calls` defaults + Helm ConfigMap `PHASE2_*_MAX_TOOL_CALLS`.
+
+**Why:** Kind RCA demos were hitting the old 5–6 call caps before evidence MCP + operator tools finished.
+
+---
+
+## 2026-07-15 — Grafana: Postgres SimpleJSON + Helm pod; delete Docker stack
+
+**What:** Evidence tab opens Grafana against ingested PG metrics. Kind deploys a Grafana pod. Old Load FTDC / ftdc-api / compose path is gone.
+
+**How:** Keep `/grafana/simple`; add Helm Grafana **10.4.7** (Angular SimpleJSON plugin; Grafana 11 refuses it) with datasource → `http://api:8000/grafana/simple`, dashboard `mongo-ftdc-metrics` with `$run_id`. UI is one **Open in Grafana** button. Deleted `grafana_routes.py`, `backend/app/grafana/*`, `grafana-compose.yaml`, `run-grafana-stack.sh`, deferred-load patch; dropped `FTDC_API_URL` / startup-wait settings.
+
+**Why:** Production Decision 4 — no shared volume, no 2-minute warm, multi-run via template variable. Kind had no Grafana pod and the UI still called the dead Docker path.
+
+---
+
+## 2026-07-15 — Kind: restore simagix-evidence MCP discovery
+
+**What:** Cursor/ADK no longer report `simagix-evidence` as discovery-failed in Kind while `web_fetch` still works.
+
+**How:** Builtin MCP stdio `cwd` is `repo_root()` (`/app` in the image); `PYTHONPATH` puts the code root first. `SIMAGIX_WORKSPACE_ROOT` still carries `DATA_ROOT`. Dockerfiles install after `COPY backend/` so `backend` is on site-packages.
+
+**Why:** Spawning `python -m backend…` with `cwd=/data` (DATA_ROOT) raised `ModuleNotFoundError: No module named 'backend'`, so metric/raw tools never registered.
 
 ---
 

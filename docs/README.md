@@ -4,7 +4,9 @@ Single documentation index for the **AI-Powered FTDC Analyzer**. All project doc
 
 ## Quick start
 
-### Prerequisites
+**Full Kind stack (recommended):** see root [README.md](../README.md) § Quick start — Kind.
+
+### Local uv prerequisites
 
 ```bash
 brew install docker docker-compose colima
@@ -72,6 +74,7 @@ Manual pipeline from disk (Docker required): see [Operations](OPERATIONS.md#pipe
 | Document | Description |
 |----------|-------------|
 | [FTDC Reference](FTDC_REFERENCE.md) | Deep FTDC theory, mongo-ftdc research, integration ideas |
+| [FTDC Data Funnel](FTDC_DATA_FUNNEL.md) | FTDC file format byte-level, what simagix drops and why, raw-tier design (raw_files + decode-on-demand agent tools) |
 | [Previous Works](PREVIOUS_WORKS.md) | Prior related projects and notes |
 | [Superlog Analysis](SUPERLOG_ANALYSIS.md) | Lessons from Superlog for Mongo Debugger |
 
@@ -80,41 +83,43 @@ Manual pipeline from disk (Docker required): see [Operations](OPERATIONS.md#pipe
 ## What this project does
 
 ```text
-Upload / disk → mongo-ftdc (deterministic) → tiered evidence bundle
-  → FastAPI orchestration + Bootstrap UI (frontend/)
-  → Cursor SDK / Gemini ADK agent + MCP evidence tools
-  → RCA report (JSON + HTML) + post-report chatbot + Grafana charts
+Browser → ui nginx (:8000) → api (ClusterIP) + worker + Postgres
+Upload → llm-export → ingest metrics → SPA /runs/{id}
+  → Cursor SDK / Gemini ADK + MCP evidence tools
+  → RCA report + chatbot + Grafana SimpleJSON charts
 ```
+
+**Kind-first overview + updated runtime diagram:** root [README.md](../README.md).
 
 For current implementation status, see [Project Status](PROJECT_STATUS.md) — do not rely on status tables inside [FTDC Reference](FTDC_REFERENCE.md) (historical notes).
 
 ## Recommended reading order
 
-1. [Changelog](CHANGELOG.md) — recent improvements
-2. [Project Status](PROJECT_STATUS.md)
-3. [Architecture](ARCHITECTURE.md)
-4. [Operations](OPERATIONS.md)
-5. [RCA Backend API](RCA_BACKEND.md) and [Phase 2 LLM](PHASE2_LLM.md)
-6. [Design Notes](DESIGN_NOTES.md) before a demo or interview
+1. Root [README.md](../README.md) — Kind quick start + architecture diagram
+2. [Changelog](CHANGELOG.md) — recent improvements
+3. [Project Status](PROJECT_STATUS.md)
+4. [Architecture](ARCHITECTURE.md) · [PRODUCTION_ARCHITECTURE.md](PRODUCTION_ARCHITECTURE.md)
+5. [Operations](OPERATIONS.md)
+6. [RCA Backend API](RCA_BACKEND.md) and [Phase 2 LLM](PHASE2_LLM.md)
+7. [Design Notes](DESIGN_NOTES.md) before a demo or interview
 
 ## Repository layout
 
 ```text
 Mongo Debugger/
   docs/                         All documentation (this index)
-  frontend/                     Bootstrap UI (templates + static; swappable)
-  backend/                      FastAPI APIs + web route wiring
+  frontend/                     Vite SPA (src/) + stitch static assets
+  backend/                      FastAPI JSON API + Phase 2 + jobs
+  deploy/                       Kind + Helm + Dockerfiles (ui/api/worker)
   scripts/demo.sh               One-command demo
   simagix-workspace/
     uploads/<run_id>/           One tree per upload (Option A)
       inputs/diagnostic.data/      Web upload FTDC
       phase1/mongo-ftdc/          Tiered mongo-ftdc export bundle
-      phase1/jobs|queue/        Pipeline worker state
       phase2/llm/               RCA session artifacts
-    reports/mongo-ftdc/         Human HTML + console reports
-    scripts/                    Docker pipeline wrappers
+    operator/                   Sample MCP servers + skills
+    scripts/                    Pipeline wrappers (Kind: baked binaries)
     repos/                      Cloned simagix tool sources
-  tmp/                          Default FTDC input for CLI (gitignored)
 ```
 
 See [SIMAGIX_WORKSPACE.md](SIMAGIX_WORKSPACE.md) for full layout.

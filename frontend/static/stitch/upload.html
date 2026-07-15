@@ -137,21 +137,21 @@
             border-color: #faf9f5;
         }
     </style>
-    <link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260629-copyright-2026"/>
+    <link rel="stylesheet" href="/static/css/stitch-nav.css?v=20260715-btn-busy"/>
 </head>
 <body class="bg-surface text-on-surface min-h-screen flex flex-col font-body">
 <div id="mdb-stitch-nav-mount"></div>
-<script src="/static/js/stitch-nav.js?v=20260629-copyright-2026"></script>
+<script src="/static/js/stitch-nav.js?v=20260715-btn-busy"></script>
 <!-- Main Content -->
 <main class="flex-grow w-full max-w-5xl mx-auto px-6 pt-24 pb-12">
 <!-- Header Section -->
 <header class="mb-10 max-w-3xl">
 <h1 class="text-4xl font-headline font-bold text-on-surface mb-4 tracking-tight">Upload logs</h1>
 <p class="text-lg text-on-surface-variant mb-2">Upload your FTDC <code class="bg-surface-container-high px-1.5 py-0.5 rounded text-sm font-mono text-on-surface">diagnostic.data</code> bundle to begin the automated root cause analysis pipeline.</p>
-<p class="text-sm text-outline mb-4">Accepted: .zip or .tar.gz containing metrics.*, or a single metrics.* file.</p>
+<p class="text-sm text-outline mb-4">Accepted: a <strong>.zip</strong> (or .tar.gz) of your <code class="bg-surface-container-high px-1 rounded text-xs font-mono">diagnostic.data</code> folder — nested <code class="font-mono text-xs">metrics.*</code> files are fine — or one lone <code class="font-mono text-xs">metrics.*</code> file.</p>
 <div class="inline-flex items-center gap-2 bg-primary-container/30 px-3 py-2 rounded-md text-sm text-on-surface-variant">
 <span class="material-symbols-outlined text-[18px] text-primary">lightbulb</span>
-<span>Mac tip: <code class="font-mono text-xs">cd tmp &amp;&amp; zip -r diagnostic.zip diagnostic.data</code></span>
+<span>Mac: zip the folder, then upload the zip — <code class="font-mono text-xs">zip -r diagnostic.zip diagnostic.data</code></span>
 </div>
 </header>
 <!-- Two Column Layout -->
@@ -164,13 +164,14 @@
 <div class="w-16 h-16 rounded-full bg-[#C96442]/10 mx-auto flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
 <span class="material-symbols-outlined text-4xl text-[#C96442]">cloud_upload</span>
 </div>
-<h3 class="text-lg font-semibold text-on-surface mb-2">Drop FTDC archive here or click to browse</h3>
-<p class="text-sm text-on-surface-variant">Supported: .zip, .tar.gz, or metrics.* diagnostic bundle</p>
-<input accept=".zip,.tar.gz,.tgz,.metrics.*" class="hidden" id="file-input" name="file" type="file"/>
+<h3 class="text-lg font-semibold text-on-surface mb-2">Drop zipped diagnostic.data here or click to browse</h3>
+<p class="text-sm text-on-surface-variant">.zip / .tar.gz of the folder, or a single metrics.* file (server validates — picker is unfiltered on purpose)</p>
+<!-- No accept= filter: macOS often greys out valid .zip of a folder when accept lists .tar.gz / metrics.* -->
+<input class="hidden" id="file-input" name="file" type="file"/>
 <p class="text-sm text-on-surface-variant mt-3" id="file-name"></p>
 </div>
 <div class="space-y-3">
-<button class="w-full bg-[#C96442] hover:bg-[#b05536] text-white rounded-lg px-6 py-4 font-semibold text-lg flex items-center justify-center gap-2 transition-colors shadow-sm" id="submit-btn" type="submit">
+<button class="w-full bg-[#C96442] hover:bg-[#b05536] text-white rounded-lg px-6 py-4 font-semibold text-lg flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-80 disabled:cursor-wait" id="submit-btn" type="submit">
 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
                             Start pipeline
                         </button>
@@ -235,6 +236,7 @@ What happens next
 <div id="mdb-stitch-footer-mount"></div>
 <script src="/static/js/api-error-text.js"></script>
 <script src="/static/js/page-data.js"></script>
+<script src="/static/js/btn-busy.js"></script>
 <script>
 (function () {
   const fileInput = document.getElementById('file-input');
@@ -242,6 +244,7 @@ What happens next
   const fileNameEl = document.getElementById('file-name');
   const form = document.getElementById('upload-form');
   const statusEl = document.getElementById('status-area');
+  const submitBtn = document.getElementById('submit-btn');
 
   function setDragActive(active) {
     dropZone.classList.toggle('drop-zone-active', active);
@@ -256,80 +259,85 @@ What happens next
     fileNameEl.textContent = file.name;
   }
 
-  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('click', () => {
+    if (submitBtn?.disabled) return;
+    fileInput.click();
+  });
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    setDragActive(true);
+    if (!submitBtn?.disabled) setDragActive(true);
   });
   dropZone.addEventListener('dragleave', () => setDragActive(false));
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     setDragActive(false);
+    if (submitBtn?.disabled) return;
     const file = e.dataTransfer?.files?.[0];
     if (file && fileInput) {
       const dt = new DataTransfer();
       dt.items.add(file);
       fileInput.files = dt.files;
       onFileSelected(file);
+      return;
     }
+    // Dragging an unzipped folder often yields zero File entries in Chromium/Safari.
+    statusEl.textContent = 'Folder drops are not supported — zip diagnostic.data first, then drop the .zip.';
   });
 
   fileInput.addEventListener('change', () => onFileSelected(fileInput.files?.[0]));
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (submitBtn?.disabled) return;
     if (!fileInput.files?.[0]) {
       statusEl.textContent = 'Choose a file first.';
       return;
     }
 
-    statusEl.textContent = 'Uploading…';
+    const file = fileInput.files[0];
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    window.MdbBtnBusy?.start(submitBtn, 'Uploading…');
+    fileInput.disabled = true;
+    statusEl.textContent = 'Uploading ' + file.name + ' (' + sizeMb + ' MB)… large archives can take several minutes — do not resubmit.';
     const data = new FormData();
-    data.append('file', fileInput.files[0]);
+    data.append('file', file);
 
     try {
-      const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
+      // 30m — Kind stores FTDC bytes into Postgres before returning; keep UI alive.
+      const resp = await fetch('/simagix/uploads', {
+        method: 'POST',
+        body: data,
+        signal: AbortSignal.timeout(30 * 60 * 1000),
+      });
       const { data: body, text } = window.MdbVerbatimError
         ? await window.MdbVerbatimError.readResponseBody(resp)
-        : { data: null, text: '' };
+        : { data: await resp.json().catch(() => null), text: '' };
       if (!resp.ok) {
         const detail = window.MdbVerbatimError
           ? window.MdbVerbatimError.errorFromBody(resp, body, text, 'Upload failed')
           : (body?.detail || text || 'Upload failed');
         statusEl.textContent = detail;
+        window.MdbBtnBusy?.stop(submitBtn);
+        fileInput.disabled = false;
         return;
       }
       if (!body?.run_id || !body?.job_id) {
-        statusEl.textContent = text.trim() || 'Upload failed: invalid response';
+        statusEl.textContent = text.trim() || 'Upload failed: invalid response (API may have been overloaded — retry)';
+        window.MdbBtnBusy?.stop(submitBtn);
+        fileInput.disabled = false;
         return;
       }
 
-      statusEl.textContent = 'Phase 1 queued for ' + body.run_id + '. Polling decode…';
-      const poll = window.setInterval(async () => {
-        try {
-          const job = await window.MdbPageData.fetchJob(body.job_id);
-          statusEl.textContent = 'Phase 1 ' + job.state + ': ' + (job.message || '');
-          if (job.state === 'succeeded') {
-            window.clearInterval(poll);
-            window.top.location.href = '/runs/' + body.run_id;
-          }
-          if (job.state === 'failed') {
-            window.clearInterval(poll);
-            const errEl = document.createElement('pre');
-            errEl.className = 'text-sm text-red-800 mt-2 font-mono whitespace-pre-wrap break-words';
-            errEl.textContent = job.error || job.message || 'Phase 1 failed';
-            statusEl.replaceChildren(errEl);
-          }
-        } catch (err) {
-          window.clearInterval(poll);
-          const errEl = document.createElement('pre');
-          errEl.className = 'text-sm text-red-800 mt-2 font-mono whitespace-pre-wrap break-words';
-          errEl.textContent = err instanceof Error ? err.message : String(err);
-          statusEl.replaceChildren(errEl);
-        }
-      }, 3000);
+      statusEl.textContent = 'Phase 1 queued — opening run…';
+      window.MdbBtnBusy?.start(submitBtn, 'Opening run…');
+      window.top.location.href = '/runs/' + body.run_id;
     } catch (err) {
-      statusEl.textContent = 'Upload failed: ' + err.message;
+      const msg = err instanceof Error ? err.message : String(err);
+      statusEl.textContent = msg.includes('TimeoutError') || msg.includes('aborted')
+        ? 'Upload timed out — check API health and retry (large FTDC can take a while).'
+        : 'Upload failed: ' + msg;
+      window.MdbBtnBusy?.stop(submitBtn);
+      fileInput.disabled = false;
     }
   });
 })();

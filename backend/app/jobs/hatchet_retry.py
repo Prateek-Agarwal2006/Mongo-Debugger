@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.jobs.job_types import JOB_TYPE_HATCHET
-from backend.app.jobs.queue import FileJobQueue
+from backend.app.jobs.queue import JobQueue
 from backend.app.jobs.store import JobStatus, job_store
 
 
@@ -23,7 +23,7 @@ def retry_hatchet_for_run(workspace_root: Path, run_id: str) -> JobStatus:
             status_code=404,
         )
 
-    queue = FileJobQueue(workspace)
+    queue = JobQueue(workspace)
     if queue.has_active_job_for_run(run_id):
         raise HatchetRetryError(
             f"Hatchet already queued or running for run: {run_id}",

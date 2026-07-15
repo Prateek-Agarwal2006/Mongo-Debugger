@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Python
+.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.pytest_cache
+**/.ruff_cache
+
+# Node / frontend build deps
+node_modules
+frontend/node_modules
+frontend/dist
+frontend/.next
+
+# User data — never bake uploads or generated outputs into images
+simagix-workspace/uploads
+simagix-workspace/exports
+simagix-workspace/runs
+simagix-workspace/reports
+simagix-workspace/data
+
+# Runtime logs and scratch
+.run-logs
+tmp
+*.log
+
+# Docs, notebooks, one-off data files
+docs
+mongo-rca-playbook
+mongo-rca-playbook.zip
+mongo-case-7-logs-16-Jun
+
+# Test fixtures (keep backend/tests so conftest.py can import, but skip large fixtures)
+backend/tests/fixtures/fake_ftdc
+
+# IDE
+.cursor
+.idea
+.vscode

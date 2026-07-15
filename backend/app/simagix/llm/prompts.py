@@ -5,8 +5,28 @@ from typing import Any
 
 from backend.app.simagix.llm.detail_requirements import DETAIL_REQUIREMENTS
 from backend.app.simagix.output_schema import InvestigationSummary
-from backend.app.simagix.prompt import build_phase2_prompt, build_tier1_evidence_block
-from backend.app.simagix.hatchet_summary import build_hatchet_evidence_block
+from backend.app.simagix.evidence_block import build_phase2_prompt, build_tier1_evidence_block
+
+TIER_LIMITS_NOTICE = (
+    "TIER COVERAGE (READ BEFORE CONCLUDING):\n"
+    "- Tier 1 (analyzed, in this prompt) exposes ~89 curated MongoDB metrics — a small "
+    "opinionated slice picked for common DBA playbooks (disk, CPU, memory, repl lag, "
+    "connections, flow control).\n"
+    "- Tier 2 (get_metric_window, get_normalized_series, list_fallback_metrics) is a SUBSET "
+    "of tier 1 — same metrics, just retrievable as slices.\n"
+    "- MongoDB actually captures ~5,000 FTDC paths per second (per-command counters, deep "
+    "lock trees, WiredTiger internals, replSetGetStatus mechanics, cursor histograms, "
+    "config snapshots, etc.). Tier 1 shows ~1.8 % of them.\n"
+    "- If the question needs MECHANISM attribution ('which command caused the spike?', "
+    "'which namespace held the lock?', 'network vs apply lag?', 'was flowControl toggled?'), "
+    "the curated tiers likely CANNOT answer it — the evidence lives in tier 3 (raw).\n"
+    "- Use list_raw_paths() with no args to see the full path taxonomy, then "
+    "list_raw_paths(pattern) for exact names, then get_raw_window for values. No budget cost.\n"
+    "- Detection ('what & when') can succeed on tier 1 alone. Attribution ('why & how') "
+    "usually cannot. Do not conclude on tier 1/2 for attribution questions without checking "
+    "whether tier 3 has the missing mechanism.\n"
+)
+
 
 WEB_SEARCH_INVESTIGATION = (
     "When findings reference MongoDB subsystems (replication, WiredTiger, indexes, memory, CPU), "
@@ -37,7 +57,7 @@ SCRATCH_RULES = (
 INVESTIGATION_SCRATCH_RULES = (
     "SCRATCH RULES (Phase A — investigation):\n"
     "- Tier-2 metric proof MUST use simagix-evidence MCP (get_metric_window, get_normalized_series, "
-    "list_fallback_metrics, get_raw_path). Do not skip MCP.\n"
+    "list_fallback_metrics). Do not skip MCP.\n"
     "- Do NOT read, grep, or glob phase1/, normalized/, diagnosis/, or other export bundle files — "
     "tier-1 context is already in this prompt.\n"
     "- read/grep/shell only under chatbot_scratch/ for transient scratch work.\n"
@@ -86,9 +106,12 @@ def build_investigate_user_message(package: dict[str, Any]) -> str:
     return (
         "You are a MongoDB RCA analyst in INVESTIGATION mode (not final RCA).\n"
         f"{INVESTIGATION_SCRATCH_RULES}"
+        f"{TIER_LIMITS_NOTICE}"
         "Use simagix-evidence MCP tools for metric slices and logs when available.\n"
         "Tier-1 summarizes mongo-ftdc findings; call MCP (get_metric_window, list_fallback_metrics) "
         "for tier-2 proof on any retrievable metric listed below — do not read normalized JSON from disk.\n"
+        "For mechanism attribution (which command / namespace / lock / sync-source caused the anomaly), "
+        "reach for tier-3 raw tools (list_raw_paths, get_raw_window) — curated tiers will not have the paths.\n"
         "If Graylog MCP is available, query logs around the primary anomaly window.\n"
         f"{_hatchet_mcp_guidance(package)}"
         f"{WEB_SEARCH_INVESTIGATION}"
@@ -179,7 +202,8 @@ def build_phase2_user_message(
     tier1_insufficient = len(findings) == 0
     fallback_guidance = (
         "Tier-1 findings are empty or insufficient. Call simagix-evidence fallback tools when available "
-        "(get_metric_window, get_normalized_series, get_raw_path, list_fallback_metrics) "
+        "(get_metric_window, get_normalized_series, list_fallback_metrics, "
+        "list_raw_paths, get_raw_window) "
         "to gather proof before concluding; skip tools not registered on this run.\n"
         if tier1_insufficient
         else (
@@ -215,10 +239,14 @@ def build_phase2_user_message(
     return (
         "You are a MongoDB RCA analyst operating in READ-ONLY analysis mode.\n"
         f"{SCRATCH_RULES}"
+        f"{TIER_LIMITS_NOTICE}"
         "Use simagix-evidence MCP tools for supplemental metric retrieval.\n"
         f"{_hatchet_mcp_guidance(package)}"
         "Cite log insights, operator answers, and web sources when relevant.\n"
         "Every causal claim MUST cite evidence (finding, anomaly window, metric slice, log, operator, or web).\n"
+        "For root-cause attribution (which command / namespace / lock / sync-source), do NOT rely on the "
+        "89 curated metrics alone — check tier 3 (list_raw_paths / get_raw_window) before concluding. "
+        "A tier-1-only attribution is a red flag.\n"
         f"{DETAIL_REQUIREMENTS}"
         f"{fallback_guidance}\n"
         f"{WEB_SEARCH_FINAL_RCA}\n"
@@ -294,8 +322,12 @@ def build_chatbot_prompt(
     return (
         "You are a MongoDB RCA chatbot helping an operator after the final report.\n"
         f"{SCRATCH_RULES}"
+        f"{TIER_LIMITS_NOTICE}"
         f"Scratch directory: {scratch_dir}\n"
         "Use simagix-evidence MCP tools, web_fetch, read/grep/shell when needed to answer.\n"
+        "When the operator asks a follow-up about which command / namespace / lock / oplog "
+        "mechanism drove an anomaly, reach for tier 3 (list_raw_paths → get_raw_window) — "
+        "the report was written from tier 1/2 and may not contain the answer.\n"
         "Reply in clear markdown. Do NOT output RCA JSON schemas.\n"
         "Ground answers in the report and investigation; cite evidence when making claims.\n\n"
         "--- Latest RCA report ---\n"

@@ -115,8 +115,8 @@
     ],
     "metric_insights": [
       "metric:cache_used unavailable in fixture",
-      "metric:ticket_avail_read unavailable in fixture",
-      "metric:ticket_avail_write unavailable in fixture"
+      "metric:ticket_avail_read samples=0 (no points in slice)",
+      "metric:ticket_avail_write samples=0 (no points in slice)"
     ],
     "log_insights": [
       "graylog: not queried in mock mode"

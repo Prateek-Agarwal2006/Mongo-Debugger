@@ -26,7 +26,6 @@
 <script src="/static/js/clarify-wizard.js?v=4" defer></script>
 <script src="/static/js/report-viewer.js" defer></script>
 <script src="/static/js/agent-chat.js?v=7" defer></script>
-<script src="/static/js/grafana.js?v=5" defer></script>
 <script src="/static/js/api-error-text.js"></script>
 <script src="/static/js/rca.js?v=10" defer></script>
 {% endblock %}
@@ -151,30 +150,6 @@
   </div>
 </div>
 
-<div class="glass-card mb-4" id="grafana-section">
-  <div class="card-header bg-transparent border-secondary-subtle">
-    <h2 class="h5 mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Metrics (Grafana)</h2>
-  </div>
-  <div class="card-body">
-    <p class="text-secondary small">
-      Charts open in <strong>Grafana</strong> (localhost:3030). Upload jobs warm Grafana automatically;
-      for older runs use <strong>Load FTDC for this run</strong>, then open a dashboard below.
-    </p>
-    <div id="grafana-status" class="alert alert-secondary border-0 py-2 small mb-3">Checking Grafana stack…</div>
-    <div class="d-flex flex-wrap gap-2">
-      <button type="button" class="btn btn-outline-primary" id="grafana-load-btn">
-        <i class="bi bi-arrow-clockwise me-1"></i>Load FTDC for this run
-      </button>
-      <button type="button" class="btn btn-primary" id="grafana-open-anomaly" hidden disabled>
-        <i class="bi bi-exclamation-triangle me-1"></i>Anomaly View
-      </button>
-      <button type="button" class="btn btn-primary" id="grafana-open-all" hidden disabled>
-        <i class="bi bi-grid me-1"></i>All Metrics
-      </button>
-    </div>
-    <div id="grafana-meta" class="small text-secondary mt-3" hidden></div>
-  </div>
-</div>
 
 <div class="row g-4 rca-grid">
   <div class="col-xl-6">
@@ -390,7 +365,6 @@
       });
     }
 
-    if (window.FtdcGrafana) window.FtdcGrafana.init(RUN_ID);
     if (window.FtdcRca) window.FtdcRca.init(INITIAL_LLM);
 
     const retryBtn = document.getElementById("hatchet-retry-btn");

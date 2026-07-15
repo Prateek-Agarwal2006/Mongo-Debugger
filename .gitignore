@@ -43,3 +43,12 @@ simagix-workspace/runs/
 
 # Local FTDC sample (symlink target; add your own diagnostic.data here)
 tmp/
+deploy/values-local.yaml
+
+# Frontend / local junk
+node_modules/
+frontend/dist/
+.run-logs/
+mongo-case-7-logs*/
+mongo-rca-playbook.zip
+/mongo-rca-playbook/

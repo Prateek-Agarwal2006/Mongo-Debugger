@@ -13,9 +13,9 @@
     <div class="alert alert-secondary border-secondary-subtle d-flex gap-3 align-items-start reveal-panel" data-reveal="left">
       <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
       <div class="small">
-        <p class="mb-2">Accepted: <code>.zip</code> or <code>.tar.gz</code> containing <code>metrics.*</code>, or a single <code>metrics.*</code> file.</p>
-        <p class="mb-0 text-secondary">On Mac, zip your folder first:
-          <code>cd tmp &amp;&amp; zip -r diagnostic.zip diagnostic.data</code>
+        <p class="mb-2">Accepted: a <code>.zip</code> (or <code>.tar.gz</code>) of your <code>diagnostic.data</code> folder — nested <code>metrics.*</code> inside is fine — or one lone <code>metrics.*</code> file.</p>
+        <p class="mb-0 text-secondary">Mac: zip the folder, then upload the zip —
+          <code>zip -r diagnostic.zip diagnostic.data</code>
         </p>
       </div>
     </div>
@@ -25,7 +25,8 @@
         <form id="upload-form">
           <div class="upload-dropzone text-center p-4 p-lg-5 mb-4 rounded-3" id="upload-dropzone">
             <i class="bi bi-file-earmark-zip display-4 text-success mb-3 d-block"></i>
-            <label for="file-input" class="btn btn-outline-success mb-2">Choose archive</label>
+            <label for="file-input" class="btn btn-outline-success mb-2">Choose zip / archive</label>
+            <!-- No accept= filter: macOS file picker greys out valid zips when accept lists .tar.gz / metrics.* -->
             <input type="file" name="file" id="file-input" class="d-none" required/>
             <p class="text-secondary small mb-0" id="file-name">No file selected</p>
           </div>
@@ -67,6 +68,11 @@ dropzone?.addEventListener('drop', (e) => {
   if (file && fileInput) {
     fileInput.files = e.dataTransfer.files;
     fileNameEl.textContent = file.name;
+    return;
+  }
+  const status = document.getElementById('upload-status');
+  if (status) {
+    status.textContent = 'Folder drops are not supported — zip diagnostic.data first, then drop the .zip.';
   }
 });
 dropzone?.addEventListener('click', (e) => {
@@ -80,9 +86,15 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
   const status = document.getElementById('upload-status');
   const form = e.target;
   const data = new FormData(form);
-  status.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading…';
+  const chosen = fileInput?.files?.[0];
+  const sizeMb = chosen ? (chosen.size / (1024 * 1024)).toFixed(1) : '?';
+  status.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Uploading ${chosen?.name || ''} (${sizeMb} MB)… large archives can take several minutes`;
   try {
-    const resp = await fetch('/simagix/uploads', { method: 'POST', body: data });
+    const resp = await fetch('/simagix/uploads', {
+      method: 'POST',
+      body: data,
+      signal: AbortSignal.timeout(30 * 60 * 1000),
+    });
     const { data: body, text } = window.MdbVerbatimError
       ? await window.MdbVerbatimError.readResponseBody(resp)
       : { data: await resp.json().catch(() => null), text: '' };
@@ -97,28 +109,14 @@ document.getElementById('upload-form').addEventListener('submit', async (e) => {
       status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${String(text || 'Upload failed: invalid response').replace(/</g, '&lt;')}</pre>`;
       return;
     }
-    status.innerHTML = `Phase 1 queued for upload <a href="/runs/${body.run_id}/pipeline">${body.run_id}</a>. Polling decode…`;
-    const poll = setInterval(async () => {
-      try {
-        const job = await window.MdbPageData.fetchJob(body.job_id);
-        status.textContent = `Phase 1 ${job.state}: ${job.message}`;
-        if (job.state === 'succeeded') {
-          clearInterval(poll);
-          window.location.href = `/runs/${body.run_id}`;
-        }
-        if (job.state === 'failed') {
-          clearInterval(poll);
-          const errText = job.error || job.message || 'Phase 1 failed';
-          status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${String(errText).replace(/</g, '&lt;')}</pre> — <a href="/runs/${body.run_id}/pipeline">View details</a>`;
-        }
-      } catch (err) {
-        clearInterval(poll);
-        const msg = err instanceof Error ? err.message : String(err);
-        status.innerHTML = `<pre class="text-danger small font-monospace mb-0" style="white-space: pre-wrap; word-break: break-word;">${msg.replace(/</g, '&lt;')}</pre>`;
-      }
-    }, 3000);
+    status.innerHTML = `Phase 1 queued — opening <code>${body.run_id}</code>…`;
+    window.location.href = `/runs/${body.run_id}`;
   } catch (err) {
-    status.innerHTML = `<span class="text-danger">Upload failed: ${err.message}</span>`;
+    const msg = err instanceof Error ? err.message : String(err);
+    const tip = msg.includes('TimeoutError') || msg.includes('aborted')
+      ? 'Upload timed out — check API health and retry.'
+      : `Upload failed: ${msg}`;
+    status.innerHTML = `<span class="text-danger">${tip.replace(/</g, '&lt;')}</span>`;
   }
 });
 </script>

@@ -10,35 +10,6 @@ const NAV = [
   { href: "/docs", label: "API", icon: "{}" },
 ];
 
-export function ThemeToggle({ compact = false }: { compact?: boolean }) {
-  const theme = document.documentElement.dataset.appTheme ?? "classic";
-
-  return (
-    <div
-      className={`app-theme-toggle${compact ? " app-theme-toggle--compact" : ""}`}
-      role="radiogroup"
-      aria-label="App appearance"
-    >
-      <button
-        type="button"
-        className={`app-theme-toggle__btn${theme === "classic" ? " is-active" : ""}`}
-        aria-checked={theme === "classic"}
-        onClick={() => window.applyAppTheme?.("classic")}
-      >
-        <span>Classic</span>
-      </button>
-      <button
-        type="button"
-        className={`app-theme-toggle__btn${theme === "modern" ? " is-active" : ""}`}
-        aria-checked={theme === "modern"}
-        onClick={() => window.applyAppTheme?.("modern")}
-      >
-        <span>Modern</span>
-      </button>
-    </div>
-  );
-}
-
 export function ModernShell({ children }: { children: ReactNode }) {
   const path = currentPath();
 
@@ -47,7 +18,7 @@ export function ModernShell({ children }: { children: ReactNode }) {
       <header className="m-nav">
         <a href="/" className="m-nav__brand">
           <span className="m-nav__icon">⬢</span>
-          <span>FTDC Analyzer</span>
+          <span>Mongo Debugger</span>
         </a>
         <nav>
           <ul className="m-nav__links">
@@ -68,9 +39,6 @@ export function ModernShell({ children }: { children: ReactNode }) {
                 </a>
               </li>
             ))}
-            <li>
-              <ThemeToggle compact />
-            </li>
           </ul>
         </nav>
       </header>

@@ -2,7 +2,7 @@
 
 Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc evidence pipeline.
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-15
 
 **Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry + Skill WorkArea + 3-phase RCA flow + live Graylog client).
 
@@ -78,7 +78,7 @@ GET /phase2/status?llm=mock
 5. **Web search is explicit.** The Cursor SDK does not search the internet unless the prompt says so. Phase A and Phase C prompts include *search the web* instructions; results land in `web_insights` (investigation) and `evidence_citations` / `reference_urls` (final RCA).
 6. **Tool trace is ground truth.** Every SDK `tool_call` during investigation and final RCA is persisted to `phase2/llm/{llm}/tool_trace.json` and shown in the run page **Agent Tool Activity** panel. Provider-specific adapters normalize into one `ToolTraceEntry` schema (see below). A Web count of 0 means the harness did not invoke web/fetch tools.
 7. **Evidence-first mechanisms.** Prompt `EXAMPLES` are non-authoritative placeholders; `EVIDENCE_RULES` forbid keyword-only inference and copying example wording. Mock provider uses `[mock]` stubs for why/mechanism fields.
-8. **Local vs MCP tools.** Phase A/C and chatbot may use **read/grep/shell** for analysis; **writes only** under `phase2/llm/{llm}/chatbot_scratch/`. MCP stdio `cwd` stays workspace root; Cursor agent `cwd` for MCP-on phases is `chatbot_scratch/`.
+8. **Local vs MCP tools.** Phase A/C and chatbot may use **read/grep/shell** for analysis; **writes only** under `phase2/llm/{llm}/chatbot_scratch/`. Builtin MCP stdio `cwd` is **`repo_root()`** (code root — `/app` in Kind); `SIMAGIX_WORKSPACE_ROOT` carries `DATA_ROOT`. Cursor agent `cwd` for MCP-on phases is `chatbot_scratch/`.
   - **Clarify-only** runs: `cwd` = export bundle, MCP off.
   - **Investigation / final RCA / chatbot** (MCP on): agent `cwd` = `chatbot_scratch/`; bundle and session artifacts reachable by absolute paths in read/grep.
   - **MCP budget** counts simagix-evidence calls; local/shell/web appear separately in the trace UI.
@@ -232,7 +232,7 @@ class AdkEvidenceTools:
     """Function tools for Google ADK — same surface as mcp_evidence_server."""
 ```
 
-Same `get_metric_window`, `get_raw_path`, Hatchet hooks, `web_fetch` — but as methods ADK can call directly, not MCP JSON-RPC over stdin.
+Same `get_metric_window`, `list_raw_paths` / `get_raw_window`, Hatchet hooks, `web_fetch` — but as methods ADK can call directly, not MCP JSON-RPC over stdin.
 
 #### Side-by-side mental model
 
@@ -1000,7 +1000,7 @@ So: **MCP runs from project root; agent local tools default to scratch** — the
 
 ## MCP tools
 
-**simagix-evidence:** `get_metric_window`, `get_normalized_series`, `get_raw_path`, `list_fallback_metrics`, `get_budget_status`
+**simagix-evidence:** `get_metric_window`, `get_normalized_series`, `list_fallback_metrics`, `list_raw_paths`, `get_raw_window`, `get_budget_status`
 
 **Hatchet MCP tools (v2):** `get_hatchet_slow_ops`, `get_hatchet_log_examples`, `get_hatchet_audit`, `get_hatchet_connection_timeline` — registered when `phase1/hatchet/summary.json` and `hatchet.db` exist. Server id: `hatchet-evidence` (Cursor MCP) / ADK function tools (Gemini). Shares retrieval budget with simagix-evidence. v1 `summary.json` remains tier 1; these tools are tier 2.
 

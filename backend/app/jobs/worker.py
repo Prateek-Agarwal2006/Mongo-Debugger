@@ -6,10 +6,10 @@ from pathlib import Path
 
 from backend.app.core.config import get_settings
 from backend.app.core.run_workspace import RunWorkspace, get_run_workspace
-from backend.app.jobs.hatchet import run_hatchet_job
+from backend.app.jobs.ftdc_job import run_pipeline_job
+from backend.app.jobs.hatchet_job import run_hatchet_job
 from backend.app.jobs.job_types import JOB_TYPE_HATCHET
-from backend.app.jobs.pipeline import run_pipeline_job
-from backend.app.jobs.queue import FileJobQueue
+from backend.app.jobs.queue import JobQueue
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class PipelineWorker:
     def __init__(self, workspace_root: Path, *, poll_seconds: float = 2.0) -> None:
         self.workspace = RunWorkspace(workspace_root)
         self.poll_seconds = poll_seconds
-        self._queue = FileJobQueue(self.workspace)
+        self._queue = JobQueue(self.workspace)
 
     def recover_stale_jobs(self) -> int:
         count = self._queue.requeue_stale_processing()

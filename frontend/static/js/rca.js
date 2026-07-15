@@ -544,6 +544,45 @@ async function loadSavedReport() {
   setPanelVisible(rawDetails, true);
 }
 
+async function fetchPhase2Status() {
+  const resp = await fetch(`/simagix/runs/${RUN_ID}/phase2/status${llmQuery()}`);
+  if (!resp.ok) return null;
+  const { data } = await parseFetchResponse(resp);
+  return data || null;
+}
+
+const PHASE2_POLL_MS = 2000;
+const PHASE2_POLL_TIMEOUT_MS = 30 * 60 * 1000;
+
+// Poll status every 2s while the backend reports `runningStatus`;
+// resolves with the first state after it (awaiting_clarifications/completed/failed).
+async function pollPhase2While(runningStatus) {
+  const deadline = Date.now() + PHASE2_POLL_TIMEOUT_MS;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, PHASE2_POLL_MS));
+    if (Date.now() > deadline) {
+      throw new Error("Phase 2 timed out after 30 minutes — check status later or retry.");
+    }
+    const data = await fetchPhase2Status();
+    if (data && data.status !== runningStatus) return data;
+  }
+}
+
+function _setRunBtn(enabled) {
+  const btn = document.getElementById("run-rca-btn");
+  if (!btn) return;
+  if (enabled) {
+    window.MdbBtnBusy?.stop(btn);
+  } else {
+    btn.disabled = true;
+  }
+}
+
+function _setRunBtnBusy(label) {
+  const btn = document.getElementById("run-rca-btn");
+  window.MdbBtnBusy?.start(btn, label || "Running…");
+}
+
 async function loadLlmContext() {
   const statusEl = document.getElementById("rca-status");
   hideClarifyUi();
@@ -552,9 +591,7 @@ async function loadLlmContext() {
   await loadSavedReport();
   window.FtdcAgentChat?.refresh?.();
 
-  const statusResp = await fetch(`/simagix/runs/${RUN_ID}/phase2/status${llmQuery()}`);
-  if (!statusResp.ok) return;
-  const { data: statusData } = await parseFetchResponse(statusResp);
+  const statusData = await fetchPhase2Status();
   if (!statusData) return;
   const investigationEl = document.getElementById("investigation-summary");
 
@@ -562,6 +599,7 @@ async function loadLlmContext() {
   window.FtdcPhaseRail?.showShell?.();
 
   if (statusData.status === "awaiting_clarifications") {
+    _setRunBtn(false); // must answer questions first; button re-enables after phase C completes
     if (statusEl) {
       statusEl.textContent = "Phase B: answer one question at a time, then submit for final RCA.";
     }
@@ -571,17 +609,42 @@ async function loadLlmContext() {
     }
     const questions = statusData.questions?.questions || [];
     showClarifyForm(questions, statusData.answers || {});
+  } else if (statusData.status === "running_investigation") {
+    // A run is in flight (possibly started before this page load) — resume polling.
+    _setRunBtnBusy("Running…");
+    if (statusEl) statusEl.textContent = "Phase A: running tier-2 investigation (MCP tools)…";
+    syncPhaseRail("A", true);
+    pollPhase2While("running_investigation")
+      .then(() => loadLlmContext())
+      .catch((err) => {
+        _setRunBtn(true);
+        showRcaError(err instanceof Error ? err.message : String(err));
+      });
   } else if (statusData.status === "running_rca") {
+    _setRunBtnBusy("Running…");
     if (statusEl) {
       statusEl.textContent = "Phase C: running final RCA with your answers…";
     }
+    pollPhase2While("running_rca")
+      .then(() => loadLlmContext())
+      .catch((err) => {
+        _setRunBtn(true);
+        showRcaError(err instanceof Error ? err.message : String(err));
+      });
+  } else if (statusData.status === "failed") {
+    _setRunBtn(true); // allow retry
+    if (statusEl) statusEl.textContent = "Phase 2 failed — see error below.";
+    window.FtdcPhaseRail?.reset?.();
+    showRcaError(statusData.error || "Phase 2 failed");
   } else if (statusData.status === "completed") {
+    _setRunBtn(true); // allow re-run with a different LLM
     if (statusEl) {
       statusEl.textContent =
         "RCA complete — report below. Use the chat panel for follow-up questions.";
     }
     window.FtdcAgentChat?.onCompleted?.(selectedLlm);
   } else if (statusData.status === "not_started") {
+    _setRunBtn(true);
     if (statusEl) {
       statusEl.textContent =
         "Phase A: tier-2 investigation (MCP tools) → Phase B: questions → Phase C: final RCA.";
@@ -612,7 +675,8 @@ function initRcaPanel(initialLlm) {
       alert("Upload logs are present but Hatchet summary.json is not ready yet. Wait for Hatchet or retry log analysis.");
       return;
     }
-    runBtn.disabled = true;
+    if (runBtn.disabled || runBtn.getAttribute("aria-busy") === "true") return;
+    _setRunBtnBusy("Running…");
     hideClarifyUi();
     window.FtdcPhaseRail?.reset?.();
     syncPhaseRail("A", true);
@@ -627,9 +691,15 @@ function initRcaPanel(initialLlm) {
       const { data, text } = await parseFetchResponse(resp);
       if (!resp.ok) throw new Error(fetchErrorDetail(resp, data, text, "Failed to start RCA"));
       if (!data) throw new Error(text.trim() || "Failed to start RCA (empty response)");
-      if (data.investigation && investigationEl) {
+
+      // The backend runs investigation + questions in the background; poll until done.
+      const state = await pollPhase2While("running_investigation");
+      if (state.status === "failed") {
+        throw new Error(state.error || "Phase 2 investigation failed");
+      }
+      if (state.investigation && investigationEl) {
         investigationEl.hidden = false;
-        investigationEl.textContent = JSON.stringify(data.investigation, null, 2);
+        investigationEl.textContent = JSON.stringify(state.investigation, null, 2);
       }
       await fetchToolTrace();
       window.FtdcPhaseRail?.applyState?.({
@@ -638,14 +708,16 @@ function initRcaPanel(initialLlm) {
         completed: { A: true, B: false, C: false },
       });
       if (statusEl) statusEl.textContent = "Phase B: answer one question at a time, then submit for final RCA.";
-      const questions = data.clarifying_questions?.questions || [];
-      showClarifyForm(questions);
+      const questions = state.questions?.questions || [];
+      showClarifyForm(questions, state.answers || {});
+      // Keep disabled until Phase C — restore label, block re-click.
+      window.MdbBtnBusy?.stop(runBtn);
+      runBtn.disabled = true;
     } catch (err) {
       window.FtdcPhaseRail?.reset?.();
       showRcaError(err instanceof Error ? err.message : verbatimApiDetail(err));
       if (statusEl) statusEl.textContent = "Phase 2 failed — see error below.";
-    } finally {
-      runBtn.disabled = false;
+      _setRunBtn(true);
     }
   });
 
@@ -680,10 +752,11 @@ function initRcaPanel(initialLlm) {
       if (!data) {
         throw new Error(text.trim() || "Final RCA failed (empty response)");
       }
-      const result = document.getElementById("rca-result");
-      if (result) {
-        result.hidden = false;
-        result.textContent = JSON.stringify(data.report || data, null, 2);
+
+      // Final RCA runs in the background; poll until completed or failed.
+      const state = await pollPhase2While("running_rca");
+      if (state.status === "failed") {
+        throw new Error(state.error || "Final RCA failed");
       }
       window.FtdcClarifyWizard?.hide?.();
       syncPhaseRail("done");

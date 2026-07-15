@@ -1,6 +1,8 @@
 # Architecture
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-07-16
+
+> **Kind entry (2026-07-16):** Browser → **ui nginx** NodePort `:8000`; **api** is ClusterIP JSON-only. Grafana = Helm + `/grafana/simple` over Postgres (not FTDC API `:5408`). Older zoom sections that mention Jinja-only UI or Docker Grafana load are **historical** — see [OPERATIONS.md](OPERATIONS.md), [PRODUCTION_ARCHITECTURE.md](PRODUCTION_ARCHITECTURE.md), and root [README.md](../README.md).
 
 ## Purpose
 
@@ -10,30 +12,36 @@ Mongo Debugger turns MongoDB FTDC diagnostic data into actionable root-cause ana
 
 **Interactive view:** Open [mongo-debugger-architecture.canvas.tsx](/Users/prateek.agarwal/.cursor/projects/Users-prateek-agarwal-Documents-Intern-Projects-Mongo-Debugger/canvases/mongo-debugger-architecture.canvas.tsx) beside the chat for clickable steps 1–7 with detail zoom panels.
 
-Mermaid diagrams below render in GitHub and Cursor markdown preview. Read the **master diagram** first; zoom sections A–D expand individual steps.
+Mermaid diagrams below render in GitHub and Cursor markdown preview. Read the **master diagram** first; zoom sections A–D expand individual steps. Root [README.md](../README.md) has the Kind/lane runtime diagram.
 
 ### Master diagram (steps 1–7)
 
 ```mermaid
 flowchart TB
+  subgraph step0 [Edge]
+    Nginx["ui nginx :8000<br/>SPA + /static · proxy API"]
+  end
+
   subgraph step1 [Step 1 Upload]
-    UploadUI["upload.html"]
+    UploadUI["SPA /upload · stitch upload.html"]
     UploadAPI["POST /simagix/uploads"]
+    Catalog["GET /simagix/catalog/run_id<br/>pipeline vs run_workspace gate"]
   end
 
-  subgraph step2 [Step 2 Pipeline Docker]
-    Worker["PipelineWorker"]
-    Queue["FileJobQueue on DATA_ROOT"]
-    MFTDC["mongo-ftdc"]
+  subgraph step2 [Step 2 Worker]
+    Worker["Pipeline worker"]
+    Queue["Postgres job queue"]
+    MFTDC["llm-export baked binary"]
+    Ingest["ingest metrics COPY"]
   end
 
-  subgraph step3 [Step 3 Evidence bundle]
+  subgraph step3 [Step 3 Evidence + PG]
     Exports["uploads/run_id/phase1/mongo-ftdc/"]
-    RunManifest["uploads/run_id/phase1/run_manifest.json"]
+    PG[("Postgres metrics · jobs")]
   end
 
-  subgraph step4 [Step 4 Run page :8000]
-    RunPage["run_detail.html"]
+  subgraph step4 [Step 4 Run page]
+    RunPage["SPA /runs/id · stitch workspace"]
     RCAjs["rca.js"]
     Grafjs["grafana.js"]
   end
@@ -41,14 +49,13 @@ flowchart TB
   subgraph step5 [Step 5 Phase 2 RCA]
     P2API["api/phase2.py"]
     Service["service.py"]
-    Provider["Mock or CursorLLMProvider"]
-    Agent["Cursor SDK Agent + MCP"]
-    Phase2Disk["uploads/run_id/phase2/llm/mock|cursor|gemini/"]
+    Provider["Mock · Cursor · Gemini ADK"]
+    Agent["SDK/ADK + MCP"]
+    Phase2Disk["uploads/run_id/phase2/llm/slot/"]
   end
 
-  subgraph step6 [Step 6 Grafana charts]
-    GrafAPI["api/grafana_routes.py"]
-    FTDCapi["FTDC API :5408"]
+  subgraph step6 [Step 6 Grafana]
+    SimpleJSON["GET /grafana/simple/*"]
     GrafanaUI["Grafana :3030 new tab"]
   end
 
@@ -57,26 +64,28 @@ flowchart TB
     ReportHTML["reports/latest/view"]
   end
 
-  UploadUI --> UploadAPI --> Queue --> Worker --> MFTDC --> Exports
-  Exports --> RunManifest --> RunPage
+  Nginx --> UploadUI --> UploadAPI --> Queue --> Worker --> MFTDC --> Exports
+  Worker --> Ingest --> PG
+  UploadAPI --> Catalog --> RunPage
+  Exports --> RunPage
   RunPage --> RCAjs --> P2API --> Service --> Provider --> Agent
   Agent --> Phase2Disk --> ReportJSON --> ReportHTML
-  Agent -.->|"reads tier_1 + tier_2"| Exports
-  RunPage --> Grafjs --> GrafAPI --> FTDCapi --> GrafanaUI
-  FTDCapi -.->|"loads diagnostic.data"| RunManifest
-  MFTDC -.->|"optional warm"| GrafAPI
+  Agent -.->|"MCP slices"| PG
+  Agent -.->|"tier-1 paths"| Exports
+  RunPage --> Grafjs --> SimpleJSON --> PG
+  SimpleJSON --> GrafanaUI
 ```
 
 | Step | What happens | Zoom detail |
 |------|----------------|-------------|
-| 1–2 | Upload + Docker pipeline | [Zoom A](#zoom-a-steps-12-upload) |
-| 3 | Tiered JSON bundle on disk | [Evidence tiers](#evidence-tiers) below |
-| 4 | User lands on run page | [UI → API table](#ui--api-quick-reference) |
+| 0–2 | nginx edge + upload + worker | [Zoom A](#zoom-a-steps-12-upload) · [PRODUCTION_ARCHITECTURE](PRODUCTION_ARCHITECTURE.md) |
+| 3 | Tiered JSON + Postgres metrics | [Evidence tiers](#evidence-tiers) below |
+| 4 | SPA run page (pipeline gate → RCA) | [UI → API table](#ui--api-quick-reference) |
 | 5 | RCA: investigation → clarify → final | [Zoom B](#zoom-b-step-5-phase-2) + [Zoom C](#zoom-c-step-5-agent--mcp) |
-| 6 | Grafana load + open dashboards | [Zoom D](#zoom-d-step-6-grafana) |
+| 6 | Grafana SimpleJSON over Postgres | [OPERATIONS § Grafana](OPERATIONS.md) |
 | 7 | Persisted report + HTML view | — |
 
-The browser talks only to **FastAPI** (`localhost:8000`). Grafana opens in a **new tab** (`localhost:3030`) after the backend loads FTDC into the shared FTDC API. Step 4 branches: **Phase 2 RCA** (steps 5 → 7) and **Grafana** (step 6).
+The browser talks to **ui nginx** (`localhost:8000`), which proxies `/simagix` and `/grafana` to the **api**. Grafana opens in a **new tab** (`localhost:3030`) and queries SimpleJSON on the API. Step 4 branches: **Phase 2 RCA** (steps 5 → 7) and **Grafana** (step 6).
 
 ### Technology stack
 
@@ -421,13 +430,11 @@ The FastAPI backend (`uvicorn`) runs without Docker. Start Colima once per sessi
 
 ## Grafana charts
 
-One **shared** local stack per machine (Grafana `:3030`, FTDC API `:5408`). Each run loads its own `diagnostic.data` via `POST /simagix/runs/{run_id}/grafana/load` (auto on first browser session visit; manual **Load FTDC** thereafter). Dashboards open in a **new browser tab** (no iframe). Upload pipeline may warm Grafana after export.
-
-**Reload behavior:** Health probes may time out while FTDC decodes (single-threaded API). `GrafanaStackManager` uses a **module-level cache** (180s) so `/grafana/urls` still reports the stack up; the run page keeps dashboard links visible. Session storage prevents duplicate loads on refresh.
+Grafana (Helm pod, `:3030`) uses the orchestrator SimpleJSON datasource at `/grafana/simple`, reading the Postgres `metrics` table. Evidence tab has **Anomaly View** and **All Metrics** (UIDs `simagix-grafana-anomaly` / `simagix-grafana`) with `var-run_id` plus `from`/`to` from `GET /grafana/simple/runs/{run_id}/range`. No FTDC load / ftdc-api / Docker compose stack.
 
 ## Web upload
 
-`POST /simagix/uploads` accepts `.zip`, `.tar.gz`, or a single `metrics.*` file. Data lands in `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/`, then the Docker pipeline produces the export bundle under `uploads/<run_id>/phase1/mongo-ftdc/`.
+`POST /simagix/uploads` accepts a **`.zip` / `.tar.gz` of the `diagnostic.data` folder** (nested `metrics.*` OK), or a single `metrics.*` file. The upload UI does not use an HTML `accept` filter (macOS picker greys out valid zips otherwise). Data lands in `simagix-workspace/uploads/<run_id>/inputs/diagnostic.data/`, then the pipeline worker produces the export bundle under `uploads/<run_id>/phase1/mongo-ftdc/`.
 
 ## Future enrichers
 

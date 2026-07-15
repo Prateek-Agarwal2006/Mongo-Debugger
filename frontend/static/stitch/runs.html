@@ -191,10 +191,14 @@
     }
   }
 
-  function phase1Label(status) {
+  function phase1Label(entry) {
+    if (entry && entry.phase1_label) return entry.phase1_label;
+    const status = typeof entry === 'string' ? entry : entry?.phase1_status;
+    const message = typeof entry === 'string' ? '' : (entry?.message || '');
     switch (status) {
-      case 'finished': return 'Decode complete';
-      case 'processing': return 'Decoding';
+      case 'finished': return 'Ready';
+      case 'processing':
+        return /ingest/i.test(message) ? 'Loading metrics' : 'Decoding';
       case 'queued': return 'Queued';
       case 'failed': return 'Failed';
       case 'stale': return 'Stale';
@@ -302,7 +306,7 @@
     tbody.innerHTML = runs.map(function (entry, i) {
       const border = i < runs.length - 1 ? 'border-b border-outline-variant/20' : '';
       const runUrl = '/runs/' + encodeURIComponent(entry.run_id);
-      let phase1Badges = badgeHtml(phase1Label(entry.phase1_status), phase1Variant(entry.phase1_status));
+      let phase1Badges = badgeHtml(phase1Label(entry), phase1Variant(entry.phase1_status));
       if (entry.hatchet_status && entry.hatchet_status !== 'not_applicable') {
         phase1Badges += badgeHtml(hatchetLabel(entry.hatchet_status), hatchetVariant(entry.hatchet_status));
       }

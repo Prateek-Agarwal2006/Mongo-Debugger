@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-from backend.app.core.run_workspace import RunWorkspace
+from backend.app.db.connection import db_conn
 
 McpTransport = Literal["http", "stdio_template"]
 _CONNECTOR_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -70,14 +71,6 @@ class McpConnectorRecord:
             template_id=payload.get("template_id"),
             env=dict(payload.get("env") or {}),
         )
-
-
-def operator_mcp_connectors_dir(workspace_root: Path) -> Path:
-    return RunWorkspace(workspace_root).simagix_root / "operator" / "mcp_connectors"
-
-
-def registry_path(workspace_root: Path) -> Path:
-    return operator_mcp_connectors_dir(workspace_root) / "registry.json"
 
 
 def list_stdio_templates() -> list[dict[str, Any]]:
@@ -164,65 +157,62 @@ def validate_connector_payload(payload: dict[str, Any]) -> McpConnectorRecord:
 
 class McpConnectorRegistry:
     def __init__(self, workspace_root: Path) -> None:
-        self.workspace_root = workspace_root.resolve()
-        self.path = registry_path(self.workspace_root)
+        # workspace_root kept for call-site compatibility; storage is PG.
+        pass
 
     def load(self) -> list[McpConnectorRecord]:
-        if not self.path.exists():
-            return []
-        payload = json.loads(self.path.read_text(encoding="utf-8"))
-        connectors = payload.get("connectors") or []
-        return [McpConnectorRecord.from_dict(item) for item in connectors]
-
-    def save(self, connectors: list[McpConnectorRecord]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        body = {"connectors": [item.to_dict() for item in connectors]}
-        self.path.write_text(json.dumps(body, indent=2), encoding="utf-8")
+        with db_conn() as conn:
+            rows = conn.execute(
+                "SELECT data FROM mcp_connectors ORDER BY id"
+            ).fetchall()
+        return [McpConnectorRecord.from_dict(row[0]) for row in rows]
 
     def list_connectors(self) -> list[McpConnectorRecord]:
         return self.load()
 
     def get(self, connector_id: str) -> McpConnectorRecord | None:
         normalized = _validate_connector_id(connector_id)
-        for item in self.load():
-            if item.id == normalized:
-                return item
-        return None
+        with db_conn() as conn:
+            row = conn.execute(
+                "SELECT data FROM mcp_connectors WHERE id = %s", (normalized,)
+            ).fetchone()
+        if row is None:
+            return None
+        return McpConnectorRecord.from_dict(row[0])
 
     def upsert(self, payload: dict[str, Any]) -> McpConnectorRecord:
         record = validate_connector_payload(payload)
-        connectors = self.load()
-        replaced = False
-        updated: list[McpConnectorRecord] = []
-        for item in connectors:
-            if item.id == record.id:
-                updated.append(record)
-                replaced = True
-            else:
-                updated.append(item)
-        if not replaced:
-            updated.append(record)
-        self.save(updated)
+        with db_conn() as conn:
+            conn.execute(
+                "INSERT INTO mcp_connectors (id, data, updated_at)"
+                " VALUES (%s, %s, %s)"
+                " ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data,"
+                " updated_at = EXCLUDED.updated_at",
+                (record.id, json.dumps(record.to_dict()), time.time()),
+            )
         return record
 
     def delete(self, connector_id: str) -> bool:
         normalized = _validate_connector_id(connector_id)
-        connectors = self.load()
-        remaining = [item for item in connectors if item.id != normalized]
-        if len(remaining) == len(connectors):
-            return False
-        self.save(remaining)
-        return True
+        with db_conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM mcp_connectors WHERE id = %s", (normalized,)
+            )
+        return (cur.rowcount or 0) > 0
 
     def resolve_enabled(self, connector_ids: list[str]) -> list[McpConnectorRecord]:
         if not connector_ids:
             return []
-        registry = {item.id: item for item in self.load()}
+        normalized = [_validate_connector_id(raw_id) for raw_id in connector_ids]
+        with db_conn() as conn:
+            rows = conn.execute(
+                "SELECT data FROM mcp_connectors WHERE id = ANY(%s)", (normalized,)
+            ).fetchall()
+        registry = {McpConnectorRecord.from_dict(row[0]).id: McpConnectorRecord.from_dict(row[0]) for row in rows}
         resolved: list[McpConnectorRecord] = []
-        for raw_id in connector_ids:
-            connector_id = _validate_connector_id(raw_id)
-            item = registry.get(connector_id)
+        for nid in normalized:
+            item = registry.get(nid)
             if item is None:
-                raise ValueError(f"Unknown MCP connector: {connector_id}")
+                raise ValueError(f"Unknown MCP connector: {nid}")
             resolved.append(item)
         return resolved

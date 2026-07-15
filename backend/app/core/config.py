@@ -10,18 +10,19 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     data_root: Path | None = None
+    database_url: str | None = None
+    worker_id: str | None = None
     cursor_api_key: str | None = None
-    cursor_model: str = "composer-2.5"
+    cursor_model: str = "grok-4.5"
     llm_provider: str = "cursor"
     google_api_key: str | None = None
     google_model: str = "gemini-2.5-flash"
     google_genai_use_vertexai: bool = False
-    phase2_investigation_max_tool_calls: int = 6
-    phase2_rca_max_tool_calls: int = 6
+    phase2_investigation_max_tool_calls: int = 1_000_000
+    phase2_rca_max_tool_calls: int = 1_000_000
     phase2_max_clarifying_questions: int = 10
-    phase2_chatbot_max_tool_calls: int = 5
+    phase2_chatbot_max_tool_calls: int = 1_000_000
     phase2_chatbot_max_replay_messages: int = 12
-    phase2_chatbot_summarize_after_messages: int = 20
     phase2_chatbot_max_attachment_bytes: int = 524_288
     phase2_web_fetch_max_bytes: int = 24_000
     phase2_web_fetch_timeout_s: int = 20
@@ -32,11 +33,8 @@ class Settings(BaseSettings):
     graylog_default_query: str = "source:mongod OR mongodb OR mongo"
     graylog_search_limit: int = 50
     graph_padding_minutes: int = 30
-    grafana_url: str = "http://localhost:3030"
-    ftdc_api_url: str = "http://localhost:5408"
-    ftdc_load_timeout_seconds: int = 300
-    grafana_startup_wait_seconds: int = 240
     pipeline_worker_poll_seconds: float = 2.0
+    grafana_url: str = "http://localhost:3030"
 
 
 @lru_cache

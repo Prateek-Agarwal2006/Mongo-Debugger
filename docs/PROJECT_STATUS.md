@@ -2,7 +2,7 @@
 
 **Reference spec:** [FTDC_Analyzer_AI_Agent_Intern_Project_final.pdf](../FTDC_Analyzer_AI_Agent_Intern_Project_final.pdf)
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-16
 
 **Improvement history:** [CHANGELOG.md](CHANGELOG.md) · **Doc update matrix:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md)
 
@@ -202,6 +202,9 @@ Multi-agent: Orchestrator → Investigator → Verifier → (retry?) → Clarifi
 
 ### Other future work
 
+- **Robust retry + crash recovery (jobs)** — Today a worker that dies mid-job leaves a `PROCESSING` row until *that* pod restarts and self-requeues (`claimed_by = me`). Gaps: dead workers that never come back; no lease heartbeat; Phase 1/Hatchet retries are manual (`…/retry`). **Planned:** lease heartbeat + timeout **reaper** (stale `PROCESSING` → `PENDING`), bounded auto-retry with backoff / new `job_id` audit trail, clearer failed-vs-retryable classification. See [PRODUCTION_ARCHITECTURE.md](PRODUCTION_ARCHITECTURE.md) Decision 7 (accepted tradeoff) and Deferred list.
+- **Worker wake-up: Postgres `LISTEN` / `NOTIFY` (replace poll loop)** — Worker today sleeps on `PIPELINE_WORKER_POLL_SECONDS` and scans `jobs`. **Planned:** `NOTIFY` on enqueue + worker `LISTEN` so claim latency drops without busy polling; keep a slow poll as safety net if a notify is missed. Same `SKIP LOCKED` claim path.
+- **UI progress: SSE (replace status polling)** — Upload / pipeline / Phase 2 UIs poll `GET …/jobs/{id}` and `GET …/phase2/status`. **Planned:** Server-Sent Events (or one multiplexed SSE) for job + Phase 2 state transitions so the browser gets push updates; keep poll as fallback for proxies that buffer SSE. Complements LISTEN/NOTIFY on the worker side (DB events → API → SSE).
 - **Pipeline deduplication (upload path)** — `run-mongo-ftdc-pipeline.sh` runs `run-mongo-ftdc.sh` (`simagix/ftdc` `/mftdc`) then `run-llm-export.sh`; both call `ProcessFiles` + diagnosis on the same `diagnostic.data`, roughly doubling pipeline time. **Planned:** run `llm-export` only for RCA/API (writes `exports/`), optionally emit HTML/console from the same pass or on demand; keep `simagix/ftdc` image for Grafana server mode (`-server`), not a second analysis container per upload. See [DESIGN_NOTES.md](DESIGN_NOTES.md) §8.
 - **Curated runbook MCP / MCP resources** — tiered excerpts from project PDFs (`WiredTiger_read_ticket_drop_analysis.pdf`, `May_Incident_RCA.pdf`, etc.) with finding→runbook mapping; auditable offline citations that replace or supplement open web search
 - **Single FTDC decode for RCA + Grafana** — today `llm-export` and `/grafana/dir` each decode `diagnostic.data`; unify in mongo-ftdc (shared cache or push stats to FTDC API once)

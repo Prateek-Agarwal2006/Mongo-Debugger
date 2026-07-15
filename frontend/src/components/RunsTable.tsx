@@ -56,7 +56,10 @@ export function RunsTable({ runs }: Readonly<{ runs: RunEntry[] }>) {
                 </td>
                 <td className="px-6 py-5">
                   <div className="flex flex-wrap gap-2">
-                    <RunStatusBadge label={phase1Label(entry.phase1_status)} variant={phase1Variant} />
+                    <RunStatusBadge
+                      label={entry.phase1_label || phase1Label(entry.phase1_status, entry.message)}
+                      variant={phase1Variant}
+                    />
                     {entry.hatchet_status && (
                       <RunStatusBadge label={`Logs ${entry.hatchet_status}`} variant={hatchetVariant} />
                     )}

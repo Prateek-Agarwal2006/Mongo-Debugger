@@ -160,7 +160,7 @@ async def _run_adk_async(
     _require_adk()
     _apply_google_env(settings)
 
-    trace = ToolTraceCollector(session.tool_trace_path, agent_id=session.agent_id)
+    trace = ToolTraceCollector(session.run_id, session.llm, agent_id=session.agent_id)
     trace.agent_id = f"gemini-adk:{session.run_id}"
 
     closable_toolsets: list[Any] = []

@@ -2,7 +2,7 @@
 
 Personal reference for **why** the system is built this way — not a duplicate of `docs/ARCHITECTURE.md`. Focus: decisions that are non-obvious and worth explaining out loud.
 
-**Last aligned with codebase:** 2026-06-29 (Stitch Modern report tab; `report-viewer--stitch` dual renderer).
+**Last aligned with codebase:** 2026-07-16 (Postgres Kind probe recovery; Modern SPA catalog DB error copy).
 
 ---
 
@@ -382,13 +382,15 @@ Most metrics are in the gzip line file — special cases are **file layout**, no
 
 ---
 
-### 13.11 `get_raw_path` in evidence service — why?
+### 13.11 Tier-3 raw tools — `list_raw_paths` / `get_raw_window` (not `get_raw_path`)
 
-**Tier 3** forensic path: search `raw/raw_metric_values.jsonl.gz` for MongoDB metric **paths** (internal FTDC path strings), not normalized names.
+**Removed:** legacy `get_raw_path` stub (always returned “not available after Postgres migration”). It burned tool-call budget and distracted the LLM toward a dead path.
 
-Use when tier-2 normalized names aren’t enough — e.g. prove a specific internal counter path spiked. Returns small match slices (capped `limit`), never the whole gzip file.
+**Current tier-3 flow:** `list_raw_paths()` (prefix map / pattern) → `get_raw_window(paths, start_ts, end_ts)` (real per-second series via `ftdc-slice` against `raw_files` blobs).
 
-Budget: `consume_tool_call("get_raw_path")` — same gated retrieval as tier-2 tools.
+Budget: `list_raw_paths` and `get_raw_window` both call `consume_tool_call`. Listing fallback metrics stays free.
+
+**`ftdc-slice` placement:** Phase 1 catalog/index runs on the **worker**; Phase 2 `get_raw_window` runs on the **API** — both images ship `/usr/local/bin/ftdc-slice` (~4.5 MB). Local Cursor smoke confirmed MCP series matches the CLI oracle.
 
 ---
 
@@ -400,18 +402,20 @@ Budget: `consume_tool_call("get_raw_path")` — same gated retrieval as tier-2 t
 |---------------------|---------|
 | `get_metric_window` | Yes |
 | `get_normalized_series` | Yes (once per call, even though it loops metrics internally) |
-| `get_raw_path` | Yes |
+| `list_raw_paths` | Yes |
+| `get_raw_window` | Yes |
 | `list_fallback_metrics` | **No** |
 | `get_budget_status` | **No** |
 | `load_tier1` / `get_prompt_context` | **No** (not tool retrieval) |
 
 **MCP surface vs budget:**
 
-| MCP tool (`mcp_evidence_server.py`) | Hits budget? |
-|-------------------------------------|--------------|
+| MCP tool (`evidence.py`) | Hits budget? |
+|--------------------------|--------------|
 | `get_metric_window` | Yes (via evidence service) |
 | `get_normalized_series` | Yes |
-| `get_raw_path` | Yes |
+| `list_raw_paths` | Yes |
+| `get_raw_window` | Yes |
 | `list_fallback_metrics` | **No** |
 | `get_budget_status` | **No** |
 
@@ -670,6 +674,14 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 
 | Topic | What we chose | Why | Why not the alternative | Code / config |
 |-------|---------------|-----|-------------------------|---------------|
+| **UI nginx pod (LD5)** | **ui** nginx = sole NodePort; serves Vite SPA + `/static`; proxies API; **api** is ClusterIP; Classic/Jinja removed from API | Independent UI deploys; API crash ≠ blank shell; matches Merged Dev | **API serves Jinja+StaticFiles** — every CSS change restarts FastAPI; **nginx proxy-all without SPA** — API still owns HTML | `Dockerfile.ui`, `nginx-ui.conf`, Helm `ui/`, `api/catalog.py`, `main.py` |
+| **Postgres Kind probes** | Generous **liveness** (`initialDelaySeconds: 120`, `timeoutSeconds: 5`, `failureThreshold: 6`) + slower readiness | Crash recovery after unclean shutdown needs minutes; tight probes kill mid-WAL-redo → CrashLoop → catalog 500 | **Default 1s timeout / 15s delay** — death spiral on Kind PVC; **no liveness** — hung postgres never restarted | `deploy/helm/templates/postgres/deployment.yaml` |
+| **Phase 1 upload UX gate** | Redirect to **`/runs/{id}`** on upload; same URL shows pipeline until job **succeeded**; poll **reloads** when already on that path | Operators want the run URL immediately; `/pipeline` felt stuck; same-URL nav would not paint RCA | **`/pipeline` only**; **poll `location.href` to same path** — no reload | `upload.html` / stitch upload, `run_pipeline.html` / stitch pipeline poll, `web.routes.run_detail` |
+| **Phase 1 timeout labeling** | Catch **`TimeoutExpired` only around llm-export**; ingest uses `Ingest failed` + real error; scale `ftdc-slice` index timeout with file count | Broad `except TimeoutExpired` turned a **120s** index timeout into **“timed out after 3600s”** after metrics COPY already succeeded | **One try/except for whole job** — lies in the UI; **silent skip on index timeout** — tier-3 broken with no signal | `ftdc_job.py`, `raw_files.build_raw_file_index`, `ingest._ingest_raw_path_catalog` |
+| **Docker pip layer cache** | Install deps from **`pyproject.toml` + stub `backend/`** first; then `COPY` real code + **`pip install --no-deps .`** | Code-only rebuilds reuse the fat wheel layer; MCP still gets full package in site-packages | **`COPY backend` then `pip install`** — any `.py` edit re-downloads `cursor-sdk`/`google-adk`; **BuildKit pip mount** — needs `docker-buildx` (not on this Colima setup) | `Dockerfile.api`, `Dockerfile.worker` |
+| **Worker image deps** | **`pip install ".[prod]"` only** — no `[llm]` | Phase 1 never calls Cursor/ADK; dropping LLM wheels cuts rebuild from tens of minutes to a few | **Same `.[prod,llm]` as API** — pays `cursor-sdk`+`google-adk` download twice per full rebuild | `Dockerfile.worker` |
+| **Tier-3 raw MCP (`get_raw_path`)** | **Removed** stub; keep **`list_raw_paths` → `get_raw_window`** | Stub always said “not available after Postgres migration” — burned budget + distracted the LLM | **Keep stub “for API parity”** — teaches a dead tool; **search old gzip export** — gone after PG migration | `evidence.py`, `ftdc_tools.py`, `rca_service.py`, prompts, `GET …/tools/raw-path` deleted |
+| **`ftdc-slice` on API image** | Ship same ~4.5 MB binary on **API** (Phase 2 MCP) **and worker** (Phase 1 catalog/index) | `get_raw_window` runs in API pod; without binary, tier-3 window calls fail. Local Cursor smoke matched CLI oracle. | **API-only** — Phase 1 catalog breaks; **worker-only** — Phase 2 tier-3 broken; **call worker for slice** — extra hop for rare forensic path | `Dockerfile.api` + `Dockerfile.worker`; `FtdcTools.get_raw_window` |
 | **MongoDB profiler (`db.system.profile`)** | **Removed** — no upload API, MCP tool, schema field, or prompt mentions | Profiler caused Gemini hard-fails when MCP failed; out of scope vs FTDC + Hatchet logs | **Profiler upload + `get_profiler_samples`** — extra operator step; brittle when tool not registered | Profiler code deleted 2026-06-29; `parse_output.py` strips legacy `profiler_insights` |
 | **ADK tool trace call id** | **`function_call_id` per tool** in `after_tool_callback` | One activity row per MCP call, parity with Cursor `tool_*` ids | **`invocation_id`** — one id per agent run; dedup dropped 5 of 6 MCP rows | `tool_trace.adk_tool_trace_call_id`, `providers/adk/runner.py` |
 | **Agent tool loop** | **Cursor SDK** (and Gemini **ADK** for the `gemini` slot) runs ReAct; we implement MCP **servers** + evidence Facade only | Avoid duplicating JSON-RPC tool loop, subprocess lifecycle, and sandbox in Python; swap providers via `LLMProvider` | **LangGraph / custom ReAct in Python** — more control but high build cost; we’d re-own what Cursor/ADK already ship | `cursor_provider.py`, `gemini_adk_provider.py`, §13.16–§13.17 |
@@ -681,6 +693,8 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 | **Web research tool** | Shared **`web_fetch`** — SSRF-safe HTTPS, size/timeout caps (`PHASE2_WEB_FETCH_*`) for Cursor + Gemini | One policy, one audit category (`web` in tool trace), operator-trustable allowlist behavior | **Gemini `GoogleSearchTool` only** — provider-specific, harder to align with Cursor; removed from ADK tool list | `web_fetch.py` |
 | **Operator skill catalog** | **Skill WorkArea** — ZIP upload by slot name; attach **entire catalog** on every tool phase; Cursor `copytree` + `setting_sources=["project"]`; ADK `SkillToolset` | Skills are playbooks, not MCP tools; provider-native attachment avoids prompt injection | **Prompt injection**; **run-page skill checkboxes** for attach-all policy | `skills/registry.py`, `/skill-workarea` |
 | **ADK MCP attachment** | Native **`McpToolset`** via `to_adk_mcp_toolsets()`; **`mcp/client.py` deleted** | ADK owns MCP lifecycle; same specs as Cursor | **Custom `ClientSessionGroup` bridge** — duplicate lifecycle glue | `mcp/registry.py`, `providers/adk/runner.py` |
+| **Grafana charts** | **Helm Grafana** + SimpleJSON; Evidence **Anomaly View** (`simagix-grafana-anomaly`) + **All Metrics** (`simagix-grafana`); deep-link `from`/`to` (+ anomaly window when scored) | Restores dual-tab triage vs full catalog on PG metrics; no Docker/ftdc-api | **4-panel stub** — incomplete; **Docker Grafana + ftdc-api** — broken in Kind; **`var-run_id` only** — empty under `now-6h` | `anomaly-focus.json`, `all-metrics.json`, `api/grafana_simple.py`, `grafana.js` |
+| **Builtin MCP stdio cwd / PYTHONPATH** | **`cwd=repo_root()`** + **PYTHONPATH puts code root first**; workspace only via `SIMAGIX_WORKSPACE_ROOT` | Kind sets `DATA_ROOT=/data` ≠ `/app`; old cwd=/data made `python -m backend…` die (`No module named 'backend'`) so Cursor showed **simagix-evidence discovery failed** while `web_fetch` still worked | **cwd=DATA_ROOT** — only works when data root is the repo (local demo); **rely on site-packages alone** — api Dockerfile used to `pip install` before `COPY backend/` so site-packages lacked code | `session.mcp_server_env`, `mcp/registry.py`, `Dockerfile.api` / `Dockerfile.worker` |
 | **Operator MCP connectors** | Disk registry + **MCP WorkArea** UI; **stateless** run-page checkboxes → `enabled_mcp_ids` on Phase A/C/**chatbot** for **both** Cursor and ADK via `build_mcp_server_specs` | Operators attach GitHub/HTTP MCPs without code changes; explicit opt-in per run/message; `simagix-evidence` always locked on; **separate panels** on Investigation vs Chatbot tab | **Saved defaults / env-only MCP list** — hides what ran; **free-form stdio commands** — unsafe; **Cursor-only WorkArea** — ADK could not use operator MCPs; **persisting chatbot MCP selection** — checkbox state is read at send time only; **sharing Investigation checkboxes with chatbot** — forces tab switching | `mcp/connectors.py`, `mcp/registry.py`, `api/mcp_connectors.py`, `/mcp-workarea`, `rca.js`, `agent-chat.js` |
 | **ADK in-process evidence tools (v1, superseded)** | Was **`adk_evidence_tools.py`**; **file deleted** — ADK uses shared MCP servers | Faster local dev before unify | **Permanent duplicate** vs `@mcp.tool` servers | `mcp/servers/` |
 | **Provider file split (Cursor vs ADK)** | **`providers/cursor`**, **`providers/adk`**, **`providers/mock`**; shared **`mcp/`** tree | Names layers; ADK runner testable without JSON parse; one registry for all providers | **Flat llm/*.py forever** — harder navigation as providers grow | `providers/`, `mcp/`, §13.18 |
@@ -696,6 +710,9 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 | **Grafana health during FTDC decode** | **Module-level probe cache** (180s TTL) on `:5408` / `:3030`; run-page **sessionStorage** guards auto-load | FTDC API is single-threaded — probes time out mid-decode; per-request manager had empty cache so reload hid links and stacked loads | **Per-instance cache** (never shared across requests); **hide links when probe fails**; **auto-load on every page open** | `stack.py` `_HEALTH_CACHE`, `grafana.js` `_wasLoadedThisSession` / `_loadInProgress` |
 | **Citation trust (future)** | Documented preference: **deterministic verifier** on `tool_trace.json` before any **LLM auditor agent** | Highest ROI for “prove the agent looked” without second agent cost | **Verifier-only LLM** as first step — slower, still probabilistic | [PROJECT_STATUS.md](PROJECT_STATUS.md) § Trust & cost |
 | **Run-scoped paths (K8s prep)** | **`RunWorkspace`** — one module: configurable root + named path methods (`uploads_dir`, `exports_dir`, `phase2_dir`, …) | Fixes K8s `DATA_ROOT` *and* removes duplicated layout strings; routes express intent; tests inject a temp-dir workspace | **Minimal `get_data_root()` only** — fixes mount root but leaves `"simagix-workspace/exports/mongo-ftdc"` copy-pasted in 5+ files | `backend/app/core/run_workspace.py`, `get_run_workspace()`; `DATA_ROOT` in `config.py`; all backend callers migrated (2026-06-18) |
+| **FTDC metrics ingest** | **`DELETE` run + Postgres `COPY`** from `time_series.jsonl.gz`; evidence txn separate | Local smoke: **~385 s** for 3.87M pts (same file as Kind upload) vs **~20+ min** row upserts; write-once-per-run | **`executemany` + `ON CONFLICT`**; **staging+swap** only if live Grafana must never see empty mid-reload; further: drop PK during load / binary COPY | `jobs/ingest.py` `_ingest_time_series` |
+| **FTDC upload on API (Kind)** | **Stream to disk** + **`asyncio.to_thread`** for unpack/PG raw store/enqueue | Keeps `/health` + UI alive during multi‑hundred‑MB FTDC; worker still materialises from PG | **Sync work on uvicorn event loop** — one upload freezes NodePort/`Uploading…` forever | `api/upload.py` `_finalize_ftdc_upload` |
+| **Upload file picker** | **No HTML `accept` filter**; server validates zip/tar/`metrics.*`; Mac path is **zip of `diagnostic.data` folder** | macOS greys out valid zips when `accept` lists `.tar.gz` / `metrics.*`; nested zip already unpacked via `rglob("metrics.*")` | **Strict `accept=` on Stitch upload** — looked like “folder/zip not allowed”; **webkitdirectory multi-file** — not needed when zip-of-folder is the contract | `stitch/upload.html`, `templates/upload.html`, `upload.py` `_unpack_archive` |
 | **Upload folder layout (Option A)** | **One tree per upload:** `uploads/{run_id}/inputs`, `phase1/mongo-ftdc`, `phase2/` (LLM) | Single PVC subtree; tool-named Phase 1 outputs; `inputs/` avoids clash with bundle tier-3 `raw/` | **Scattered layout** (`data/uploads`, global queue, `exports/mongo-ftdc`) or **generic `evidence/` + run `raw/`** — ambiguous before Hatchet | `run_workspace.py`; pipeline scripts; `SIMAGIX_WORKSPACE.md` |
 | **Pipeline jobs (K8s prep)** | **Standalone worker** + **file queue** on `DATA_ROOT`; atomic rename claim; crash recovery requeues `processing/` → `pending/` | Upload survives API restart; worker survives pod restart; same PVC as RunWorkspace; no Redis in v1 | **Daemon thread in API** — lost on pod death; in-memory `JobStore` only; **embedded worker in FastAPI** — duplicate entrypoints | `jobs/worker.py`, `jobs/queue.py`, `jobs/pipeline.py`; `PIPELINE_WORKER_POLL_SECONDS`; **1 worker replica** in v1 |
 | **Queue placement (v1)** | **Per-upload queue dirs** under `uploads/{run_id}/phase1/queue/`; worker scans all uploads and claims oldest by mtime | Option A cohesion (queue lives with jobs/evidence); `has_active_job_for_run()` is O(1) per run; worker behavior is already one global FIFO | **Single central dir** (`data/job_queue/` or `uploads/_queue/`) — simpler scan, but splits scheduling from incident tree; revisit when scaling **>1 worker** or adding Redis/SQS | `queue.py` `iter_phase1_queue_pending_paths()`; `claim_next()` mtime sort; legacy global queue read-only |
@@ -710,7 +727,11 @@ run_adk_agent_text(..., enabled_mcp_ids=[...])
 
 **Talking points (Hatchet export schema):** Hatchet 7.x `merge_clients` has `ip`/`accepted`/`ended` but no `date`; export uses `PRAGMA table_info` and falls back to per-IP rollups instead of minute buckets.
 
+**Talking points (Phase 1 UX gate):** Evidence (`manifest`) is written **before** metrics COPY, so “file exists” ≠ Phase 1 done. Gate Run RCA on `JobState.SUCCEEDED`. Labels: job message contains ingest wording → **Loading metrics**; otherwise while processing → **Decoding**.
+
 **Talking points (Grafana reload / health cache):** Each API request constructs a fresh `GrafanaStackManager`. A per-instance health cache never survives to the next request, so decode-time probe timeouts looked like “stack down” and the run page hid dashboard links. Fix: module-level `_HEALTH_CACHE` shared across managers (180s). Frontend: first visit auto-loads FTDC once per session; reload uses `sessionStorage` to skip duplicate `/grafana/load`. Open buttons use debounced `window.open`, not `<a target=_blank>`.
+
+**Talking points (Grafana empty panels / capture window):** Metrics `ts` are FTDC sample times (e.g. 15 Jun), not upload time. Grafana dashboard default `now-6h` → every panel "No data" even when SimpleJSON + Postgres are healthy. Fix: Evidence button deep-links `from`/`to` from `MIN/MAX(ts)` (±5 min pad). Switching the Run dropdown alone does not retarget the time picker — reopen from Evidence or widen the picker.
 | **Hatchet `-merge` drop gate (local patch)** | **`shouldDropHatchetBeforeBegin()`** — skip `Drop()` when `-merge` && `mergeMarker > 1`; build **`mongo-debugger/hatchet:local`** | Restores documented `-merge` behavior with per-file markers; file 1 still replaces stale merged hatchet | **Always drop in Begin** (upstream fd28370) — last file wins; **concat single file** — no markers; **fork on GitHub** — repos gitignored, patch tracked in-tree | `simagix-workspace/patches/hatchet-merge-drop-gate.patch`; `build-hatchet-local.sh`; `SIMAGIX_TOOLCHAIN.md` |
 
 ### 14.4 Pipeline worker — file queue, not upload thread

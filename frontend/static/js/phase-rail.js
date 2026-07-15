@@ -232,6 +232,16 @@ function markComplete(step) {
 }
 
 function setFromApiStatus(apiStatus) {
+  if (apiStatus === "running_investigation") {
+    railState = {
+      active: "A",
+      running: true,
+      completed: { A: false, B: false, C: false },
+    };
+    renderRail();
+    showRailShell();
+    return;
+  }
   if (apiStatus === "awaiting_clarifications") {
     railState = {
       active: "B",

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Literal
 
-from backend.app.simagix.hatchet_tools import HATCHET_MCP_TOOL_NAMES
+from backend.app.simagix.evidence.hatchet_tools import HATCHET_MCP_TOOL_NAMES
 
 ToolTraceCategory = Literal["mcp", "web", "local", "shell", "other"]
 ToolTracePhase = Literal["investigation", "clarify", "final_rca", "chatbot"]
@@ -15,8 +14,9 @@ EVIDENCE_MCP_TOOL_NAMES = frozenset(
     {
         "get_metric_window",
         "get_normalized_series",
-        "get_raw_path",
         "list_fallback_metrics",
+        "list_raw_paths",
+        "get_raw_window",
         "get_budget_status",
         "query_logs_around_window",
         *HATCHET_MCP_TOOL_NAMES,
@@ -190,17 +190,20 @@ def _extract_mcp_server(tool_name: str, args: Any) -> str | None:
 
 
 class ToolTraceCollector:
-    def __init__(self, path: Path, *, agent_id: str | None = None) -> None:
-        self.path = path
+    def __init__(self, run_id: str, llm: str, *, agent_id: str | None = None) -> None:
+        self.run_id = run_id
+        self.llm = llm
         self.agent_id = agent_id
         self._seen_call_ids: set[str] = set()
         self.entries: list[ToolTraceEntry] = []
         self._load_existing()
 
     def _load_existing(self) -> None:
-        if not self.path.exists():
+        from backend.app.simagix.llm.state import load_state
+
+        payload = load_state(self.run_id, self.llm, "tool_trace")
+        if payload is None:
             return
-        payload = json.loads(self.path.read_text(encoding="utf-8"))
         self.agent_id = payload.get("agent_id") or self.agent_id
         for item in payload.get("entries", []):
             entry = ToolTraceEntry(**item)
@@ -274,13 +277,14 @@ class ToolTraceCollector:
             self._seen_call_ids.add(entry.call_id)
 
     def save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        from backend.app.simagix.llm.state import save_state
+
         payload = {
             "agent_id": self.agent_id,
             "entries": [entry.to_dict() for entry in self.entries],
             "summary": summarize_entries(self.entries),
         }
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        save_state(self.run_id, self.llm, "tool_trace", payload)
 
 
 def summarize_entries(entries: list[ToolTraceEntry]) -> dict[str, Any]:
@@ -404,14 +408,16 @@ def record_grounding_metadata(
         )
 
 
-def load_tool_trace(path: Path) -> dict[str, Any]:
-    if not path.exists():
+def load_tool_trace(run_id: str, llm: str) -> dict[str, Any]:
+    from backend.app.simagix.llm.state import load_state
+
+    payload = load_state(run_id, llm, "tool_trace")
+    if payload is None:
         return {
             "agent_id": None,
             "entries": [],
             "summary": {"total": 0, "by_category": {}, "by_phase": {}},
         }
-    payload = json.loads(path.read_text(encoding="utf-8"))
     entries = payload.get("entries", [])
     summary = payload.get("summary") or summarize_entries(
         [ToolTraceEntry(**item) for item in entries]
@@ -423,10 +429,10 @@ def load_tool_trace(path: Path) -> dict[str, Any]:
     }
 
 
-def write_mock_tool_trace(path: Path, *, run_id: str, phase: ToolTracePhase) -> None:
+def write_mock_tool_trace(run_id: str, llm: str, *, phase: ToolTracePhase) -> None:
     """Deterministic trace rows for mock provider demos."""
     now = datetime.now(timezone.utc).isoformat()
-    collector = ToolTraceCollector(path, agent_id="mock-agent-id")
+    collector = ToolTraceCollector(run_id, llm, agent_id="mock-agent-id")
     if phase == "investigation":
         collector.append_entry(
             ToolTraceEntry(

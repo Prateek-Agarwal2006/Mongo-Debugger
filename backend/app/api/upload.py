@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import shutil
 import tarfile
@@ -10,12 +11,14 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from backend.app.core.run_workspace import get_run_workspace
+from backend.app.core.run_workspace import RunWorkspace, get_run_workspace
+from backend.app.simagix.evidence.loader import EvidenceLoader
 from backend.app.jobs.hatchet_retry import HatchetRetryError, retry_hatchet_for_run
 from backend.app.jobs.job_types import JOB_TYPE_HATCHET, JOB_TYPE_MONGO_FTDC
-from backend.app.jobs.queue import FileJobQueue
-from backend.app.jobs.retry import PipelineRetryError, retry_pipeline_for_run
+from backend.app.jobs.queue import JobQueue
+from backend.app.jobs.ftdc_retry import PipelineRetryError, retry_pipeline_for_run
 from backend.app.jobs.store import job_store
+from backend.app.core.config import get_settings
 
 router = APIRouter(prefix="/simagix/uploads", tags=["simagix-upload"])
 
@@ -52,6 +55,23 @@ def _unpack_archive(archive_path: Path, dest_dir: Path) -> None:
                 shutil.move(str(item), str(target))
 
 
+def _store_ftdc_raw_files(run_id: str, diagnostic_dir: Path) -> None:
+    """Store raw FTDC bytes in raw_files table (best-effort; skipped if no DATABASE_URL)."""
+    if not get_settings().database_url:
+        return
+    ftdc_files = sorted(
+        p for p in diagnostic_dir.iterdir()
+        if p.is_file() and p.name.startswith("metrics.")
+    )
+    if not ftdc_files:
+        return
+    from backend.app.db.connection import db_conn
+    from backend.app.db.raw_files import store_raw_file
+    with db_conn() as conn:
+        for path in ftdc_files:
+            store_raw_file(conn, run_id, "ftdc", path.name, path)
+
+
 def _remove_upload_tree(upload_dir: Path) -> None:
     if upload_dir.is_dir():
         shutil.rmtree(upload_dir, ignore_errors=True)
@@ -61,8 +81,15 @@ def _require_run_exists(run_id: str) -> None:
     workspace = get_run_workspace()
     if workspace.upload_exists(run_id):
         return
-    if (workspace.resolve_exports_dir(run_id) / "manifest.json").exists():
+    if EvidenceLoader(run_id).exists():
         return
+    # K8s: API pod emptyDir may be wiped after restart — check PG chunk store.
+    if get_settings().database_url:
+        from backend.app.db.connection import db_conn
+        from backend.app.db.raw_files import list_raw_filenames
+        with db_conn() as conn:
+            if list_raw_filenames(conn, run_id, "ftdc"):
+                return
     raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
 
 
@@ -180,6 +207,51 @@ async def _save_log_upload(upload: StarletteUploadFile, log_dir: Path) -> list[s
     return [safe_name]
 
 
+def _finalize_ftdc_upload(
+    *,
+    workspace_root: Path,
+    run_id: str,
+    upload_dir: Path,
+    input_dir: Path,
+    archive_path: Path,
+    original_filename: str,
+) -> dict[str, str]:
+    """Unpack / store / enqueue off the asyncio event loop (can take minutes for big FTDC)."""
+    workspace = RunWorkspace(workspace_root)
+    filename_lower = original_filename.lower()
+    safe_name = Path(original_filename).name
+    try:
+        if filename_lower.startswith("metrics.") or safe_name.lower().startswith("metrics."):
+            dest = input_dir / safe_name
+            if archive_path.resolve() != dest.resolve():
+                shutil.move(str(archive_path), str(dest))
+        else:
+            _unpack_archive(archive_path, input_dir)
+            if archive_path.exists():
+                archive_path.unlink()
+
+        # Kind: API emptyDir ≠ worker emptyDir — must land bytes in Postgres before enqueue.
+        _store_ftdc_raw_files(run_id, input_dir)
+
+        rel_input = input_dir.relative_to(workspace.root)
+        job = job_store.create(
+            run_id,
+            input_path=str(rel_input),
+            job_type=JOB_TYPE_MONGO_FTDC,
+            workspace_root=workspace.root,
+        )
+        JobQueue(workspace).enqueue(job, input_dir)
+        return {
+            "job_id": job.job_id,
+            "run_id": run_id,
+            "input_path": str(rel_input),
+            "status": job.state.value,
+        }
+    except Exception:
+        _remove_upload_tree(upload_dir)
+        raise
+
+
 @router.post("")
 async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]:
     if not file.filename:
@@ -189,37 +261,22 @@ async def upload_diagnostic_data(file: UploadFile = File(...)) -> dict[str, str]
     run_id = _new_run_id()
     upload_dir = workspace.upload_dir(run_id)
     input_dir = workspace.upload_diagnostic_dir(run_id)
+    safe_name = Path(file.filename).name
+    archive_path = input_dir.parent / safe_name
 
     try:
         input_dir.mkdir(parents=True, exist_ok=True)
-
-        archive_path = input_dir.parent / file.filename
-        content = await file.read()
-        archive_path.write_bytes(content)
-
-        filename_lower = file.filename.lower()
-        if filename_lower.startswith("metrics."):
-            shutil.move(str(archive_path), str(input_dir / file.filename))
-        else:
-            _unpack_archive(archive_path, input_dir)
-            if archive_path.exists():
-                archive_path.unlink()
-
-        rel_input = input_dir.relative_to(workspace.root)
-        job = job_store.create(
-            run_id,
-            input_path=str(rel_input),
-            job_type=JOB_TYPE_MONGO_FTDC,
+        # Stream to disk — do not file.read() entire multi-GB zip into RAM on the event loop.
+        await _write_upload_file(file, archive_path)
+        return await asyncio.to_thread(
+            _finalize_ftdc_upload,
             workspace_root=workspace.root,
+            run_id=run_id,
+            upload_dir=upload_dir,
+            input_dir=input_dir,
+            archive_path=archive_path,
+            original_filename=file.filename,
         )
-        FileJobQueue(workspace).enqueue(job, input_dir)
-
-        return {
-            "job_id": job.job_id,
-            "run_id": run_id,
-            "input_path": str(rel_input),
-            "status": job.state.value,
-        }
     except HTTPException:
         _remove_upload_tree(upload_dir)
         raise
@@ -280,6 +337,17 @@ async def upload_mongodb_logs(run_id: str, request: Request) -> dict[str, object
 
     workspace.clear_hatchet_artifacts(run_id)
 
+    # K8s: store log bytes in PG so the worker pod can reassemble them from
+    # its own emptyDir (API pod and worker pod have separate scratch volumes).
+    if get_settings().database_url:
+        from backend.app.db.connection import db_conn
+        from backend.app.db.raw_files import store_raw_file
+        with db_conn() as conn:
+            for name in saved:
+                path = log_dir / name
+                if path.exists():
+                    store_raw_file(conn, run_id, "logs", name, path)
+
     try:
         job = job_store.create(
             run_id,
@@ -287,7 +355,7 @@ async def upload_mongodb_logs(run_id: str, request: Request) -> dict[str, object
             job_type=JOB_TYPE_HATCHET,
             workspace_root=workspace.root,
         )
-        FileJobQueue(workspace).enqueue(job, log_dir)
+        JobQueue(workspace).enqueue(job, log_dir)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

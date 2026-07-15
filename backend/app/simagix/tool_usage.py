@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from backend.app.simagix.llm.session import Phase2Session
@@ -11,7 +9,7 @@ from backend.app.simagix.llm.tool_trace import load_tool_trace
 def tool_usage_summary(session: Phase2Session) -> dict[str, Any]:
     """Aggregate MCP budget and SDK tool trace for report footers."""
     budget = session.budget_status()
-    trace = load_tool_trace(session.tool_trace_path)
+    trace = load_tool_trace(session.run_id, session.llm)
     summary = trace.get("summary", {})
     by_category: dict[str, int] = dict(summary.get("by_category", {}))
     mcp_from_trace = int(by_category.get("mcp", 0))
@@ -26,19 +24,9 @@ def tool_usage_summary(session: Phase2Session) -> dict[str, Any]:
     }
 
 
-def load_persisted_tool_usage(metadata_path: Path) -> dict[str, Any] | None:
-    if not metadata_path.exists():
-        return None
-    meta = json.loads(metadata_path.read_text(encoding="utf-8"))
-    tool_usage = meta.get("tool_usage")
+def resolve_tool_usage(session: Phase2Session) -> dict[str, Any]:
+    """Prefer the snapshot persisted with the report; fall back to live trace + budget."""
+    tool_usage = session.load_metadata().get("tool_usage")
     if isinstance(tool_usage, dict):
         return tool_usage
-    return None
-
-
-def resolve_tool_usage(session: Phase2Session) -> dict[str, Any]:
-    """Prefer snapshot from session_metadata; fall back to live trace + budget."""
-    persisted = load_persisted_tool_usage(session.metadata_path)
-    if persisted is not None:
-        return persisted
     return tool_usage_summary(session)

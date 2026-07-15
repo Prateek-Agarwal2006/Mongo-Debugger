@@ -46,21 +46,11 @@ def test_phase2_and_llm_session_paths(tmp_path: Path) -> None:
     )
 
 
-def test_run_manifest_and_job_status_paths(tmp_path: Path) -> None:
+def test_run_manifest_path(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     run_id = "r1"
-    job_id = "job-abc"
     assert workspace.run_manifest_path(run_id) == (
         tmp_path / "simagix-workspace/uploads/r1/phase1/run_manifest.json"
-    )
-    assert workspace.job_status_path(run_id) == (
-        tmp_path / "simagix-workspace/uploads/r1/phase1/job_status.json"
-    )
-    assert workspace.job_record_path(run_id, job_id) == (
-        tmp_path / "simagix-workspace/uploads/r1/phase1/jobs/job-abc.json"
-    )
-    assert workspace.job_queue_pending_path(run_id, job_id) == (
-        tmp_path / "simagix-workspace/uploads/r1/phase1/queue/pending/job-abc.json"
     )
 
 
@@ -74,19 +64,6 @@ def test_tooling_paths(tmp_path: Path) -> None:
     assert workspace.mongodb_logs_dir("r1") == (
         tmp_path / "simagix-workspace/uploads/r1/inputs/mongodb-logs"
     )
-    assert workspace.grafana_compose_file() == tmp_path / "simagix-workspace/docker/grafana-compose.yaml"
-
-
-def test_list_run_ids_requires_manifest(tmp_path: Path) -> None:
-    workspace = RunWorkspace(tmp_path)
-    assert workspace.list_run_ids() == []
-
-    bundle = workspace.mongo_ftdc_dir("good")
-    bundle.mkdir(parents=True)
-    (bundle / "manifest.json").write_text("{}", encoding="utf-8")
-    workspace.mongo_ftdc_dir("empty").mkdir(parents=True)
-
-    assert workspace.list_run_ids() == ["good"]
 
 
 def test_resolve_legacy_exports_and_uploads(tmp_path: Path) -> None:

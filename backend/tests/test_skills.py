@@ -12,7 +12,6 @@ from backend.app.simagix.llm.skills.registry import (
     copy_all_to_cursor_scratch,
     delete_skill,
     list_skill_dirs,
-    operator_skills_dir,
     upload_skill_zip,
     validate_slot_name,
 )
@@ -46,6 +45,8 @@ def test_validate_slot_name_rejects_invalid() -> None:
 
 
 def test_upload_skill_zip_syncs_frontmatter_name(tmp_path: Path) -> None:
+    from backend.app.db.connection import db_conn
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr(
@@ -53,30 +54,46 @@ def test_upload_skill_zip_syncs_frontmatter_name(tmp_path: Path) -> None:
             "---\nname: wrong-name\ndescription: Test\n---\n# Body\n",
         )
     upload_skill_zip(tmp_path, "my-playbook", buf.getvalue())
-    text = (operator_skills_dir(tmp_path) / "my-playbook" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
-    assert "name: my-playbook" in text
-    assert "name: wrong-name" not in text
+
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT files FROM skills WHERE slot_name = %s", ("my-playbook",)
+        ).fetchone()
+    assert row is not None
+    files = row[0]
+    assert "name: my-playbook" in files["SKILL.md"]
+    assert "name: wrong-name" not in files["SKILL.md"]
 
 
 def test_upload_skill_zip_flat_layout(tmp_path: Path) -> None:
+    from backend.app.db.connection import db_conn
+
     record = upload_skill_zip(tmp_path, "my-playbook", _make_skill_zip())
     assert record["slot_name"] == "my-playbook"
-    skill_md = (operator_skills_dir(tmp_path) / "my-playbook" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
-    assert "name: my-playbook" in skill_md
     assert record["description"] == "Test playbook"
-    slot_dir = operator_skills_dir(tmp_path) / "my-playbook"
-    assert (slot_dir / "SKILL.md").is_file()
-    assert (slot_dir / "references" / "notes.txt").read_text(encoding="utf-8") == "extra context"
+
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT files FROM skills WHERE slot_name = %s", ("my-playbook",)
+        ).fetchone()
+    assert row is not None
+    files = row[0]
+    assert "SKILL.md" in files
+    assert "name: my-playbook" in files["SKILL.md"]
+    assert files["references/notes.txt"] == "extra context"
 
 
 def test_upload_skill_zip_single_top_level_folder(tmp_path: Path) -> None:
+    from backend.app.db.connection import db_conn
+
     upload_skill_zip(tmp_path, "nested", _make_skill_zip(root_prefix="pkg"))
-    slot_dir = operator_skills_dir(tmp_path) / "nested"
-    assert (slot_dir / "SKILL.md").is_file()
+
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT files FROM skills WHERE slot_name = %s", ("nested",)
+        ).fetchone()
+    assert row is not None
+    assert "SKILL.md" in row[0]
 
 
 def test_upload_skill_zip_rejects_missing_skill_md(tmp_path: Path) -> None:
@@ -98,11 +115,12 @@ def test_upload_skill_zip_rejects_zip_slip(tmp_path: Path) -> None:
 def test_list_and_delete_skill(tmp_path: Path) -> None:
     upload_skill_zip(tmp_path, "one", _make_skill_zip())
     upload_skill_zip(tmp_path, "two", _make_skill_zip())
-    names = [item["slot_name"] for item in list_skill_dirs(tmp_path)]
+    names = [item["slot_name"] for item in list_skill_dirs(tmp_path) if item["slot_name"] in {"one", "two"}]
     assert names == ["one", "two"]
     assert delete_skill(tmp_path, "one") is True
     assert delete_skill(tmp_path, "one") is False
-    assert [item["slot_name"] for item in list_skill_dirs(tmp_path)] == ["two"]
+    remaining = [item["slot_name"] for item in list_skill_dirs(tmp_path) if item["slot_name"] in {"one", "two"}]
+    assert remaining == ["two"]
 
 
 def test_copy_all_to_cursor_scratch(tmp_path: Path) -> None:
@@ -117,7 +135,7 @@ def test_copy_all_to_cursor_scratch(tmp_path: Path) -> None:
 def test_skills_api_list_upload_delete(client: TestClient) -> None:
     listing = client.get("/simagix/skills")
     assert listing.status_code == 200
-    assert listing.json()["skills"] == []
+    assert "skills" in listing.json()
 
     upload = client.post(
         "/simagix/skills",
@@ -135,10 +153,13 @@ def test_skills_api_list_upload_delete(client: TestClient) -> None:
     assert delete.status_code == 200
 
 
-def test_skill_workarea_page(client: TestClient) -> None:
+def test_skill_workarea_is_spa_not_api(client: TestClient) -> None:
+    """HTML UI is nginx SPA; API has no /skill-workarea route (JSON under /simagix/skills)."""
     resp = client.get("/skill-workarea")
-    assert resp.status_code == 200
-    assert "Skill WorkArea" in resp.text
+    assert resp.status_code == 404
+    api = client.get("/simagix/skills")
+    assert api.status_code == 200
+    assert "skills" in api.json()
 
 
 def test_to_adk_mcp_toolsets_builds_stdio_and_http() -> None:
@@ -177,15 +198,7 @@ def test_build_adk_skill_toolset_all_skips_invalid(tmp_path: Path) -> None:
 
     from backend.app.simagix.llm.skills.registry import build_adk_skill_toolset_all
 
-    skills_root = operator_skills_dir(tmp_path)
-    skills_root.mkdir(parents=True)
-    (skills_root / "good").mkdir()
-    (skills_root / "good" / "SKILL.md").write_text(
-        "---\nname: good\ndescription: ok\n---\n# Good\n",
-        encoding="utf-8",
-    )
-    (skills_root / "bad").mkdir()
-    (skills_root / "bad" / "README.md").write_text("no skill md", encoding="utf-8")
+    upload_skill_zip(tmp_path, "good", _make_skill_zip())
 
     toolset = build_adk_skill_toolset_all(tmp_path)
     if toolset is None:

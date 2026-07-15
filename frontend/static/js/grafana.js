@@ -1,190 +1,96 @@
-/** Stitch uses Tailwind `class="hidden"`; classic uses the `hidden` attribute — toggle both. */
-function setGrafanaElVisible(el, visible) {
-  if (!el) return;
-  el.hidden = !visible;
-  el.classList.toggle('hidden', !visible);
-  if (visible) {
-    el.removeAttribute('disabled');
-  }
-}
+/** Open Grafana anomaly-focus + all-metrics dashboards (Postgres SimpleJSON). */
 
 window.FtdcGrafana = {
-  _loadInFlight: null,
-  _openLinksBound: false,
-
-  _loadedRunKey(runId) {
-    return `grafana-ftdc-loaded:${runId}`;
-  },
-
-  _markLoaded(runId) {
-    try {
-      sessionStorage.setItem(this._loadedRunKey(runId), String(Date.now()));
-    } catch {
-      /* private mode / disabled storage */
-    }
-  },
-
-  _wasLoadedThisSession(runId) {
-    try {
-      return sessionStorage.getItem(this._loadedRunKey(runId)) != null;
-    } catch {
-      return false;
-    }
-  },
-
-  _loadInProgress(runId) {
-    try {
-      const started = sessionStorage.getItem(`${this._loadedRunKey(runId)}:started`);
-      if (!started) return false;
-      return Date.now() - Number(started) < 5 * 60 * 1000;
-    } catch {
-      return false;
-    }
-  },
-
-  _bindOpenLinks() {
-    if (this._openLinksBound) return;
-    this._openLinksBound = true;
-    for (const id of ['grafana-open-anomaly', 'grafana-open-all']) {
-      const linkEl = document.getElementById(id);
-      if (!linkEl) continue;
-      linkEl.addEventListener('click', (event) => {
-        event.preventDefault();
-        const url = linkEl.dataset.grafanaUrl || '';
-        if (!url || url === '#') return;
-        const now = Date.now();
-        // Debounce rapid repeat clicks so a double/triple click opens one tab.
-        if (linkEl._grafanaOpenMs && now - linkEl._grafanaOpenMs < 500) return;
-        linkEl._grafanaOpenMs = now;
-        window.open(url, '_blank', 'noopener');
-      });
-    }
-  },
-
-  _applyOpenLinks(anomalyUrl, allUrl) {
-    const anomalyLink = document.getElementById('grafana-open-anomaly');
-    const allLink = document.getElementById('grafana-open-all');
-    if (!anomalyLink || !allLink) return;
-    anomalyLink.dataset.grafanaUrl = anomalyUrl;
-    allLink.dataset.grafanaUrl = allUrl;
-    setGrafanaElVisible(anomalyLink, true);
-    setGrafanaElVisible(allLink, true);
-  },
-
   async init(runId) {
-    const statusEl = document.getElementById('grafana-status');
-    const loadBtn = document.getElementById('grafana-load-btn');
-    this._bindOpenLinks();
+    const statusEl = document.getElementById("grafana-status");
+    const anomalyBtn = document.getElementById("grafana-open-anomaly");
+    const allBtn = document.getElementById("grafana-open-all");
+    // Legacy single-button id still works if present.
+    const legacyBtn = document.getElementById("grafana-open-btn");
+    if (!runId) {
+      if (statusEl) statusEl.textContent = "No run selected.";
+      return;
+    }
 
+    let base = "http://localhost:3030";
+    let anomaly = { uid: "simagix-grafana-anomaly", slug: "mongodb-ftdc-e28094-anomaly-focus" };
+    let allMetrics = { uid: "simagix-grafana", slug: "mongodb-ftdc-analytics" };
     try {
-      const status = await fetch('/simagix/runs/grafana/status').then((r) => r.json());
-      if (status.grafana && status.ftdc_api) {
+      const cfg = await fetch("/grafana/simple/config").then((r) => r.json());
+      if (cfg.url) base = String(cfg.url).replace(/\/$/, "");
+      if (cfg.anomaly && cfg.anomaly.uid) anomaly = cfg.anomaly;
+      if (cfg.all_metrics && cfg.all_metrics.uid) allMetrics = cfg.all_metrics;
+    } catch {
+      /* use defaults */
+    }
+
+    let fromMs = null;
+    let toMs = null;
+    let anomalyFrom = null;
+    let anomalyTo = null;
+    let hasAnomalies = false;
+    try {
+      const range = await fetch(
+        `/grafana/simple/runs/${encodeURIComponent(runId)}/range`,
+      ).then((r) => r.json());
+      if (range.from != null && range.to != null) {
+        fromMs = range.from;
+        toMs = range.to;
+      }
+      if (range.anomaly_from != null && range.anomaly_to != null) {
+        anomalyFrom = range.anomaly_from;
+        anomalyTo = range.anomaly_to;
+      }
+      hasAnomalies = Boolean(range.has_anomalies);
+    } catch {
+      /* open without absolute range */
+    }
+
+    const buildUrl = (dash, fromVal, toVal) => {
+      let url =
+        `${base}/d/${encodeURIComponent(dash.uid)}/${encodeURIComponent(dash.slug)}` +
+        `?orgId=1&var-run_id=${encodeURIComponent(runId)}`;
+      if (fromVal != null && toVal != null) {
+        url +=
+          `&from=${encodeURIComponent(String(fromVal))}` +
+          `&to=${encodeURIComponent(String(toVal))}`;
+      }
+      return url;
+    };
+
+    const anomalyUrl = buildUrl(
+      anomaly,
+      anomalyFrom != null ? anomalyFrom : fromMs,
+      anomalyTo != null ? anomalyTo : toMs,
+    );
+    const allUrl = buildUrl(allMetrics, fromMs, toMs);
+
+    if (statusEl) {
+      if (fromMs == null) {
         statusEl.textContent =
-          'Grafana stack is running. Open charts in a new tab, or reload FTDC data for this run.';
-      } else if (this._loadInProgress(runId)) {
+          "No metrics ingested for this run yet — Grafana panels may be empty.";
+      } else if (hasAnomalies) {
         statusEl.textContent =
-          'FTDC decode in progress (~2 min) — stack is busy; dashboard links appear when ready.';
+          "Anomaly View zooms to scored windows; All Metrics shows the full capture.";
       } else {
         statusEl.textContent =
-          'Grafana stack is not running (Docker/Colima may be stopped). ' +
-          'Start Docker with: colima start --cpu 4 --memory 8 — then click Load FTDC for this run.';
+          "Charts read Postgres metrics. Both views open on this run's capture window.";
       }
-    } catch {
-      statusEl.textContent = 'Could not reach Grafana status endpoint.';
     }
 
-    if (loadBtn && !loadBtn.dataset.grafanaBound) {
-      loadBtn.dataset.grafanaBound = '1';
-      loadBtn.addEventListener('click', () => this.loadRun(runId));
-    }
-    this._tryShowUrls(runId);
-  },
+    const wire = (btn, url) => {
+      if (!btn) return;
+      btn.hidden = false;
+      btn.classList.remove("hidden");
+      btn.removeAttribute("disabled");
+      btn.onclick = (event) => {
+        event.preventDefault();
+        window.open(url, "_blank", "noopener");
+      };
+    };
 
-  async _tryShowUrls(runId) {
-    const statusEl = document.getElementById('grafana-status');
-    try {
-      const resp = await fetch(`/simagix/runs/${runId}/grafana/urls`);
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (data.stack?.grafana && data.stack?.ftdc_api) {
-        this._showLinksFromUrls(data);
-        if (this._wasLoadedThisSession(runId)) {
-          statusEl.textContent =
-            'Grafana stack is running. FTDC already loaded this session — click Load FTDC to reload, or open a dashboard.';
-        } else if (this._loadInProgress(runId)) {
-          statusEl.textContent =
-            "FTDC decode already in progress (~2 min) — dashboard links are ready; data appears when decode finishes.";
-        } else {
-          statusEl.textContent =
-            "Grafana stack is running. Loading this run's FTDC data (~2 min)…";
-          await this.loadRun(runId, { silent: true });
-        }
-      }
-    } catch {
-      /* optional prefetch */
-    }
-  },
-
-  _showLinksFromUrls(data) {
-    this._applyOpenLinks(data.anomaly_focus_url, data.all_metrics_url);
-
-    const metrics = (data.anomaly_metrics || []).join(', ') || 'n/a';
-    const meta = document.getElementById('grafana-meta');
-    if (!meta) return;
-    setGrafanaElVisible(meta, true);
-    meta.textContent =
-      `Anomaly window: ${data.anomaly_window?.from} → ${data.anomaly_window?.to} | Metrics: ${metrics}`;
-  },
-
-  async loadRun(runId, options = {}) {
-    if (this._loadInFlight) {
-      return this._loadInFlight;
-    }
-    const { silent = false } = options;
-    const statusEl = document.getElementById('grafana-status');
-    const loadBtn = document.getElementById('grafana-load-btn');
-    loadBtn.disabled = true;
-    if (!silent) {
-      statusEl.textContent =
-        'Loading FTDC into Grafana (large datasets can take ~2 minutes)…';
-    }
-
-    this._loadInFlight = (async () => {
-    try {
-      try {
-        sessionStorage.setItem(`${this._loadedRunKey(runId)}:started`, String(Date.now()));
-      } catch {
-        /* ignore */
-      }
-      const resp = await fetch(`/simagix/runs/${runId}/grafana/load`, { method: 'POST' });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.detail || 'Load failed');
-      if (data.load?.ok !== 1) {
-        throw new Error(data.load?.err || 'FTDC API did not accept diagnostic.data');
-      }
-
-      statusEl.textContent =
-        'Grafana ready — FTDC loaded for this run. Open a dashboard in a new tab.';
-      this._markLoaded(runId);
-      this._showLinks(data);
-    } catch (err) {
-      statusEl.textContent = `Failed: ${err.message}. Run: ./simagix-workspace/scripts/run-grafana-stack.sh`;
-    } finally {
-      loadBtn.disabled = false;
-      this._loadInFlight = null;
-    }
-    })();
-    return this._loadInFlight;
-  },
-
-  _showLinks(data) {
-    this._applyOpenLinks(data.anomaly_focus_url, data.all_metrics_url);
-
-    const metrics = (data.anomaly_metrics || []).join(', ') || 'n/a';
-    const meta = document.getElementById('grafana-meta');
-    if (!meta) return;
-    setGrafanaElVisible(meta, true);
-    meta.textContent =
-      `Anomaly window: ${data.anomaly_window?.from} → ${data.anomaly_window?.to} | Metrics: ${metrics}`;
+    wire(anomalyBtn, anomalyUrl);
+    wire(allBtn, allUrl);
+    wire(legacyBtn, allUrl);
   },
 };

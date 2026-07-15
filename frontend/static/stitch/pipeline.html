@@ -59,14 +59,17 @@ Worker must be running: <code class="text-xs">uv run python -m backend.app.jobs.
     runId + (data.upload_time_utc ? " · " + data.upload_time_utc : "");
 
   const badge = document.getElementById("status-badge");
-  const labels = {
-    finished: "Complete",
-    processing: "Decoding…",
-    failed: "Failed",
-    stale: "Not enqueued",
-    queued: "Queued",
-  };
-  badge.textContent = labels[status] || status;
+  function progressLabel(st, message) {
+    if (st === "finished") return "Ready";
+    if (st === "failed") return "Failed";
+    if (st === "queued") return "Queued";
+    if (st === "stale") return "Stale";
+    if (st === "processing") {
+      return /ingest/i.test(message || "") ? "Loading metrics" : "Decoding";
+    }
+    return st;
+  }
+  badge.textContent = data.phase1_label || progressLabel(status, data.job_message);
 
   if (data.job_id) {
     document.getElementById("job-message").textContent = "Job: " + data.job_id;
@@ -95,9 +98,16 @@ Worker must be running: <code class="text-xs">uv run python -m backend.app.jobs.
           const job = await window.MdbPageData.fetchJob(data.job_id);
           document.getElementById("job-message").textContent =
             "Phase 1 " + job.state + ": " + (job.message || "");
+          badge.textContent = progressLabel(
+            job.state === "running" ? "processing" : job.state === "pending" ? "queued" : status,
+            job.message || ""
+          );
           if (job.state === "succeeded") {
             clearInterval(poll);
-            window.top.location.href = "/runs/" + encodeURIComponent(runId);
+            // Parent may already be /runs/{id} (gated pipeline) — reload to show RCA.
+            const path = (window.top.location.pathname || "").replace(/\/$/, "");
+            if (path === "/runs/" + runId) window.top.location.reload();
+            else window.top.location.href = "/runs/" + encodeURIComponent(runId);
           }
           if (job.state === "failed") {
             clearInterval(poll);
