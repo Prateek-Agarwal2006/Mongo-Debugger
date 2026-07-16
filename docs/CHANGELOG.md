@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-07-16 — Skill ZIP upload: skip Finder junk / NUL bytes
+
+**What:** Uploading a macOS zip that includes `.DS_Store` no longer returns HTTP 500; junk and any file containing NUL bytes are skipped, skill markdown is kept.
+
+**How:** `upload_skill_zip` filters members via `_is_skippable_skill_member` before JSONB upsert; regression test in `test_skills.py`.
+
+**Why:** Postgres `text`/`jsonb` reject `\u0000`; the UI then failed parsing plain `Internal Server Error` as JSON.
+
+---
+
 ## 2026-07-16 — README architecture: Latency Dashboard–style pods + shared MCP
 
 **What:** Root README runtime diagram matches Latency Dashboard style (UI nginx / API / worker / Postgres). Cursor and Gemini both use `build_mcp_server_specs` → **stdio MCP subprocesses on the API pod**; vendor clouds are model-only. Grafana `:3030` labeled Kind playground only.

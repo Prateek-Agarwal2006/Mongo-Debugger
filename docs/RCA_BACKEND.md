@@ -6,7 +6,7 @@ Base URL: `http://localhost:8000`
 Web UI: `http://localhost:8000/`  
 API docs: `http://localhost:8000/docs` (Bootstrap-themed Swagger UI) · ReDoc: `/redoc`
 
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-16
 
 **Path resolution:** All run-scoped disk paths go through `get_run_workspace()` in `backend/app/core/run_workspace.py`. Set env `DATA_ROOT` to the mount root (default: repo root). Layout under `{DATA_ROOT}/simagix-workspace/...` is unchanged.
 
@@ -377,7 +377,7 @@ Storage path: `simagix-workspace/operator/skills/{slot_name}/` (under `DATA_ROOT
 
 ```http
 GET /simagix/skills
-POST /simagix/skills          # multipart: slot_name + archive (.zip)
+POST /simagix/skills          # multipart: slot_name + archive (.zip); skips .DS_Store/__MACOSX/NUL bytes
 DELETE /simagix/skills/{slot_name}
 ```
 

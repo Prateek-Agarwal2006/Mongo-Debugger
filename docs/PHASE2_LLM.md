@@ -2,7 +2,7 @@
 
 Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc evidence pipeline.
 
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-16
 
 **Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry + Skill WorkArea + 3-phase RCA flow + live Graylog client).
 
@@ -125,9 +125,7 @@ Operators configure optional MCPs at **`GET /mcp-workarea`** (also linked from h
 
 ## Operator skill catalog (Skill WorkArea)
 
-Operators upload skill packages at **`GET /skill-workarea`**. Each upload is a **slot name** + **ZIP** stored pass-through under:
-
-`{DATA_ROOT}/simagix-workspace/operator/skills/{slot_name}/`
+Operators upload skill packages at **`GET /skill-workarea`**. Each upload is a **slot name** + **ZIP**. Durable store is Postgres (`skills` table JSONB); disk under `{DATA_ROOT}/simagix-workspace/operator/skills/{slot_name}/` is materialized for ADK/Cursor. Upload **skips** Finder junk (`.DS_Store`, `__MACOSX`) and any member containing NUL bytes — Postgres `text`/`jsonb` cannot store `\u0000`.
 
 | Concern | MCP WorkArea | Skill WorkArea |
 |---------|--------------|----------------|

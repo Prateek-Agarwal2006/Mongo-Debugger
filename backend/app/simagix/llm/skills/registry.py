@@ -24,6 +24,17 @@ _FRONTMATTER_DESC_RE = re.compile(
 )
 _FRONTMATTER_BLOCK_RE = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
 _FRONTMATTER_NAME_LINE_RE = re.compile(r"^name:\s*.+\s*$", re.MULTILINE)
+# Finder/zip junk — never skill content. NUL bytes also fail Postgres text/JSONB.
+_JUNK_FILE_NAMES = frozenset({".DS_Store", "Thumbs.db", "desktop.ini"})
+
+
+def _is_skippable_skill_member(rel: str, raw: bytes) -> bool:
+    """True when the zip member must not be stored in skills.files JSONB."""
+    path = Path(rel)
+    if path.name in _JUNK_FILE_NAMES or "__MACOSX" in path.parts:
+        return True
+    # ponytail: skills are UTF-8 text playbooks; NUL ⇒ binary / bad for PG text
+    return b"\x00" in raw
 
 
 def operator_skills_dir(workspace_root: Path) -> Path:
@@ -137,7 +148,11 @@ def upload_skill_zip(workspace_root: Path, slot_name: str, archive: bytes) -> di
             if file_path.is_dir():
                 continue
             rel = str(file_path.relative_to(skill_root))
-            files[rel] = file_path.read_text(encoding="utf-8", errors="replace")
+            raw = file_path.read_bytes()
+            if _is_skippable_skill_member(rel, raw):
+                logger.info("Skipping non-text skill member %s", rel)
+                continue
+            files[rel] = raw.decode("utf-8", errors="replace")
 
     for md_name in _SKILL_MD_NAMES:
         if md_name in files:

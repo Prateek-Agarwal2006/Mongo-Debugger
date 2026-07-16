@@ -96,6 +96,33 @@ def test_upload_skill_zip_single_top_level_folder(tmp_path: Path) -> None:
     assert "SKILL.md" in row[0]
 
 
+def test_upload_skill_zip_skips_ds_store_and_nul_bytes(tmp_path: Path) -> None:
+    """macOS Finder zips often include .DS_Store; Postgres rejects \\u0000 in JSONB."""
+    from backend.app.db.connection import db_conn
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "SKILL.md",
+            "---\nname: x\ndescription: Keep me\n---\n# Body\n",
+        )
+        zf.writestr(".DS_Store", b"\x00\x00mac junk")
+        zf.writestr("__MACOSX/._SKILL.md", b"\x00resource-fork")
+        zf.writestr("references/notes.txt", "keep this")
+    upload_skill_zip(tmp_path, "clean-playbook", buf.getvalue())
+
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT files FROM skills WHERE slot_name = %s", ("clean-playbook",)
+        ).fetchone()
+    assert row is not None
+    files = row[0]
+    assert "SKILL.md" in files
+    assert files["references/notes.txt"] == "keep this"
+    assert ".DS_Store" not in files
+    assert not any(path.startswith("__MACOSX") for path in files)
+
+
 def test_upload_skill_zip_rejects_missing_skill_md(tmp_path: Path) -> None:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
