@@ -17,6 +17,16 @@ _RUN = "rawtest20260609T000000Z"
 _KIND = "ftdc"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_raw_rows():
+    """Tests in this module share _RUN; wipe raw_files rows before and after each."""
+    from backend.tests.db_cleanup import wipe_raw_rows
+
+    wipe_raw_rows(_RUN)
+    yield
+    wipe_raw_rows(_RUN)
+
+
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _row_count(run_id: str, filename: str) -> int:

@@ -4,6 +4,8 @@ Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc e
 
 **Last updated:** 2026-07-16
 
+**Tier prompt policy:** Tier 1 = analyzed (in prompt); tier 2 = normalized MCP slices; tier 3 = raw (`list_raw_paths` → `get_raw_window`). Phase A prompt **requires** tier-3 calls before InvestigationSummary (prompt-only — no tool_trace hard gate). Tool phases also inject **ATTACHED THIS TURN** — runtime MCP server list (builtins + WorkArea `enabled_mcp_ids`) and all operator skills. See `prompts.py` `TIER_LIMITS_NOTICE` / `build_runtime_attachments_block`.
+
 **Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry + Skill WorkArea + 3-phase RCA flow + live Graylog client).
 
 ## Components

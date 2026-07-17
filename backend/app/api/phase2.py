@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from backend.app.core.config import get_settings
@@ -276,6 +276,23 @@ def get_latest_phase2_report(
     }
 
 
+@router.get("/{run_id}/phase2/charts/{chart_id}")
+def get_phase2_chart(run_id: str, chart_id: str) -> Response:
+    """Serve a report chart PNG produced by execute_plot_script (stored in PG)."""
+    from backend.app.simagix.evidence.chart_tools import load_chart_png
+
+    if not chart_id.isalnum() or len(chart_id) > 32:
+        raise HTTPException(status_code=400, detail="Invalid chart id")
+    png = load_chart_png(run_id, chart_id)
+    if png is None:
+        raise HTTPException(status_code=404, detail=f"Chart not found: {chart_id}")
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400, immutable"},
+    )
+
+
 @router.get("/{run_id}/phase2/anomaly-correlation")
 def get_anomaly_correlation(run_id: str) -> dict[str, object]:
     try:
@@ -359,6 +376,7 @@ def post_chatbot(
 def view_latest_phase2_report_html(
     run_id: str,
     llm: Annotated[str | None, Query(description="LLM folder: mock, cursor, or gemini")] = None,
+    download: Annotated[bool, Query(description="Serve as file download instead of inline view")] = False,
 ) -> HTMLResponse:
     folder = _require_llm(llm)
     session = phase2_session_store.get_or_load(run_id, get_run_workspace().root, folder)
@@ -372,6 +390,7 @@ def view_latest_phase2_report_html(
         )
 
     tool_usage = resolve_tool_usage(session)
+    metadata = session.load_metadata()
     correlation: dict[str, object] = {}
     try:
         tier1 = session.evidence.load_tier1()
@@ -383,7 +402,13 @@ def view_latest_phase2_report_html(
         report,
         run_id=run_id,
         agent_id=session.agent_id,
+        provider=metadata.get("provider"),
         tool_usage=tool_usage,
         correlation=correlation,
     )
-    return HTMLResponse(html)
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = (
+            f'attachment; filename="rca-report-{run_id}-{folder}.html"'
+        )
+    return HTMLResponse(html, headers=headers)

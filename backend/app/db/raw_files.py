@@ -35,6 +35,31 @@ def reassemble_raw_file(conn: Any, run_id: str, kind: str, filename: str, dest: 
             fh.write(bytes(chunk))
 
 
+def store_raw_bytes(conn: Any, run_id: str, kind: str, filename: str, data: bytes) -> None:
+    """Chunk in-memory bytes into raw_files rows. Idempotent (ON CONFLICT DO NOTHING)."""
+    for chunk_no, offset in enumerate(range(0, len(data), _CHUNK_BYTES)):
+        conn.execute(
+            "INSERT INTO raw_files (run_id, kind, filename, chunk_no, data)"
+            " VALUES (%s, %s, %s, %s, %s)"
+            " ON CONFLICT DO NOTHING",
+            (run_id, kind, filename, chunk_no, data[offset : offset + _CHUNK_BYTES]),
+        )
+
+
+def read_raw_file_bytes(conn: Any, run_id: str, kind: str, filename: str) -> bytes | None:
+    """Reassemble chunks in memory. None when no chunks exist."""
+    cur = conn.execute(
+        "SELECT data FROM raw_files"
+        " WHERE run_id=%s AND kind=%s AND filename=%s"
+        " ORDER BY chunk_no",
+        (run_id, kind, filename),
+    )
+    chunks = [bytes(row[0]) for row in cur]
+    if not chunks:
+        return None
+    return b"".join(chunks)
+
+
 def list_raw_filenames(conn: Any, run_id: str, kind: str) -> list[str]:
     """Distinct filenames stored for (run_id, kind), sorted."""
     cur = conn.execute(

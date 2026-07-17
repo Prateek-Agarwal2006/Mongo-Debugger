@@ -300,7 +300,7 @@ Details: [PHASE2_LLM.md](PHASE2_LLM.md).
 
 ## Running tests
 
-Tests need Postgres (`DATABASE_URL`). Example local DB:
+Tests need a **disposable** Postgres (`DATABASE_URL`). **Never** point pytest at Kind/live (`host=postgres`, `db=debugger`) — `conftest` refuses those URLs and must not wipe operator runs.
 
 ```bash
 docker run -d --name mongo-debugger-pg -e POSTGRES_PASSWORD=dev \
@@ -309,6 +309,8 @@ export DATABASE_URL=postgresql://postgres:dev@localhost:5544/mongodebugger
 uv sync --extra prod --extra dev --extra llm   # psycopg pool + Cursor SDK + google-adk
 uv run pytest backend/tests -q
 ```
+
+Allowed: `localhost`/`127.0.0.1` + db `mongodebugger`, or any db name ending in `test`. Guard: `backend/tests/db_guard.py`.
 
 GitHub Actions (`.github/workflows/test.yml`) starts Postgres 16 as a service, syncs `--extra prod`, and sets `DATABASE_URL` automatically.
 

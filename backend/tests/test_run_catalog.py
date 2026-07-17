@@ -12,6 +12,18 @@ from backend.app.jobs.catalog import (
 from backend.app.jobs.queue import JobQueue
 from backend.app.jobs.store import JobState, JobStatus, JobStore
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_manifest_rows():
+    """Other modules seed a manifest evidence row for the shared run id."""
+    from backend.tests.db_cleanup import wipe_manifest_row
+
+    wipe_manifest_row("upload20260618T120000Z")
+    yield
+    wipe_manifest_row("upload20260618T120000Z")
+
 
 def test_list_run_catalog_shows_failed_upload_without_export(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)

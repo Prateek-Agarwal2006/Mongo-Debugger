@@ -59,6 +59,7 @@ env:
 secrets:
   cursorApiKey: ""
   googleApiKey: ""
+  daytonaApiKey: ""            # sandbox for LLM-authored chart scripts (execute_plot_script)
   # DATABASE_URL is auto-constructed from postgres.* above; override here if
   # pointing at an external PG instance.
   databaseUrlOverride: ""

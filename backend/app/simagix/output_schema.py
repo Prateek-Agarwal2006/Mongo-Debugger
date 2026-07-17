@@ -21,6 +21,16 @@ class EvidenceCitation(BaseModel):
     values: dict[str, Any] = Field(default_factory=dict)
 
 
+class ChartArtifact(BaseModel):
+    """Server-rendered metric chart (PNG stored in PG) referenced by the report."""
+
+    chart_id: str
+    metric_paths: list[str] = Field(default_factory=list)
+    time_window: str = ""
+    caption: str = ""
+    finding_name: str | None = None
+
+
 class FindingAnalysis(BaseModel):
     """Per-finding deep dive: what was observed and why (mechanism), not symptoms alone."""
 
@@ -30,6 +40,7 @@ class FindingAnalysis(BaseModel):
     contributing_factors: list[str] = Field(default_factory=list)
     related_metrics: list[str] = Field(default_factory=list)
     time_window: str | None = None
+    chart_id: str | None = None
 
 
 class TimelineEvent(BaseModel):
@@ -54,6 +65,7 @@ class RCAReportDraft(BaseModel):
     safe_fixes: list[str] = Field(default_factory=list)
     findings_used: list[str] = Field(default_factory=list)
     reference_urls: list[str] = Field(default_factory=list)
+    charts: list[ChartArtifact] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
 

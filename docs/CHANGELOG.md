@@ -3,9 +3,39 @@
 Living record of **what changed**, **how**, and **why** — for demos, handoffs, and your own memory.  
 For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). For design rationale, see [DESIGN_NOTES.md](DESIGN_NOTES.md).
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-07-17
 
 **Maintenance guide:** [DOC_MAINTENANCE.md](DOC_MAINTENANCE.md) — which docs to update for each type of change.
+
+---
+
+## 2026-07-17 — Charts: LLM-authored matplotlib runs in Daytona sandbox (replaces in-pod render)
+
+**What:** `render_metric_chart` (server-side matplotlib) replaced by `execute_plot_script`: the agent writes the plotting code (template lives in the `metric-plotter` skill) and it executes in an ephemeral Daytona microVM — never in a pod. Server pushes `data.csv` in, pulls `chart.png` out, stores it in `raw_files` (kind=`charts`); chart_id/report/download pipeline unchanged. matplotlib dropped from the API image; `daytona` SDK added to the `llm` extra.
+
+**How:** `sandbox_plot.py` (fetch series → sandbox → store PNG, sandbox deleted in `finally`); `chart_tools.py` reduced to fetch/CSV/store helpers; MCP tool + prompts + skill rewired; `DAYTONA_API_KEY` in helm secret + both deployments. `test_sandbox_plot.py` mocks the SDK; live smoke + live E2E (143k points) verified against Kind data.
+
+**Why:** LLM-generated code must not execute inside pods (credentials, cluster access). Sandbox = isolation for untrusted code; skill now carries real plotting code per mentor's design.
+
+---
+
+## 2026-07-16 — Phase A prompt: clear tiers + mandatory tier-3 + runtime MCP/skills inventory
+
+**What:** Prompt text separates tier 1/2/3; Phase A **must** call tier-3 tools (prompt-only). Phase A/C/chatbot prompts list **MCP servers + skills actually attached this turn** (WorkArea checkboxes + catalog), not a blurry static tool list.
+
+**How:** `build_runtime_attachments_block` via `build_mcp_server_specs` + `list_skill_dirs`; wired through `prepare_*` / chatbot with `enabled_mcp_ids`; `test_tier_prompt_policy.py`.
+
+**Why:** “Available MCP tools: get_metric_window…” hid WorkArea MCPs/skills; tier copy was confused.
+
+---
+
+## 2026-07-16 — Pytest: refuse Kind/live DB; stop wiping operator runs
+
+**What:** `pytest` refuses Kind/live `DATABASE_URL` (`postgres` / `debugger`). Per-test cleanup no longer `DELETE`s non-fixture `metrics` / `evidence` / `raw_files`.
+
+**How:** `backend/tests/db_guard.py` + conftest import check; `_clean_job_tables` only `TRUNCATE`s `jobs` / `job_status` / `phase2_state`; guard unit tests; OPERATIONS + AGENTS warnings.
+
+**Why:** Pointing the suite at Kind Postgres wiped operator uploads — must not be possible again by accident.
 
 ---
 

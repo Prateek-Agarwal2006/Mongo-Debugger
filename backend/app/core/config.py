@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     cursor_model: str = "grok-4.5"
     llm_provider: str = "cursor"
     google_api_key: str | None = None
+    daytona_api_key: str | None = None
     google_model: str = "gemini-2.5-flash"
     google_genai_use_vertexai: bool = False
     phase2_investigation_max_tool_calls: int = 1_000_000

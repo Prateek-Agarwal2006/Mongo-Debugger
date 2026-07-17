@@ -449,9 +449,14 @@ function llmQuery() {
 function updateReportLinks() {
   const llm = selectedLlm();
   const htmlLink = document.getElementById("html-report-link");
+  const downloadLink = document.getElementById("download-report-link");
   const plainLink = document.getElementById("plain-report-link");
   if (htmlLink) {
     htmlLink.href = `/simagix/runs/${RUN_ID}/phase2/reports/latest/view?llm=${encodeURIComponent(llm)}`;
+  }
+  if (downloadLink) {
+    downloadLink.href =
+      `/simagix/runs/${RUN_ID}/phase2/reports/latest/view?llm=${encodeURIComponent(llm)}&download=1`;
   }
   if (plainLink) {
     plainLink.href =

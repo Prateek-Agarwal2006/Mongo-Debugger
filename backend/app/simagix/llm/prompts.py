@@ -1,30 +1,52 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
-from backend.app.simagix.llm.detail_requirements import DETAIL_REQUIREMENTS
-from backend.app.simagix.output_schema import InvestigationSummary
+from backend.app.core.config import Settings
+from backend.app.simagix.evidence.hatchet_tools import HATCHET_MCP_TOOL_NAMES
 from backend.app.simagix.evidence_block import build_phase2_prompt, build_tier1_evidence_block
+from backend.app.simagix.llm.detail_requirements import DETAIL_REQUIREMENTS
+from backend.app.simagix.llm.mcp.connectors import McpConnectorRegistry
+from backend.app.simagix.llm.mcp.registry import build_mcp_server_specs
+from backend.app.simagix.llm.session import Phase2Session
+from backend.app.simagix.llm.skills.registry import list_skill_dirs
+from backend.app.simagix.output_schema import InvestigationSummary
+
+_SIMAGIX_EVIDENCE_TOOLS = (
+    "get_metric_window",
+    "get_normalized_series",
+    "list_fallback_metrics",
+    "list_raw_paths",
+    "get_raw_window",
+    "execute_plot_script",
+    "get_budget_status",
+)
+_GRAYLOG_TOOLS = ("query_logs_around_window",)
+
+# Skill slots that, when uploaded, the agent must treat as binding playbooks
+# (enforced via a hard clause in the runtime attachments block).
+MANDATORY_SKILLS = ("metric-plotter",)
 
 TIER_LIMITS_NOTICE = (
-    "TIER COVERAGE (READ BEFORE CONCLUDING):\n"
-    "- Tier 1 (analyzed, in this prompt) exposes ~89 curated MongoDB metrics — a small "
-    "opinionated slice picked for common DBA playbooks (disk, CPU, memory, repl lag, "
-    "connections, flow control).\n"
-    "- Tier 2 (get_metric_window, get_normalized_series, list_fallback_metrics) is a SUBSET "
-    "of tier 1 — same metrics, just retrievable as slices.\n"
-    "- MongoDB actually captures ~5,000 FTDC paths per second (per-command counters, deep "
-    "lock trees, WiredTiger internals, replSetGetStatus mechanics, cursor histograms, "
-    "config snapshots, etc.). Tier 1 shows ~1.8 % of them.\n"
-    "- If the question needs MECHANISM attribution ('which command caused the spike?', "
-    "'which namespace held the lock?', 'network vs apply lag?', 'was flowControl toggled?'), "
-    "the curated tiers likely CANNOT answer it — the evidence lives in tier 3 (raw).\n"
-    "- Use list_raw_paths() with no args to see the full path taxonomy, then "
-    "list_raw_paths(pattern) for exact names, then get_raw_window for values. No budget cost.\n"
-    "- Detection ('what & when') can succeed on tier 1 alone. Attribution ('why & how') "
-    "usually cannot. Do not conclude on tier 1/2 for attribution questions without checking "
-    "whether tier 3 has the missing mechanism.\n"
+    "EVIDENCE TIERS (do not confuse these):\n"
+    "- Tier 1 — ANALYZED (already in this prompt): findings, anomaly windows, assessment "
+    "highlights. What/when from mongo-ftdc. Not the full FTDC path catalog.\n"
+    "- Tier 2 — NORMALIZED slices via MCP: get_metric_window, get_normalized_series, "
+    "list_fallback_metrics. Same curated ~89 playbook metrics as time series for proof — "
+    "NOT a second opinionated diagnosis layer, and NOT raw FTDC.\n"
+    "- Tier 3 — RAW FTDC (~thousands of paths/sec: per-command counters, locks, WiredTiger, "
+    "repl internals, etc.): list_raw_paths → get_raw_window. This is where mechanism lives.\n"
+    "MANDATORY TIER-3 (whenever tools are attached — investigation, final RCA, chatbot):\n"
+    "- You MUST call list_raw_paths (browse taxonomy and/or pattern) AND at least one "
+    "get_raw_window on paths relevant to the top anomaly / findings BEFORE claiming "
+    "mechanism (InvestigationSummary why/how, RCA attribution, or chatbot mechanism answers).\n"
+    "- Do NOT finish on tier 1+2 alone. Detection can start from tier 1; attribution "
+    "('why/how', which command/namespace/lock/sync-source) REQUIRES tier-3 tool results "
+    "cited in metric_insights, finding_analyses, or the reply.\n"
+    "- list_raw_paths and get_raw_window consume the tool-call budget (list_fallback_metrics "
+    "does not).\n"
 )
 
 
@@ -56,10 +78,11 @@ SCRATCH_RULES = (
 # Phase A: tier-1 is embedded in the prompt — forbid bundle reads so the agent uses simagix-evidence MCP.
 INVESTIGATION_SCRATCH_RULES = (
     "SCRATCH RULES (Phase A — investigation):\n"
-    "- Tier-2 metric proof MUST use simagix-evidence MCP (get_metric_window, get_normalized_series, "
-    "list_fallback_metrics). Do not skip MCP.\n"
+    "- Tier-2 proof: simagix-evidence MCP (get_metric_window, get_normalized_series, "
+    "list_fallback_metrics).\n"
+    "- Tier-3 proof (MANDATORY): list_raw_paths then get_raw_window — do not skip.\n"
     "- Do NOT read, grep, or glob phase1/, normalized/, diagnosis/, or other export bundle files — "
-    "tier-1 context is already in this prompt.\n"
+    "tier-1 context is already in this prompt; use MCP for tier 2/3.\n"
     "- read/grep/shell only under chatbot_scratch/ for transient scratch work.\n"
     "- Do NOT write or edit backend/, simagix-workspace/exports/ (except chatbot_scratch/), "
     "latest_report.json, investigation.json, or git-tracked files.\n"
@@ -95,32 +118,126 @@ def _hatchet_evidence_suffix(package: dict[str, Any]) -> str:
     return f"\n\n--- Hatchet log evidence (tier 1) ---\n{block}"
 
 
-def build_investigate_user_message(package: dict[str, Any]) -> str:
+def _tools_line_for_server(server_id: str) -> str:
+    if server_id == "simagix-evidence":
+        return ", ".join(_SIMAGIX_EVIDENCE_TOOLS)
+    if server_id in {"graylog", "graylog-logs"}:
+        return ", ".join(_GRAYLOG_TOOLS)
+    if server_id == "hatchet-evidence":
+        return ", ".join(sorted(HATCHET_MCP_TOOL_NAMES))
+    return "(tool names discovered when the server connects)"
+
+
+def build_runtime_attachments_block(
+    session: Phase2Session,
+    settings: Settings,
+    package: dict[str, Any],
+    *,
+    enabled_mcp_ids: list[str] | None = None,
+    include_tools: bool = True,
+) -> str:
+    """List MCP servers + skills actually attached this turn (known at runtime)."""
+    if not include_tools:
+        return (
+            "ATTACHED THIS TURN: none — text-only phase (no MCP servers, no skills, no web_fetch).\n"
+        )
+
+    # Inventory is best-effort: an unknown WorkArea connector id must not fail
+    # the run/chatbot request here — the provider's MCP wiring is the authority.
+    try:
+        specs = build_mcp_server_specs(
+            session,
+            settings,
+            enabled_mcp_ids=enabled_mcp_ids,
+        )
+    except ValueError:
+        specs = build_mcp_server_specs(session, settings, enabled_mcp_ids=None)
+    connector_meta: dict[str, Any] = {}
+    if enabled_mcp_ids:
+        registry = McpConnectorRegistry(session.workspace_root)
+        try:
+            for record in registry.resolve_enabled(enabled_mcp_ids):
+                connector_meta[record.id] = record
+        except ValueError:
+            pass
+
+    lines = [
+        "ATTACHED THIS TURN (runtime inventory — only these MCP servers/skills are wired; "
+        "do not invent others):\n",
+        "MCP servers:\n",
+    ]
+    if not specs:
+        lines.append("- (none)\n")
+    for spec in specs:
+        record = connector_meta.get(spec.server_id)
+        if record is not None:
+            label = f"{record.name} [{spec.server_id}]"
+            detail = record.description or f"WorkArea {spec.transport}"
+        else:
+            label = spec.server_id
+            detail = f"builtin ({spec.transport})"
+        tools = _tools_line_for_server(spec.server_id)
+        lines.append(f"- {label} — {detail}\n  tools: {tools}\n")
+
+    lines.append("- web_fetch — app HTTPS fetch tool (not an MCP server); use when prompts ask for docs\n")
+
+    skills = list_skill_dirs(Path(session.workspace_root))
+    lines.append("\nOperator skills (all slots attached automatically):\n")
+    if not skills:
+        lines.append("- (none uploaded)\n")
+    else:
+        for skill in skills:
+            slot = skill.get("slot_name", "?")
+            desc = (skill.get("description") or "").strip() or "operator skill"
+            lines.append(f"- {slot} — {desc}\n")
+
+    attached_slots = {skill.get("slot_name") for skill in skills}
+    for slot in MANDATORY_SKILLS:
+        if slot in attached_slots:
+            lines.append(
+                f"\nMANDATORY SKILL: '{slot}' is not optional reference material. "
+                f"Read its SKILL.md before starting and follow its playbook exactly — "
+                f"output that skips its required steps is invalid and will be rejected.\n"
+            )
+
+    lines.append(
+        "\nUse only servers/skills listed above. WorkArea MCP checkboxes change this list per run.\n\n"
+    )
+    return "".join(lines)
+
+
+def build_investigate_user_message(
+    package: dict[str, Any],
+    *,
+    runtime_attachments: str = "",
+) -> str:
     context = package.get("context", {})
-    available_tools = package.get("available_tools", [])
-    tools_text = ", ".join(available_tools)
     retrievable_metrics = context.get("retrievable_metrics", [])
 
     schema = InvestigationSummary.model_json_schema()
+    attachments = runtime_attachments or (
+        "ATTACHED THIS TURN: (inventory not provided — use simagix-evidence MCP if available)\n\n"
+    )
 
     return (
         "You are a MongoDB RCA analyst in INVESTIGATION mode (not final RCA).\n"
         f"{INVESTIGATION_SCRATCH_RULES}"
         f"{TIER_LIMITS_NOTICE}"
-        "Use simagix-evidence MCP tools for metric slices and logs when available.\n"
-        "Tier-1 summarizes mongo-ftdc findings; call MCP (get_metric_window, list_fallback_metrics) "
-        "for tier-2 proof on any retrievable metric listed below — do not read normalized JSON from disk.\n"
-        "For mechanism attribution (which command / namespace / lock / sync-source caused the anomaly), "
-        "reach for tier-3 raw tools (list_raw_paths, get_raw_window) — curated tiers will not have the paths.\n"
-        "If Graylog MCP is available, query logs around the primary anomaly window.\n"
+        "Use simagix-evidence MCP for tier-2 slices and mandatory tier-3 raw windows.\n"
+        "Tier-1 in this prompt is analyzed findings only. Call get_metric_window / "
+        "list_fallback_metrics for tier-2 proof on retrievable metrics below — do not read "
+        "normalized JSON from disk.\n"
+        "REQUIRED before output: list_raw_paths + get_raw_window for mechanism paths tied to "
+        "top anomalies (command / namespace / lock / sync-source / WiredTiger / repl internals). "
+        "Record those calls in tool_calls_made and cite values in metric_insights.\n"
+        "If a Graylog MCP server is listed below, query logs around the primary anomaly window.\n"
         f"{_hatchet_mcp_guidance(package)}"
         f"{WEB_SEARCH_INVESTIGATION}"
         f"{DETAIL_REQUIREMENTS}"
         "Do NOT produce a final RCAReportDraft — only an InvestigationSummary.\n"
         "Cite specific metrics, windows, tool results, and web sources in the appropriate fields.\n"
         "finding_analyses and incident_timeline are REQUIRED when tier-1 findings exist.\n\n"
-        f"Available MCP tools: {tools_text}\n"
-        "Optional: graylog query_logs_around_window when Graylog is configured.\n\n"
+        f"{attachments}"
         "Output requirements:\n"
         "- Respond with a single JSON object matching InvestigationSummary.\n"
         "- Wrap the JSON in a ```json fenced code block.\n"
@@ -192,19 +309,19 @@ def build_phase2_user_message(
     *,
     user_answers: dict[str, str] | None = None,
     investigation: InvestigationSummary | dict[str, Any] | None = None,
+    runtime_attachments: str = "",
 ) -> str:
     context = package.get("context", {})
     findings = context.get("findings", [])
     grounding_rules = package.get("grounding_rules", {})
     output_schema = package.get("output_schema", {})
-    available_tools = package.get("available_tools", [])
 
     tier1_insufficient = len(findings) == 0
     fallback_guidance = (
         "Tier-1 findings are empty or insufficient. Call simagix-evidence fallback tools when available "
         "(get_metric_window, get_normalized_series, list_fallback_metrics, "
         "list_raw_paths, get_raw_window) "
-        "to gather proof before concluding; skip tools not registered on this run.\n"
+        "to gather proof before concluding; skip tools not listed in ATTACHED THIS TURN.\n"
         if tier1_insufficient
         else (
             "Build on the investigation summary below. Call simagix-evidence tools only "
@@ -214,7 +331,9 @@ def build_phase2_user_message(
 
     rules_text = json.dumps(grounding_rules, indent=2)
     schema_text = json.dumps(output_schema, indent=2)
-    tools_text = ", ".join(available_tools)
+    attachments = runtime_attachments or (
+        "ATTACHED THIS TURN: (inventory not provided — use simagix-evidence MCP if available)\n\n"
+    )
 
     user_context_block = ""
     if user_answers:
@@ -244,13 +363,13 @@ def build_phase2_user_message(
         f"{_hatchet_mcp_guidance(package)}"
         "Cite log insights, operator answers, and web sources when relevant.\n"
         "Every causal claim MUST cite evidence (finding, anomaly window, metric slice, log, operator, or web).\n"
-        "For root-cause attribution (which command / namespace / lock / sync-source), do NOT rely on the "
-        "89 curated metrics alone — check tier 3 (list_raw_paths / get_raw_window) before concluding. "
-        "A tier-1-only attribution is a red flag.\n"
+        "For root-cause attribution (which command / namespace / lock / sync-source), you MUST use "
+        "tier-3 (list_raw_paths → get_raw_window) — do not conclude from tier 1 findings or tier 2 "
+        "curated slices alone. A tier-1/2-only attribution is a red flag.\n"
         f"{DETAIL_REQUIREMENTS}"
         f"{fallback_guidance}\n"
         f"{WEB_SEARCH_FINAL_RCA}\n"
-        f"Available MCP tools: {tools_text}\n\n"
+        f"{attachments}"
         "Grounding rules:\n"
         f"{rules_text}\n\n"
         "Output requirements:\n"
@@ -297,6 +416,7 @@ def build_chatbot_prompt(
     recent_messages: list[dict[str, str]],
     user_message: str,
     scratch_dir: str,
+    runtime_attachments: str = "",
 ) -> str:
     inv_block = ""
     if investigation:
@@ -318,18 +438,22 @@ def build_chatbot_prompt(
     history_block = ""
     if history_lines:
         history_block = "\n--- Recent chat ---\n" + "\n".join(history_lines) + "\n"
+    attachments = runtime_attachments or (
+        "ATTACHED THIS TURN: (inventory not provided — use simagix-evidence MCP if available)\n\n"
+    )
 
     return (
         "You are a MongoDB RCA chatbot helping an operator after the final report.\n"
         f"{SCRATCH_RULES}"
         f"{TIER_LIMITS_NOTICE}"
         f"Scratch directory: {scratch_dir}\n"
-        "Use simagix-evidence MCP tools, web_fetch, read/grep/shell when needed to answer.\n"
-        "When the operator asks a follow-up about which command / namespace / lock / oplog "
-        "mechanism drove an anomaly, reach for tier 3 (list_raw_paths → get_raw_window) — "
-        "the report was written from tier 1/2 and may not contain the answer.\n"
+        "Use attached MCP tools, web_fetch, read/grep/shell when needed to answer.\n"
+        "When the operator asks which command / namespace / lock / oplog mechanism drove an "
+        "anomaly, you MUST use tier 3 (list_raw_paths → get_raw_window) — the report may only "
+        "have tier 1/2 and that is not enough for mechanism.\n"
         "Reply in clear markdown. Do NOT output RCA JSON schemas.\n"
         "Ground answers in the report and investigation; cite evidence when making claims.\n\n"
+        f"{attachments}"
         "--- Latest RCA report ---\n"
         f"{json.dumps(report, indent=2)}\n"
         f"{inv_block}"

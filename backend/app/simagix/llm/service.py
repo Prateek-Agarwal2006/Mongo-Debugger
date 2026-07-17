@@ -25,6 +25,7 @@ from backend.app.simagix.llm.prompts import (
     build_clarify_user_message,
     build_investigate_user_message,
     build_phase2_user_message,
+    build_runtime_attachments_block,
 )
 from backend.app.simagix.llm.provider import LLMProvider, Phase2RunResult
 from backend.app.simagix.evidence.hatchet_tools import assert_hatchet_ready_for_phase2
@@ -139,6 +140,7 @@ def prepare_phase2_run(
     max_tool_calls: int | None = None,
     user_answers: dict[str, str] | None = None,
     investigation: InvestigationSummary | None = None,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> tuple[Phase2Session, str]:
     settings = get_settings()
     session = phase2_session_store.get_or_create(
@@ -152,10 +154,18 @@ def prepare_phase2_run(
     assert_hatchet_ready_for_phase2(workspace_root, run_id)
     inv = investigation or session.load_investigation()
     package = session.evidence.build_phase2_llm_package()
+    attachments = build_runtime_attachments_block(
+        session,
+        settings,
+        package,
+        enabled_mcp_ids=enabled_mcp_ids,
+        include_tools=True,
+    )
     user_message = build_phase2_user_message(
         package,
         user_answers=user_answers,
         investigation=inv,
+        runtime_attachments=attachments,
     )
     return session, user_message
 
@@ -166,6 +176,7 @@ def prepare_investigation_run(
     *,
     llm: str,
     max_tool_calls: int | None = None,
+    enabled_mcp_ids: list[str] | None = None,
 ) -> tuple[Phase2Session, str]:
     settings = get_settings()
     session = phase2_session_store.get_or_create(
@@ -182,7 +193,16 @@ def prepare_investigation_run(
         reset=True,
     )
     package = session.evidence.build_phase2_llm_package()
-    user_message = build_investigate_user_message(package)
+    attachments = build_runtime_attachments_block(
+        session,
+        settings,
+        package,
+        enabled_mcp_ids=enabled_mcp_ids,
+        include_tools=True,
+    )
+    user_message = build_investigate_user_message(
+        package, runtime_attachments=attachments
+    )
     return session, user_message
 
 
@@ -202,6 +222,7 @@ def run_investigation(
         run_id,
         llm=llm,
         max_tool_calls=settings.phase2_investigation_max_tool_calls,
+        enabled_mcp_ids=enabled_mcp_ids,
     )
     llm_backend = provider or get_llm_provider(
         force_mock=force_mock,
@@ -398,6 +419,7 @@ def run_phase2(
         max_tool_calls=settings.phase2_rca_max_tool_calls,
         user_answers=user_answers,
         investigation=inv,
+        enabled_mcp_ids=enabled_mcp_ids,
     )
     llm_backend = provider or get_llm_provider(
         force_mock=force_mock,
@@ -539,6 +561,14 @@ def post_chatbot_message(
         for m in recent[:-1]
     ]
     materialize_attachments(session)
+    package = session.evidence.build_phase2_llm_package()
+    attachments = build_runtime_attachments_block(
+        session,
+        settings,
+        package,
+        enabled_mcp_ids=enabled_mcp_ids,
+        include_tools=True,
+    )
     prompt = build_chatbot_prompt(
         report=report.model_dump(),
         investigation=investigation.model_dump() if investigation else None,
@@ -546,6 +576,7 @@ def post_chatbot_message(
         recent_messages=recent_payload,
         user_message=prompt_user_text,
         scratch_dir=str(session.ensure_chatbot_scratch_dir()),
+        runtime_attachments=attachments,
     )
 
     provider = get_llm_provider(force_mock=force_mock, llm_provider=llm_provider, llm=llm)

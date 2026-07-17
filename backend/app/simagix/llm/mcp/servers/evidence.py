@@ -113,6 +113,39 @@ def get_raw_window(
 
 
 @mcp.tool()
+def execute_plot_script(
+    paths: list[str],
+    start_ts: float,
+    end_ts: float,
+    script: str,
+    finding_name: str | None = None,
+) -> dict[str, Any]:
+    """Run YOUR matplotlib script in an isolated sandbox and get back a chart_id for the report.
+
+    paths: up to 4 exact FTDC path strings from list_raw_paths() (tier-2
+    fallback metric names also work). start_ts / end_ts: epoch seconds.
+    script: a complete Python plotting script you write (adapt the template in
+    the metric-plotter skill). finding_name: the finding this chart supports.
+
+    The server fetches the series and places them in the sandbox as data.csv
+    (columns: ts = epoch seconds, plus one column per metric path; empty cells
+    are possible). Your script MUST read data.csv and save the figure to
+    chart.png — matplotlib and pandas are preinstalled. The sandbox has no
+    network and no database access; only data.csv exists.
+
+    Budget-exempt — does not consume a tool call. On success you receive
+    {"chart_id": ...}. You MUST then (1) set chart_id on the matching
+    finding_analyses entry and (2) append an entry to the report's charts
+    array: {chart_id, metric_paths, time_window, caption, finding_name}.
+    Never fabricate chart_id values. On {"error": ...} with output_tail, fix
+    the script and call again.
+    """
+    return _evidence_service().execute_plot_script(
+        paths, start_ts, end_ts, script, finding_name=finding_name
+    )
+
+
+@mcp.tool()
 def get_budget_status() -> dict[str, Any]:
     """Return remaining retrieval budget for this session."""
     return _evidence_service().get_budget_status()

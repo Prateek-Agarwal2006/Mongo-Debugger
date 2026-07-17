@@ -32,6 +32,10 @@ When you change behavior, APIs, architecture, or ops:
 
 Rule: `.cursor/rules/doc-maintenance.mdc` (always applied).
 
+## Pytest / database safety (required)
+
+**Never** run `pytest` (or any test that uses `DATABASE_URL`) against Kind/live Postgres (`postgres:5432/debugger` or a port-forward to the cluster DB). Use a disposable local/CI DB only (`mongodebugger` on localhost — see [docs/OPERATIONS.md](docs/OPERATIONS.md)). `backend/tests/db_guard.py` refuses live URLs; do not bypass it. Do not add fixtures that `DELETE`/`TRUNCATE` operator run bodies (`metrics`, `evidence`, `raw_files`) by “keep fixture only.”
+
 ## Feature workflow (required)
 
 Per feature branch — **do not skip steps**; **do not commit until the user asks** after code review.

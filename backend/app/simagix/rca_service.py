@@ -77,6 +77,28 @@ class RcaService:
         self.budget.consume_tool_call("get_raw_window")
         return self.tools.get_raw_window(paths, start_ts, end_ts)
 
+    def execute_plot_script(
+        self,
+        paths: list[str],
+        start_ts: float,
+        end_ts: float,
+        script: str,
+        finding_name: str | None = None,
+    ) -> dict[str, Any]:
+        # Budget-exempt: the LLM already paid for the discovery calls
+        # (list_raw_paths / get_raw_window); the script runs in a Daytona
+        # sandbox, never in this process.
+        from backend.app.simagix.evidence.sandbox_plot import execute_plot_script
+        return execute_plot_script(
+            self.run_id,
+            self.workspace_root,
+            paths,
+            start_ts,
+            end_ts,
+            script,
+            finding_name=finding_name,
+        )
+
     def get_budget_status(self) -> dict[str, Any]:
         return self.budget.status()
 
@@ -89,6 +111,7 @@ class RcaService:
             "list_fallback_metrics",
             "list_raw_paths",
             "get_raw_window",
+            "execute_plot_script",
             "get_budget_status",
         ]
         if hatchet_summary is not None:

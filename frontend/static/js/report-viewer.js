@@ -265,8 +265,23 @@ function buildStitchTimeline(events) {
   </div>`;
 }
 
-function buildStitchFindings(analyses) {
+function chartImgHtml(runId, chartId, caption) {
+  if (!runId || !chartId) return "";
+  const src = `/simagix/runs/${encodeURIComponent(runId)}/phase2/charts/${encodeURIComponent(chartId)}`;
+  return `
+    <figure class="report-stitch-chart">
+      <img src="${src}" alt="${escapeHtml(caption || "Metric chart")}" loading="lazy"
+        style="width:100%;border-radius:12px;border:1px solid rgba(0,0,0,0.08);background:#fff;"/>
+      ${caption ? `<figcaption class="report-stitch-finding-window" style="margin-top:6px;">${escapeHtml(caption)}</figcaption>` : ""}
+    </figure>`;
+}
+
+function buildStitchFindings(analyses, runId, charts) {
   if (!analyses?.length) return '<p class="report-stitch-empty">No finding analyses.</p>';
+  const captionByChartId = {};
+  (charts || []).forEach((c) => {
+    if (c?.chart_id) captionByChartId[c.chart_id] = c.caption || "";
+  });
   return analyses
     .map((fa) => {
       const factors = fa.contributing_factors?.length
@@ -282,16 +297,36 @@ function buildStitchFindings(analyses) {
             .map((m) => escapeHtml(m))
             .join(", ")}</p>`
         : "";
+      const chart = fa.chart_id
+        ? chartImgHtml(runId, fa.chart_id, captionByChartId[fa.chart_id])
+        : "";
       return `
     <div class="report-stitch-finding-card">
       <h4>${escapeHtml(fa.finding_name || "Finding")}</h4>
       ${fa.time_window ? `<p class="report-stitch-finding-window">${escapeHtml(fa.time_window)}</p>` : ""}
       ${buildStitchLabelledBlock("What was observed", fa.what_observed)}
       ${buildStitchLabelledBlock("Why it happened", fa.why_it_happened)}
+      ${chart}
       ${factors}
       ${metrics}
     </div>`;
     })
+    .join("");
+}
+
+function buildStitchCharts(charts, runId, findingChartIds) {
+  const attached = new Set(findingChartIds || []);
+  const standalone = (charts || []).filter((c) => c?.chart_id && !attached.has(c.chart_id));
+  if (!standalone.length) return "";
+  return standalone
+    .map(
+      (c) => `
+    <div class="report-stitch-finding-card">
+      ${c.finding_name ? `<h4>${escapeHtml(c.finding_name)}</h4>` : ""}
+      ${c.time_window ? `<p class="report-stitch-finding-window">${escapeHtml(c.time_window)}</p>` : ""}
+      ${chartImgHtml(runId, c.chart_id, c.caption)}
+    </div>`
+    )
     .join("");
 }
 
@@ -394,7 +429,20 @@ function buildReportDomStitch(data) {
 
   if (report.finding_analyses?.length) {
     sections.push({ id: "findings", label: "Findings" });
-    parts.push(stitchSection("findings", "Finding analyses", buildStitchFindings(report.finding_analyses)));
+    parts.push(
+      stitchSection(
+        "findings",
+        "Finding analyses",
+        buildStitchFindings(report.finding_analyses, data.run_id, report.charts)
+      )
+    );
+  }
+
+  const findingChartIds = (report.finding_analyses || []).map((fa) => fa.chart_id).filter(Boolean);
+  const standaloneCharts = buildStitchCharts(report.charts, data.run_id, findingChartIds);
+  if (standaloneCharts) {
+    sections.push({ id: "charts", label: "Charts" });
+    parts.push(stitchSection("charts", "Metric charts", standaloneCharts));
   }
 
   if (report.causal_chain?.length) {

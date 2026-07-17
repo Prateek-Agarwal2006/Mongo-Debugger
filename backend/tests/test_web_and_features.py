@@ -152,8 +152,22 @@ def test_html_report_view(client: TestClient) -> None:
         f"/simagix/runs/{FIXTURE_RUN_ID}/phase2/reports/latest/view?llm=mock"
     )
     assert response.status_code == 200
-    assert "Root Cause Analysis" in response.text
+    assert "Diagnostic report" in response.text
+    assert f"RCA Report — {FIXTURE_RUN_ID}" in response.text
+    # Standalone export: no CDN scripts, styling is inline
     assert "chart.js" not in response.text.lower()
+    assert "cdn.jsdelivr" not in response.text
+
+
+def test_html_report_download_disposition(client: TestClient) -> None:
+    _complete_mock_rca(client, FIXTURE_RUN_ID)
+    response = client.get(
+        f"/simagix/runs/{FIXTURE_RUN_ID}/phase2/reports/latest/view?llm=mock&download=1"
+    )
+    assert response.status_code == 200
+    disposition = response.headers.get("content-disposition", "")
+    assert disposition.startswith("attachment;")
+    assert f"rca-report-{FIXTURE_RUN_ID}-mock.html" in disposition
 
 
 def test_upload_zip_starts_job(client: TestClient, tmp_path: Path) -> None:

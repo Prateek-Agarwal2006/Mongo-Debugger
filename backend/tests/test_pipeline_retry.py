@@ -21,6 +21,16 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_manifest_rows():
+    """test_retry_rejects_when_export_exists seeds a manifest row for the shared run id."""
+    from backend.tests.db_cleanup import wipe_manifest_row
+
+    wipe_manifest_row("upload20260618T120000Z")
+    yield
+    wipe_manifest_row("upload20260618T120000Z")
+
+
 def test_queue_has_active_job_for_run(tmp_path: Path) -> None:
     workspace = RunWorkspace(tmp_path)
     queue = JobQueue(workspace)

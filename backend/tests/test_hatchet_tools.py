@@ -15,6 +15,16 @@ from backend.app.simagix.evidence.hatchet_tools import (
 
 RUN_ID = "upload20260618T120000Z"
 
+
+@pytest.fixture(autouse=True)
+def _isolate_hatchet_rows():
+    """Other modules seed hatchet rows for shared run ids; wipe before and after."""
+    from backend.tests.db_cleanup import wipe_hatchet_rows
+
+    wipe_hatchet_rows(RUN_ID)
+    yield
+    wipe_hatchet_rows(RUN_ID)
+
 _SUMMARY = {
     "contract_version": "1.0.0",
     "run_id": RUN_ID,

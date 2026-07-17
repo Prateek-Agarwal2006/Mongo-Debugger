@@ -4,6 +4,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from backend.app.core.run_workspace import RunWorkspace
 from backend.app.jobs.hatchet_job import run_hatchet_job
 from backend.app.jobs.hatchet_retry import HatchetRetryError, retry_hatchet_for_run
@@ -14,6 +16,16 @@ from backend.app.jobs.worker import PipelineWorker
 from backend.app.simagix.evidence.hatchet_tools import HatchetNotReadyError, assert_hatchet_ready_for_phase2
 
 RUN_ID = "upload20260618T120000Z"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_hatchet_rows():
+    """Other modules seed hatchet rows for this shared run id; wipe before and after."""
+    from backend.tests.db_cleanup import wipe_hatchet_rows
+
+    wipe_hatchet_rows(RUN_ID)
+    yield
+    wipe_hatchet_rows(RUN_ID)
 
 
 def test_queue_persists_job_type(tmp_path: Path) -> None:
