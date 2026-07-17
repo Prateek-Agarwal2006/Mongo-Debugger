@@ -27,6 +27,7 @@ Upload → Postgres job queue → worker (baked Go binaries)
 | **Post-report chatbot** | Agentic follow-up (markdown, mermaid, copy); disk transcript + summarize/replay memory |
 | **Multi-LLM** | Per-slot artifacts (`cursor`, `gemini`, `mock`); switch LLM without cross-contamination |
 | **Evidence-first** | Tier-1 findings authoritative; LLM fetches metric slices via MCP, not raw dumps |
+| **Metric charts in reports** | LLM authors a matplotlib script; it runs in a **Daytona sandbox** (CSV in → PNG out, no DB/network); chart embedded in Report tab and downloadable HTML |
 | **Grafana charts** | Helm Grafana + SimpleJSON over Postgres (`/grafana/simple`); Anomaly View + All Metrics |
 | **Operator WorkAreas** | MCP connectors + skill ZIP catalog; run-page MCP checkboxes; skills auto-attach |
 
@@ -64,7 +65,7 @@ flowchart LR
     end
 
     subgraph mcpLocal [MCP stdio — always local to API pod]
-      McpChild["subprocess python -m … | simagix-evidence | hatchet | graylog | WorkArea stdio templates"]
+      McpChild["subprocess python -m … | simagix-evidence | hatchet | graylog | WorkArea stdio | execute_plot_script"]
     end
 
     subgraph modelCloud [Vendor cloud — model only]
@@ -80,12 +81,16 @@ flowchart LR
   end
 
   subgraph pgPod [Postgres Pod]
-    PG[("Postgres + PVC | jobs | metrics | evidence | skills | MCP registry")]
+    PG[("Postgres + PVC | jobs | metrics | evidence | charts | skills | MCP registry")]
+  end
+
+  subgraph daytona [Daytona — ephemeral microVM]
+    Sandbox["sandbox | data.csv in → matplotlib script → chart.png out | no DB creds | no cluster net"]
   end
 
   subgraph k8s [Kubernetes deploy]
     Helm["Helm mongo-debugger | ui api worker postgres"]
-    Secret["Secret | DB password | CURSOR_API_KEY | GEMINI_API_KEY"]
+    Secret["Secret | DB password | CURSOR_API_KEY | GEMINI_API_KEY | DAYTONA_API_KEY"]
   end
 
   Operator --> Web --> Nginx -->|"proxy /simagix/*"| FastAPI
@@ -98,6 +103,8 @@ flowchart LR
   CursorSDK <-->|"tool calls / model text"| Cloud
   ADK <-->|"tool calls / model text"| Cloud
   McpChild -->|"SELECT slices / tier-1"| PG
+  McpChild -->|"CSV in / PNG out"| Sandbox
+  McpChild -->|"store chart PNG"| PG
 
   FastAPI -->|"INSERT pending job"| PG
   Poll -->|"claim job"| PG
@@ -114,6 +121,7 @@ flowchart LR
 
   FastAPI -.->|"never runs Phase 1 decode"| workerPod
   Cloud -.->|"never runs MCP"| McpChild
+  Sandbox -.->|"never runs inside a pod"| apiPod
 ```
 
 | Subgraph | Role |
@@ -121,9 +129,10 @@ flowchart LR
 | **Browser / UI pod** | SPA shell; nginx sole entry; proxies API |
 | **API pod** | JSON API, Phase 2 agents, MCP stdio children, catalog gate |
 | **Worker pod** | Phase 1 only — one job at a time; decode/Hatchet subprocess + ingest |
-| **Postgres pod** | Durable jobs, metrics, skills, MCP registry |
+| **Postgres pod** | Durable jobs, metrics, skills, MCP registry, report chart PNGs |
+| **Daytona sandbox** | Ephemeral microVM for LLM-authored matplotlib — CSV in, PNG out; no pod/cluster access |
 | **Vendor cloud** | Model tokens only — does not spawn MCP or open Postgres |
-| **Kubernetes deploy** | Helm + secrets |
+| **Kubernetes deploy** | Helm + secrets (incl. `DAYTONA_API_KEY`) |
 
 | Provider | Tool loop | MCP process |
 |----------|-----------|-------------|
@@ -132,6 +141,8 @@ flowchart LR
 | **Either cloud** | model only | does **not** run MCP |
 
 HTTP WorkArea connectors call a remote URL from the API pod (not a local subprocess). Phase 2 concurrency is `ThreadPoolExecutor(max_workers=4)` on the API — separate from Phase 1 worker replicas.
+
+**LLM-authored code never runs inside a pod.** When the LLM calls the `execute_plot_script` MCP tool, the API pod fetches the metric series, pushes a CSV to an ephemeral **Daytona microVM sandbox**, runs the LLM-written matplotlib script there, pulls back `chart.png`, then deletes the sandbox. The sandbox has no database credentials and no network access — it receives only a CSV and returns only a PNG.
 
 ### Ports (Kind demo)
 
@@ -148,8 +159,9 @@ HTTP WorkArea connectors call a remote URL from the API pod (not a local subproc
 | **ui nginx** | Serves SPA + stitch assets; sole browser entry; proxies API paths |
 | **api** | Upload, catalog, Phase 2, SimpleJSON; hosts Cursor/ADK + MCP children |
 | **worker** | Claims jobs; baked `llm-export` / Hatchet subprocess; ingests metrics |
-| **Postgres (+ PVC)** | Durable jobs, FTDC metrics, operator skills/MCP registry |
+| **Postgres (+ PVC)** | Durable jobs, FTDC metrics, chart PNGs, operator skills/MCP registry |
 | **Cursor SDK / Gemini ADK** | Agent runtime in API pod; shared `build_mcp_server_specs` |
+| **Daytona sandbox** | Runs `execute_plot_script` matplotlib outside the cluster |
 | **Phase 2** | Investigate → clarify once → final RCA → chatbot |
 | **Grafana** | Optional charts over Postgres SimpleJSON |
 
@@ -311,6 +323,7 @@ simagix-workspace/
 | `DATA_ROOT` | Workspace root (Kind: `/data`; local: repo root) |
 | `CURSOR_API_KEY` / `CURSOR_MODEL` | Live Cursor Phase 2 |
 | `GEMINI_API_KEY` | Optional Gemini ADK slot |
+| `DAYTONA_API_KEY` | Sandbox for LLM-authored matplotlib charts (get at daytona.io) |
 | `PHASE2_*_MAX_TOOL_CALLS` | MCP budget per phase |
 | `PHASE2_CHATBOT_*` | Chatbot memory window |
 | `PHASE2_WEB_FETCH_*` | Trusted HTTPS `web_fetch` policy |

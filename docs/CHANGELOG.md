@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-07-17 — README: Daytona sandbox on architecture diagram
+
+**What:** Root README runtime Mermaid includes Daytona (CSV → matplotlib → PNG), `execute_plot_script` on the MCP node, charts in Postgres, and `DAYTONA_API_KEY` on the Secret. Features / env table / prose already describe the sandbox.
+
+**How:** Extended the existing Kind pod diagram only — no redesign of ui/api/worker lanes.
+
+**Why:** Charts commit landed code without the README diagram; GitHub still showed the pre-sandbox architecture picture.
+
+---
+
 ## 2026-07-17 — Charts: LLM-authored matplotlib runs in Daytona sandbox (replaces in-pod render)
 
 **What:** `render_metric_chart` (server-side matplotlib) replaced by `execute_plot_script`: the agent writes the plotting code (template lives in the `metric-plotter` skill) and it executes in an ephemeral Daytona microVM — never in a pod. Server pushes `data.csv` in, pulls `chart.png` out, stores it in `raw_files` (kind=`charts`); chart_id/report/download pipeline unchanged. matplotlib dropped from the API image; `daytona` SDK added to the `llm` extra.
