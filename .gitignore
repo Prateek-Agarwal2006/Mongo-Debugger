@@ -22,8 +22,11 @@ build/
 # Generated at pipeline runtime
 html/
 
-# Simagix: cloned upstream repos (run scripts/setup-simagix-repos.sh)
-simagix-workspace/repos/
+# Simagix: hatchet/keyhole still cloned locally; mongo-ftdc is vendored in-repo
+# (includes cmd/ftdc-slice — do not require a separate git clone for Kind builds).
+simagix-workspace/repos/hatchet/
+simagix-workspace/repos/keyhole/
+simagix-workspace/repos/mongo-ftdc/.git/
 
 # Simagix: runtime uploads and reports (large / machine-local)
 simagix-workspace/reports/

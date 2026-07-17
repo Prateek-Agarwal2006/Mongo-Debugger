@@ -15,7 +15,7 @@ Reference for each tool in the Simagix diagnostic suite and its role in Mongo De
 
 ## mongo-ftdc
 
-**Repository:** `repos/mongo-ftdc` ([simagix/mongo-ftdc](https://github.com/simagix/mongo-ftdc))
+**Repository:** `simagix-workspace/repos/mongo-ftdc` — **vendored in this git repo** (based on [simagix/mongo-ftdc](https://github.com/simagix/mongo-ftdc)), including local **`cmd/ftdc-slice`** for tier-3 index/catalog/window. Kind Dockerfiles build `llm-export` + `ftdc-slice` from this tree; no separate upstream clone required.
 
 **What it does:**
 

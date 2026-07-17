@@ -1,0 +1,29 @@
+# Copyright 2019-present Kuei-chun Chen. All rights reserved.
+# docker-compose.yaml
+#
+# Usage:
+#   docker-compose up                              # uses ./diagnostic.data/
+#   FTDC_DATA=./obfuscated docker-compose up         # uses ./obfuscated/
+
+services:
+  grafana-ftdc:
+    image: simagix/grafana-ftdc:latest
+    hostname: grafana-ftdc
+    ports:
+      - "3030:3000"
+    environment:
+      GF_PLUGINS_PREINSTALL: simpod-json-datasource
+      GF_LOG_LEVEL: error
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    depends_on:
+      - ftdc
+
+  ftdc:
+    image: simagix/ftdc:latest
+    hostname: ftdc
+    ports:
+      - "5408:5408"
+    volumes:
+      - ${FTDC_DATA:-./diagnostic.data}:/diagnostic.data
+    command: /mftdc -server /diagnostic.data

@@ -9,6 +9,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-07-17 — Vendor mongo-ftdc + ftdc-slice in-repo (no Simagix clone for builds)
+
+**What:** `simagix-workspace/repos/mongo-ftdc` (including local `cmd/ftdc-slice`) is tracked in git. Kind/Docker `COPY` that tree — fresh clones no longer need `git clone simagix/mongo-ftdc` for api/worker images. Hatchet/keyhole stay gitignored + setup-script clones.
+
+**How:** `.gitignore` allows `repos/mongo-ftdc/` (ignores nested `.git` only); `setup-simagix-repos.sh` treats vendored tree as OK.
+
+**Why:** `ftdc-slice` was never upstream and lived only on one laptop; stranger `load-images.sh` builds failed.
+
+---
+
 ## 2026-07-17 — README: Daytona sandbox on architecture diagram
 
 **What:** Root README runtime Mermaid includes Daytona (CSV → matplotlib → PNG), `execute_plot_script` on the MCP node, charts in Postgres, and `DAYTONA_API_KEY` on the Secret. Features / env table / prose already describe the sandbox.

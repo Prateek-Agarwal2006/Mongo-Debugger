@@ -258,6 +258,8 @@ cp .env.example .env   # CURSOR_API_KEY / GEMINI_API_KEY optional
 ### 2. Simagix toolchain (Docker images for pipeline)
 
 ```bash
+# Kind builds use vendored simagix-workspace/repos/mongo-ftdc (incl. ftdc-slice).
+# Optional: hatchet/keyhole clones + local Docker tags for Grafana/logs:
 ./scripts/setup-simagix-repos.sh
 cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker && cd -
 ```

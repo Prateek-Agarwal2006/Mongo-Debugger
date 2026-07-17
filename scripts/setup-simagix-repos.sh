@@ -19,17 +19,21 @@ clone_repo() {
 
 mkdir -p "${REPOS_DIR}"
 
-clone_repo "mongo-ftdc" "https://github.com/simagix/mongo-ftdc.git"
+# mongo-ftdc (incl. cmd/ftdc-slice) is vendored under simagix-workspace/repos/mongo-ftdc
+# — Kind/Docker builds COPY that tree; no upstream clone required for Phase 1/tier-3.
+FTDC_REPO="${REPOS_DIR}/mongo-ftdc"
+if [[ -f "${FTDC_REPO}/go.mod" ]] && [[ -f "${FTDC_REPO}/cmd/ftdc-slice/main.go" ]]; then
+  echo "OK  mongo-ftdc (vendored at ${FTDC_REPO}, includes ftdc-slice)"
+elif [[ -f "${FTDC_REPO}/go.mod" ]]; then
+  echo "WARN mongo-ftdc present but cmd/ftdc-slice missing — Kind api/worker builds will fail."
+else
+  echo "Cloning mongo-ftdc (vendored tree missing)..."
+  git clone --depth 1 "https://github.com/simagix/mongo-ftdc.git" "${FTDC_REPO}"
+  echo "WARN upstream has no ftdc-slice — restore vendored tree from git history."
+fi
+
 clone_repo "keyhole" "https://github.com/simagix/keyhole.git"
 clone_repo "hatchet" "https://github.com/simagix/hatchet.git"
-
-FTDC_PATCH="${ROOT}/simagix-workspace/patches/mftdc-server-deferred-load.patch"
-FTDC_REPO="${REPOS_DIR}/mongo-ftdc"
-if [[ -d "${FTDC_REPO}/.git" ]] && [[ -f "${FTDC_PATCH}" ]]; then
-  echo "Applying mongo-ftdc server deferred-load patch..."
-  (cd "${FTDC_REPO}" && git apply --check "${FTDC_PATCH}" 2>/dev/null && git apply "${FTDC_PATCH}") \
-    || echo "mongo-ftdc patch already applied or repo differs; skip."
-fi
 
 PATCH="${ROOT}/simagix-workspace/patches/hatchet-merge-drop-gate.patch"
 HATCHET_REPO="${REPOS_DIR}/hatchet"
