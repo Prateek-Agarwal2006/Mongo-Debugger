@@ -32,6 +32,8 @@ simagix-workspace/reports/
 simagix-workspace/uploads/*
 !simagix-workspace/uploads/phase1test20260609T133314Z/
 !simagix-workspace/uploads/phase1test20260609T133314Z/**
+# ...but never the fixture run's runtime chatbot scratch (attachments, agent work files)
+simagix-workspace/uploads/phase1test20260609T133314Z/phase2/llm/*/chatbot_scratch/
 simagix-workspace/uploads/latest_*.txt
 
 # Legacy paths (removed on disk; ignore if recreated locally)
