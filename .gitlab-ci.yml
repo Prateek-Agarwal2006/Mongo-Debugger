@@ -1,0 +1,291 @@
+# Pipeline triggers:
+# 1. Manually from GitLab UI (CI/CD > Pipelines > Run pipeline) — select components via dropdowns
+# 2. Automatically on push to mongo-debugger-sync — builds all components
+# 3. Automatically on push to main — builds all components
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "mongo-debugger-sync"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+
+stages:
+  - build
+  - deploy
+
+variables:
+  BUILD_UI:
+    value: "false"
+    options:
+      - "false"
+      - "true"
+    description: "Build the UI (nginx + React SPA) Docker image"
+  BUILD_API:
+    value: "false"
+    options:
+      - "false"
+      - "true"
+    description: "Build the API (FastAPI) Docker image"
+  BUILD_WORKER:
+    value: "false"
+    options:
+      - "false"
+      - "true"
+    description: "Build the worker (Go ftdc-slice + Python pipeline) Docker image"
+  JENKINS_URL: "https://qa6-build-int.sprinklr.com/jenkins"
+  JENKINS_BUILD_JOB_PATH: "job/build-deploy-jobs/job/ci-docker-image-builder"
+  JENKINS_DEPLOY_JOB_PATH: "job/itops-noc-jobs/job/custom-k8s-helm-deployment"
+  GIT_REPO_URL: "git@prod-gitlab.sprinklr.com:sprinklr/devtools/mongo-debugger.git"
+  HELM_GIT_REPO_URL: "git@prod-gitlab.sprinklr.com:sprinklr-k8s/helm-internal-tools.git"
+  KUBE_CLUSTER: "apps-gke"
+  CHART_NAME: "mongo-debugger"
+  CHART_RELEASE_NAME: "qa6-tier1"
+  CHART_NAMESPACE: "spr-apps"
+  CHART_REPO_BRANCH: "origin/mongo-debugger-sync"
+  DEPLOY_ITOPS_REPO_BRANCH: "origin/custom-helm-deploy"
+  DOCKER_REPO: "asia-south1-docker.pkg.dev/gc-qa6/gc-qa6"
+  ITOPS_REPO_BRANCH: "master"
+  POLL_INTERVAL: "15"
+  MAX_WAIT_SECONDS: "900"
+
+# --- Build template ---
+.trigger-jenkins-and-wait:
+  stage: build
+  image: asia-south1-docker.pkg.dev/gc-qa6/gc-qa6/curl:latest
+  allow_failure: false
+  needs: []
+  script:
+    - |
+      set -euo pipefail
+
+      # --- Step 1: Trigger the Jenkins build job ---
+      echo "Triggering Jenkins build for $IMAGE_NAME ..."
+      RESPONSE=$(curl -X POST "$JENKINS_URL/$JENKINS_BUILD_JOB_PATH/buildWithParameters" \
+        --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" \
+        --data-urlencode "GIT_REPO_URL=$GIT_REPO_URL" \
+        --data-urlencode "REPO_BRANCH=$CI_COMMIT_REF_NAME" \
+        --data-urlencode "DOCKERFILE_PATH=$DOCKERFILE_PATH" \
+        --data-urlencode "DOCKER_CONTEXT_PATH=$DOCKER_CONTEXT_PATH" \
+        --data-urlencode "IMAGE_NAME=$IMAGE_NAME" \
+        --data-urlencode "ITOPS_REPO_BRANCH=$ITOPS_REPO_BRANCH" \
+        -s -D - -o /dev/null -w "\n%{http_code}")
+
+      HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+      QUEUE_URL=$(echo "$RESPONSE" | grep -i "^Location:" | sed 's/Location: *//;s/\r//')
+
+      echo "HTTP status: $HTTP_CODE"
+      echo "Queue URL: $QUEUE_URL"
+
+      if [ "$HTTP_CODE" -ne 201 ]; then
+        echo "ERROR: Failed to trigger Jenkins job (HTTP $HTTP_CODE)"
+        exit 1
+      fi
+
+      if [ -z "$QUEUE_URL" ]; then
+        echo "ERROR: No queue URL in response headers"
+        exit 1
+      fi
+
+      # --- Step 2: Poll queue until build starts ---
+      echo "Waiting for build to start ..."
+      BUILD_URL=""
+      ELAPSED=0
+      while [ -z "$BUILD_URL" ] && [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
+        sleep "$POLL_INTERVAL"
+        ELAPSED=$((ELAPSED + POLL_INTERVAL))
+        QUEUE_JSON=$(curl -s --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" "${QUEUE_URL}api/json" || true)
+        BUILD_URL=$(echo "$QUEUE_JSON" | grep -o '"executable":{[^}]*}' | grep -o '"url":"[^"]*"' | sed 's/"url":"//;s/"//' || true)
+        if echo "$QUEUE_JSON" | grep -q '"cancelled":true' 2>/dev/null; then
+          echo "ERROR: Jenkins build was cancelled in queue"
+          exit 1
+        fi
+        echo "  ... waiting ($ELAPSED/${MAX_WAIT_SECONDS}s)"
+      done
+
+      if [ -z "$BUILD_URL" ]; then
+        echo "ERROR: Timed out waiting for build to start"
+        exit 1
+      fi
+      BUILD_URL=$(echo "$BUILD_URL" | sed 's|https://qa6-build.sprinklr.com|https://qa6-build-int.sprinklr.com|')
+      echo "Build started: $(echo "$BUILD_URL" | sed 's|https://qa6-build-int.sprinklr.com|https://qa6-build.sprinklr.com|')"
+
+      # --- Step 3: Poll build until it finishes ---
+      echo "Waiting for build to complete ..."
+      BUILDING="true"
+      while [ "$BUILDING" = "true" ] && [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
+        sleep "$POLL_INTERVAL"
+        ELAPSED=$((ELAPSED + POLL_INTERVAL))
+        BUILD_JSON=$(curl -s --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" "${BUILD_URL}api/json" || true)
+        BUILDING=$(echo "$BUILD_JSON" | grep -o '"building":[a-z]*' | sed 's/"building"://' || echo "true")
+        echo "  ... building=$BUILDING ($ELAPSED/${MAX_WAIT_SECONDS}s)"
+      done
+
+      if [ "$BUILDING" = "true" ]; then
+        echo "ERROR: Timed out waiting for build to finish"
+        exit 1
+      fi
+
+      RESULT=$(echo "$BUILD_JSON" | grep -o '"result":"[A-Z]*"' | sed 's/"result":"//;s/"//' || echo "UNKNOWN")
+      echo "Build result: $RESULT"
+      echo "Build URL: $(echo "$BUILD_URL" | sed 's|https://qa6-build-int.sprinklr.com|https://qa6-build.sprinklr.com|')"
+
+      if [ "$RESULT" != "SUCCESS" ]; then
+        echo "ERROR: Jenkins build failed with result: $RESULT"
+        exit 1
+      fi
+
+      # --- Step 4: Extract image name:tag from build console output ---
+      curl -s --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" "${BUILD_URL}consoleText" -o /tmp/console.log || true
+      echo "Console log size: $(wc -c < /tmp/console.log) bytes"
+
+      DONE_LINE=$(grep -v "echo" /tmp/console.log | grep "DONE:" | tail -1 || true)
+      echo "Done line: $DONE_LINE"
+
+      IMAGE_NAME_TAG=""
+      if [ -n "$DONE_LINE" ]; then
+        IMAGE_NAME_TAG=$(echo "$DONE_LINE" | sed 's|.*DONE: *||' | sed 's|.*/||' | tr -d '\r\n ' || true)
+      fi
+
+      if [ -z "$IMAGE_NAME_TAG" ]; then
+        echo "ERROR: Could not extract image name:tag from build console output"
+        echo "Last 30 lines of console:"
+        tail -30 /tmp/console.log
+        exit 1
+      fi
+
+      echo "${IMAGE_TAG_VAR:-IMAGE_NAME_TAG}=$IMAGE_NAME_TAG" > build.env
+      echo "Extracted image: $IMAGE_NAME_TAG"
+  artifacts:
+    reports:
+      dotenv: build.env
+
+# --- Build jobs: one image tag var each ---
+build-ui:
+  extends: .trigger-jenkins-and-wait
+  variables:
+    DOCKERFILE_PATH: "deploy/docker/Dockerfile.ui"
+    DOCKER_CONTEXT_PATH: "."
+    IMAGE_NAME: "mongo-debugger-ui"
+    IMAGE_TAG_VAR: "UI_IMAGE_TAG"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_UI == "true"
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "mongo-debugger-sync" || $CI_COMMIT_BRANCH == "main")
+
+build-api:
+  extends: .trigger-jenkins-and-wait
+  variables:
+    DOCKERFILE_PATH: "deploy/docker/Dockerfile.api"
+    DOCKER_CONTEXT_PATH: "."
+    IMAGE_NAME: "mongo-debugger-api"
+    IMAGE_TAG_VAR: "API_IMAGE_TAG"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_API == "true"
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "mongo-debugger-sync" || $CI_COMMIT_BRANCH == "main")
+
+build-worker:
+  extends: .trigger-jenkins-and-wait
+  variables:
+    DOCKERFILE_PATH: "deploy/docker/Dockerfile.worker"
+    DOCKER_CONTEXT_PATH: "."
+    IMAGE_NAME: "mongo-debugger-worker"
+    IMAGE_TAG_VAR: "WORKER_IMAGE_TAG"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $BUILD_WORKER == "true"
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "mongo-debugger-sync" || $CI_COMMIT_BRANCH == "main")
+
+# --- Single deploy job: fires one Jenkins helm deploy with all three image tags ---
+deploy-mongo-debugger:
+  stage: deploy
+  image: asia-south1-docker.pkg.dev/gc-qa6/gc-qa6/curl:latest
+  allow_failure: false
+  needs: ["build-ui", "build-api", "build-worker"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && ($BUILD_UI == "true" || $BUILD_API == "true" || $BUILD_WORKER == "true")
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "mongo-debugger-sync" || $CI_COMMIT_BRANCH == "main")
+  script:
+    - set -euo pipefail
+    - |
+      EXTRA_VALUES="--set image.repo=${DOCKER_REPO}"
+      [ -n "${UI_IMAGE_TAG:-}" ] && EXTRA_VALUES="$EXTRA_VALUES,image.ui.tag=${UI_IMAGE_TAG#*:}"
+      [ -n "${API_IMAGE_TAG:-}" ] && EXTRA_VALUES="$EXTRA_VALUES,image.api.tag=${API_IMAGE_TAG#*:}"
+      [ -n "${WORKER_IMAGE_TAG:-}" ] && EXTRA_VALUES="$EXTRA_VALUES,image.worker.tag=${WORKER_IMAGE_TAG#*:}"
+
+      echo "Triggering single Jenkins deploy for $CHART_NAME ..."
+      echo "EXTRA_VALUES: $EXTRA_VALUES"
+
+      # --- Step 1: Trigger the Jenkins deploy job ---
+      RESPONSE=$(curl -X POST "$JENKINS_URL/$JENKINS_DEPLOY_JOB_PATH/buildWithParameters" \
+        --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" \
+        --data-urlencode "GIT_REPO_URL=$HELM_GIT_REPO_URL" \
+        --data-urlencode "KUBE_CLUSTER=$KUBE_CLUSTER" \
+        --data-urlencode "CHART_NAME=$CHART_NAME" \
+        --data-urlencode "CHART_RELEASE_NAME=$CHART_RELEASE_NAME" \
+        --data-urlencode "CHART_NAMESPACE=$CHART_NAMESPACE" \
+        --data-urlencode "EXTRA_VALUES=$EXTRA_VALUES" \
+        --data-urlencode "CHART_REPO_BRANCH=$CHART_REPO_BRANCH" \
+        --data-urlencode "ITOPS_REPO_BRANCH=$DEPLOY_ITOPS_REPO_BRANCH" \
+        -s -D - -o /dev/null -w "\n%{http_code}")
+
+      HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+      QUEUE_URL=$(echo "$RESPONSE" | grep -i "^Location:" | sed 's/Location: *//;s/\r//')
+
+      echo "HTTP status: $HTTP_CODE"
+      echo "Queue URL: $QUEUE_URL"
+
+      if [ "$HTTP_CODE" -ne 201 ]; then
+        echo "ERROR: Failed to trigger Jenkins deploy job (HTTP $HTTP_CODE)"
+        exit 1
+      fi
+
+      if [ -z "$QUEUE_URL" ]; then
+        echo "ERROR: No queue URL in response headers"
+        exit 1
+      fi
+
+      # --- Step 2: Poll queue until deploy build starts ---
+      echo "Waiting for deploy build to start ..."
+      BUILD_URL=""
+      ELAPSED=0
+      while [ -z "$BUILD_URL" ] && [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
+        sleep "$POLL_INTERVAL"
+        ELAPSED=$((ELAPSED + POLL_INTERVAL))
+        QUEUE_JSON=$(curl -s --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" "${QUEUE_URL}api/json" || true)
+        BUILD_URL=$(echo "$QUEUE_JSON" | grep -o '"executable":{[^}]*}' | grep -o '"url":"[^"]*"' | sed 's/"url":"//;s/"//' || true)
+        if echo "$QUEUE_JSON" | grep -q '"cancelled":true' 2>/dev/null; then
+          echo "ERROR: Jenkins deploy build was cancelled in queue"
+          exit 1
+        fi
+        echo "  ... waiting ($ELAPSED/${MAX_WAIT_SECONDS}s)"
+      done
+
+      if [ -z "$BUILD_URL" ]; then
+        echo "ERROR: Timed out waiting for deploy build to start"
+        exit 1
+      fi
+      BUILD_URL=$(echo "$BUILD_URL" | sed 's|https://qa6-build.sprinklr.com|https://qa6-build-int.sprinklr.com|')
+      echo "Deploy build started: $(echo "$BUILD_URL" | sed 's|https://qa6-build-int.sprinklr.com|https://qa6-build.sprinklr.com|')"
+
+      # --- Step 3: Poll deploy build until it finishes ---
+      echo "Waiting for deploy build to complete ..."
+      BUILDING="true"
+      while [ "$BUILDING" = "true" ] && [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
+        sleep "$POLL_INTERVAL"
+        ELAPSED=$((ELAPSED + POLL_INTERVAL))
+        BUILD_JSON=$(curl -s --user "$QA6_JENKINS_USER:$QA6_JENKINS_TOKEN" "${BUILD_URL}api/json" || true)
+        BUILDING=$(echo "$BUILD_JSON" | grep -o '"building":[a-z]*' | sed 's/"building"://' || echo "true")
+        echo "  ... building=$BUILDING ($ELAPSED/${MAX_WAIT_SECONDS}s)"
+      done
+
+      if [ "$BUILDING" = "true" ]; then
+        echo "ERROR: Timed out waiting for deploy build to finish"
+        exit 1
+      fi
+
+      RESULT=$(echo "$BUILD_JSON" | grep -o '"result":"[A-Z]*"' | sed 's/"result":"//;s/"//' || echo "UNKNOWN")
+      echo "Deploy result: $RESULT"
+      echo "Deploy build URL: $(echo "$BUILD_URL" | sed 's|https://qa6-build-int.sprinklr.com|https://qa6-build.sprinklr.com|')"
+
+      if [ "$RESULT" != "SUCCESS" ]; then
+        echo "ERROR: Jenkins deploy failed with result: $RESULT"
+        exit 1
+      fi
+      echo "Deploy succeeded for $CHART_NAME (all components)"
