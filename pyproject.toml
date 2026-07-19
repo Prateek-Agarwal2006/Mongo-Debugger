@@ -31,10 +31,18 @@ dev = [
     "ruff>=0.6.0",
 ]
 llm = [
-    "cursor-sdk>=0.1.7",
     "google-adk>=1.35.0",
     "mcp>=1.27.0",
     "daytona>=0.198.0",
+]
+# cursor-sdk vendors a Node runtime and node_modules (undici 5.29.0), which
+# Lacework fails on HIGH: CVE-2026-2229 and CVE-2026-1526 (both undici
+# < 6.24.0). cursor-sdk 0.1.9 is the latest release and undici 5.29.0 is the
+# final 5.x, so there is no version bump that clears it. Install this extra to
+# use the Cursor provider outside the scanned image; backend/app/simagix/llm/
+# providers/cursor/ is unchanged and works as soon as the SDK is present.
+cursor = [
+    "cursor-sdk>=0.1.7",
 ]
 
 [tool.pytest.ini_options]
