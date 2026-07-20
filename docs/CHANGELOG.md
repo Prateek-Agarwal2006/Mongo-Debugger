@@ -19,6 +19,16 @@ For spec scorecard and milestones, see [PROJECT_STATUS.md](PROJECT_STATUS.md). F
 
 ---
 
+## 2026-07-17 — Local uv: API serves `frontend/static` for Vite proxy
+
+**What:** FastAPI mounts `frontend/static` at `/static` so local Vite (`:5173` → proxy `/static`) gets CSS/favicon instead of `{"detail":"Not Found"}`.
+
+**How:** `StaticFiles` in `backend/app/main.py` when the directory exists (Kind nginx still owns SPA; this is for host Vite + API).
+
+**Why:** Local quick-start UI is Vite on **5173**, not API root on **8000** (API-only JSON). Without the mount, proxied `/static/*` 404’d.
+
+---
+
 ## 2026-07-17 — README: Daytona sandbox on architecture diagram
 
 **What:** Root README runtime Mermaid includes Daytona (CSV → matplotlib → PNG), `execute_plot_script` on the MCP node, charts in Postgres, and `DAYTONA_API_KEY` on the Secret. Features / env table / prose already describe the sandbox.

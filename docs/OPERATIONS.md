@@ -236,16 +236,19 @@ curl -X POST http://localhost:8000/simagix/uploads/runs/<run_id>/retry
 # Mac: Docker via Colima — needed for upload pipeline and Grafana charts
 colima start --cpu 4 --memory 8
 
-uv sync --extra dev --extra llm
+uv sync --extra dev --extra llm --extra prod
 
-# Terminal 1 — API
+# Terminal 1 — API (JSON only — do not use :8000 as the SPA)
 uv run uvicorn backend.app.main:app --reload --port 8000
 
 # Terminal 2 — pipeline worker (required for uploads to process)
 uv run python -m backend.app.jobs.worker
+
+# Terminal 3 — Modern SPA (local uv; Kind serves UI via nginx on :8000 instead)
+cd frontend && npm install && npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-Web UI: **http://localhost:8000**
+Web UI (local uv): **http://127.0.0.1:5173/** — Kind full stack: **http://localhost:8000**
 
 Verify:
 

@@ -1,13 +1,23 @@
-# ── Python worker ───────────────────────────────────────────────────────────
-# There was a go-builder stage here compiling llm-export and ftdc-slice from
-# simagix-workspace/repos/mongo-ftdc. That path is gitignored, so it is absent
-# from every clean checkout and the stage could never build in CI. The upstream
-# repo it points at has no cmd/llm-export or cmd/ftdc-slice either.
-#
-# NOTE: unlike the API, the worker genuinely wants these for FTDC decode. It
-# starts and polls without them, but uploads cannot be decoded — the same state
-# as today, since the binaries have never been buildable here. Restore this
-# stage once the fork containing cmd/llm-export is located.
+# ── Stage 1: build Go binaries ──────────────────────────────────────────────
+# mongo-ftdc (incl. cmd/llm-export and cmd/ftdc-slice) is vendored in-repo as of
+# 3baab03, so this builds from a clean checkout with no Simagix clone required.
+FROM golang:1.25-alpine AS go-builder
+
+RUN apk add --no-cache git bash
+
+WORKDIR /build
+
+# Download deps first — this layer is cached as long as go.mod/go.sum don't change.
+# Rebuilds after source edits skip this step entirely.
+COPY simagix-workspace/repos/mongo-ftdc/go.mod simagix-workspace/repos/mongo-ftdc/go.sum ./
+RUN go mod download
+
+# Now copy source and compile
+COPY simagix-workspace/repos/mongo-ftdc/ .
+RUN CGO_ENABLED=0 go build -o /out/llm-export  ./cmd/llm-export && \
+    CGO_ENABLED=0 go build -o /out/ftdc-slice  ./cmd/ftdc-slice
+
+# ── Stage 2: Python worker with Go binaries ──────────────────────────────────
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -24,6 +34,10 @@ RUN pip install --no-cache-dir ".[prod]"
 
 COPY backend/ backend/
 RUN pip install --no-cache-dir --no-deps .
+
+# Go binaries on PATH
+COPY --from=go-builder /out/llm-export  /usr/local/bin/llm-export
+COPY --from=go-builder /out/ftdc-slice  /usr/local/bin/ftdc-slice
 
 # K8s-native pipeline scripts (no Docker).
 # The init container copies these into the data emptyDir at /data/simagix-workspace/scripts/
