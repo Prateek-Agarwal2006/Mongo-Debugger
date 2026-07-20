@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Test data (not needed for build)
+testdata/
+diagnostic.data/
+obfuscated/
+# Build artifacts
+dist/
+
+# Documentation
+*.md
+LICENSE
+
+# Legacy dependency management
+Gopkg.lock

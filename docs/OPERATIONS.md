@@ -1,6 +1,6 @@
 # Operations Guide
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-07-17
 
 ## Prerequisites
 
@@ -30,11 +30,13 @@ uv sync --extra dev
 
 ### Simagix repo clones (first-time setup)
 
-The upload pipeline runs `mongo-ftdc` from Docker and `llm-export` from a local clone. Repos are **not** committed (nested git); run once after clone:
+**mongo-ftdc** (including `cmd/ftdc-slice`) is **vendored** at `simagix-workspace/repos/mongo-ftdc` — Kind `load-images.sh` builds from that tree; no upstream Simagix clone required for api/worker.
+
+Optional local Docker tags / Hatchet logs still use the setup script (hatchet + keyhole stay gitignored):
 
 ```bash
-./scripts/setup-simagix-repos.sh
-cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker
+./scripts/setup-simagix-repos.sh   # hatchet/keyhole only if missing; mongo-ftdc already vendored
+cd simagix-workspace/repos/mongo-ftdc && ./build.sh docker   # optional Grafana simagix/ftdc image
 simagix-workspace/scripts/build-hatchet-local.sh   # patched Hatchet for multi-file -merge
 ```
 
