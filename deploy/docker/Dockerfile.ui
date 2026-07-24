@@ -8,7 +8,11 @@ COPY frontend/ ./
 RUN npm run build
 
 # ── Stage 2: nginx serves SPA + static stitch; proxies API ──────────────────
-FROM nginx:1.29-alpine
+# alpine-slim, not alpine: the full image bundles the XSLT module and with it
+# libxml2, which trips the Lacework HIGH gate (CVE-2025-32414/32415) and is
+# useless to an SPA host. slim keeps envsubst + /docker-entrypoint.d, so the
+# default.conf.template below still renders.
+FROM nginx:1.29-alpine-slim
 RUN apk upgrade --no-cache
 
 COPY deploy/docker/nginx-ui.conf /etc/nginx/templates/default.conf.template

@@ -4,9 +4,10 @@ name: mongo-debugger
 nodes:
   - role: control-plane
     extraPortMappings:
-      # Kind maps NodePort 30000 → localhost:8000 (ui nginx; API is ClusterIP)
+      # Kind maps NodePort 30000 → localhost:8010 (ui nginx; API is ClusterIP)
+      # 8000 is taken locally by the alert-debugger-agent stack.
       - containerPort: 30000
-        hostPort: 8000
+        hostPort: 8010
         protocol: TCP
       # Grafana NodePort 30300 → http://localhost:3030
       - containerPort: 30300

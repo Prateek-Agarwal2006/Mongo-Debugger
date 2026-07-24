@@ -1,4 +1,6 @@
 # ── Stage 1: build Go binaries ──────────────────────────────────────────────
+# mongo-ftdc (incl. cmd/llm-export and cmd/ftdc-slice) is vendored in-repo as of
+# 3baab03, so this builds from a clean checkout with no Simagix clone required.
 FROM golang:1.25-alpine AS go-builder
 
 RUN apk add --no-cache git bash
