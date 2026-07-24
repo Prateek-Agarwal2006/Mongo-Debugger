@@ -174,6 +174,34 @@ def build_user_mcp_servers(
     return to_cursor_sdk_servers(specs)
 
 
+def to_agent_sdk_servers(specs: list[McpServerSpec]) -> dict[str, Any]:
+    """Build claude-agent-sdk McpStdioServerConfig / McpHttpServerConfig dicts."""
+    try:
+        from claude_agent_sdk.types import McpHttpServerConfig, McpStdioServerConfig
+    except ImportError:
+        raise RuntimeError("claude-agent-sdk is not installed")
+
+    servers: dict[str, Any] = {}
+    for spec in specs:
+        if spec.transport == "http":
+            if not spec.url:
+                raise ValueError(f"HTTP MCP spec {spec.server_id} missing url")
+            cfg: McpHttpServerConfig = {"type": "http", "url": spec.url}
+            if spec.headers:
+                cfg["headers"] = spec.headers
+            servers[spec.server_id] = cfg
+        else:
+            if not spec.command:
+                raise ValueError(f"Stdio MCP spec {spec.server_id} missing command")
+            scfg: McpStdioServerConfig = {"command": spec.command}
+            if spec.args:
+                scfg["args"] = list(spec.args)
+            if spec.env:
+                scfg["env"] = spec.env
+            servers[spec.server_id] = scfg
+    return servers
+
+
 def to_adk_mcp_toolsets(specs: list[McpServerSpec]) -> list[Any]:
     """Build native ADK McpToolset instances from provider-neutral specs."""
     if McpToolset is None or StdioConnectionParams is None:

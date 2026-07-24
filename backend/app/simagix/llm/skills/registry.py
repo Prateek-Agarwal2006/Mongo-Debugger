@@ -202,6 +202,32 @@ def copy_all_to_cursor_scratch(workspace_root: Path, scratch_dir: Path) -> None:
             target.write_text(content, encoding="utf-8")
 
 
+def copy_all_to_agent_sdk_skills(workspace_root: Path, scratch_dir: Path) -> list[str]:
+    """Write skills from Postgres to scratch_dir/.claude/skills/ for claude-agent-sdk.
+
+    Returns the list of slot_name strings to pass to ClaudeAgentOptions.skills.
+    """
+    with db_conn() as conn:
+        rows = conn.execute("SELECT slot_name, files FROM skills").fetchall()
+    if not rows:
+        return []
+    skills_root = scratch_dir / ".claude" / "skills"
+    skills_root.mkdir(parents=True, exist_ok=True)
+    slot_names: list[str] = []
+    for slot_name, files_data in rows:
+        files: dict[str, str] = files_data if isinstance(files_data, dict) else json.loads(files_data)
+        slot_dir = skills_root / slot_name
+        if slot_dir.exists():
+            shutil.rmtree(slot_dir)
+        slot_dir.mkdir(parents=True)
+        for rel_path, content in files.items():
+            target = slot_dir / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+        slot_names.append(slot_name)
+    return slot_names
+
+
 def build_adk_skill_toolset_all(workspace_root: Path) -> Any | None:
     try:
         from google.adk.skills import load_skill_from_dir

@@ -19,12 +19,15 @@ from backend.app.simagix.llm.parse_output import (
 from backend.app.simagix.llm.provider import LLMProvider, ChatbotResult, Phase2RunResult
 from backend.app.simagix.llm.session import Phase2Session
 from backend.app.simagix.llm.tool_trace import ToolTraceCollector
+from backend.app.simagix.llm.subagents import available_subagents
 from backend.app.simagix.llm.web_fetch import build_cursor_sdk_web_tools
 from backend.app.simagix.output_schema import ClarifyingQuestionsBlock, InvestigationSummary
 
 try:
     from cursor_sdk import (
         Agent,
+        AgentDefinition as CursorAgentDefinition,
+        AgentDefinitionMcpServer,
         AgentOptions,
         LocalAgentOptions,
         SandboxOptions,
@@ -32,6 +35,8 @@ try:
     )
 except ImportError:  # pragma: no cover - optional dependency
     Agent = None  # type: ignore[assignment,misc]
+    CursorAgentDefinition = None  # type: ignore[assignment,misc]
+    AgentDefinitionMcpServer = None  # type: ignore[assignment,misc]
     AgentOptions = None  # type: ignore[assignment,misc]
     LocalAgentOptions = None  # type: ignore[assignment,misc]
     SandboxOptions = None  # type: ignore[assignment,misc]
@@ -91,6 +96,18 @@ class CursorLLMProvider(LLMProvider):
                 setting_sources = ["project"]
         if include_mcp and trace is not None and phase is not None:
             custom_tools = build_cursor_sdk_web_tools(trace, phase, settings=self.settings)
+
+        mcp_servers = (
+            self._mcp_config(session, enabled_mcp_ids=enabled_mcp_ids)
+            if include_mcp
+            else {}
+        )
+        agents = (
+            self._build_subagent_defs(set(mcp_servers.keys()))
+            if include_mcp and phase in ("investigation", "final_rca", "chatbot")
+            else None
+        )
+
         return AgentOptions(
             api_key=self.settings.cursor_api_key,
             model=self.settings.cursor_model,
@@ -100,10 +117,28 @@ class CursorLLMProvider(LLMProvider):
                 sandbox_options=sandbox,
                 custom_tools=custom_tools or None,
             ),
-            mcp_servers=self._mcp_config(session, enabled_mcp_ids=enabled_mcp_ids)
-            if include_mcp
-            else {},
+            mcp_servers=mcp_servers,
+            agents=agents,
         )
+
+    @staticmethod
+    def _build_subagent_defs(active_server_ids: set[str]) -> dict[str, Any] | None:
+        specs = available_subagents(active_server_ids)
+        if not specs:
+            return None
+        agents: dict[str, Any] = {}
+        for spec in specs:
+            mcp_refs = [
+                AgentDefinitionMcpServer.named(s)
+                for s in spec.mcp_server_ids
+                if s in active_server_ids
+            ]
+            agents[spec.name] = CursorAgentDefinition(
+                description=spec.description,
+                prompt=spec.prompt,
+                mcp_servers=mcp_refs or None,
+            )
+        return agents
 
     def _run_agent_text(
         self,

@@ -20,10 +20,17 @@ class GeminiAdkLLMProvider(LLMProvider):
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        if not self.settings.google_api_key:
+        has_api_key = bool(self.settings.google_api_key)
+        has_vertex = (
+            self.settings.google_genai_use_vertexai
+            and bool(self.settings.google_cloud_project)
+            and bool(self.settings.google_cloud_location)
+        )
+        if not has_api_key and not has_vertex:
             raise RuntimeError(
-                "GOOGLE_API_KEY is not configured. "
-                "Get a key from https://aistudio.google.com/apikey and set LLM_PROVIDER=gemini."
+                "Gemini ADK requires either:\n"
+                "  API key:  GOOGLE_API_KEY (from https://aistudio.google.com/apikey)\n"
+                "  Vertex:   GOOGLE_GENAI_USE_VERTEXAI=true + GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION"
             )
 
     @property

@@ -6,7 +6,7 @@ Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc e
 
 **Tier prompt policy:** Tier 1 = analyzed (in prompt); tier 2 = normalized MCP slices; tier 3 = raw (`list_raw_paths` → `get_raw_window`). Phase A prompt **requires** tier-3 calls before InvestigationSummary (prompt-only — no tool_trace hard gate). Tool phases also inject **ATTACHED THIS TURN** — runtime MCP server list (builtins + WorkArea `enabled_mcp_ids`) and all operator skills. See `prompts.py` `TIER_LIMITS_NOTICE` / `build_runtime_attachments_block`.
 
-**Status:** Complete (Cursor SDK **or** Gemini ADK + shared MCP registry + Skill WorkArea + 3-phase RCA flow + live Graylog client).
+**Status:** Complete (Cursor SDK **or** Gemini ADK **or** Claude Agent SDK + shared MCP registry + Skill WorkArea + sub-agents + 3-phase RCA flow + live Graylog client).
 
 ## Components
 
@@ -17,10 +17,12 @@ Phase 2 wires the **agentic LLM brain** on top of the deterministic mongo-ftdc e
 | Providers             | `backend/app/simagix/llm/providers/`             | Complete |
 | Cursor provider       | `providers/cursor/provider.py`                   | Complete |
 | Gemini ADK provider   | `providers/adk/provider.py` + `runner.py`        | Complete |
+| Claude Agent SDK provider | `providers/claude/provider.py`               | Complete |
 | Mock provider         | `providers/mock.py`                              | Complete |
+| Sub-agent definitions | `subagents.py`                                   | Complete |
 | Shared MCP layer      | `backend/app/simagix/llm/mcp/`                   | Complete |
 | MCP servers           | `mcp/servers/{evidence,graylog,hatchet}.py`      | Complete |
-| MCP registry | `mcp/registry.py` (`to_cursor_sdk_servers`, `to_adk_mcp_toolsets`) | Complete |
+| MCP registry | `mcp/registry.py` (`to_cursor_sdk_servers`, `to_adk_mcp_toolsets`, `to_agent_sdk_servers`) | Complete |
 | Skill catalog | `skills/registry.py`, `/skill-workarea` | Complete |
 | Phase 2 orchestration | `backend/app/simagix/llm/service.py`             | Complete |
 | Web fetch (shared)    | `backend/app/simagix/llm/web_fetch.py`           | Complete |
@@ -36,6 +38,7 @@ Set `LLM_PROVIDER` in `.env` (see `.env.example`):
 |-------|----------|--------------|
 | `cursor` (default) | `CursorLLMProvider` | `CURSOR_API_KEY` — SDK runs tool loop + stdio MCP |
 | `gemini` | `GeminiAdkLLMProvider` | `GOOGLE_API_KEY` from [AI Studio](https://aistudio.google.com/apikey) — ADK `InMemoryRunner` + native `McpToolset` / `SkillToolset` |
+| `claude` | `ClaudeLLMProvider` | `ANTHROPIC_API_KEY` — `claude-agent-sdk` `query()` API + stdio MCP + in-process SDK MCP for `web_fetch` |
 | `mock` | `MockLLMProvider` | None — deterministic, reads real bundle |
 
 `get_llm_provider()` also falls back to mock when `LLM_PROVIDER=cursor` and no `CURSOR_API_KEY`. Pass `llm=mock` in API bodies or use `{"llm":"mock"}` on `POST .../phase2/run`.
@@ -121,7 +124,7 @@ Operators configure optional MCPs at **`GET /mcp-workarea`** (also linked from h
 - **Investigation tab** (`#mcp-run-checkboxes`): `POST /phase2/run` → `enabled_mcp_ids` for **Phase A**; `POST /phase2/clarify` → **Phase C** (current Investigation checkbox state)
 - **Chatbot tab** (`#chatbot-mcp-run-checkboxes`): `POST /phase2/chatbot/messages` → **chatbot** (current Chatbot-tab checkbox state per message; **not** persisted to `chatbot_chat.json`)
 
-`build_mcp_server_specs()` always includes built-ins (`simagix-evidence`, optional `graylog`, optional `hatchet-evidence`) and merges selected user ids from the WorkArea registry. **Cursor** passes specs to the SDK via `to_cursor_sdk_servers()`; **Gemini ADK** uses native `McpToolset` via `to_adk_mcp_toolsets()`. All operator skills attach automatically via provider-native paths (see Skill WorkArea). Mock accepts MCP fields but ignores them.
+`build_mcp_server_specs()` always includes built-ins (`simagix-evidence`, optional `graylog`, optional `hatchet-evidence`) and merges selected user ids from the WorkArea registry. **Cursor** passes specs to the SDK via `to_cursor_sdk_servers()`; **Gemini ADK** uses native `McpToolset` via `to_adk_mcp_toolsets()`; **Claude Agent SDK** uses `to_agent_sdk_servers()` (`McpStdioServerConfig` / `McpHttpServerConfig` dicts). All operator skills attach automatically via provider-native paths (see Skill WorkArea). Mock accepts MCP fields but ignores them.
 
 **Not in this slice:** saved default selection, free-form stdio commands (templates only).
 
@@ -135,6 +138,7 @@ Operators upload skill packages at **`GET /skill-workarea`**. Each upload is a *
 | Per-run selection | Checkboxes → `enabled_mcp_ids` | **None** — entire catalog attaches on every tool phase |
 | Cursor wiring | `AgentOptions.mcp_servers` | `copytree` → `{scratch}/.cursor/skills/` + `setting_sources=["project"]` |
 | ADK wiring | `McpToolset` per spec | `SkillToolset(load_skill_from_dir × all)` |
+| Claude wiring | `ClaudeAgentOptions.mcp_servers` | `copytree` → `{scratch}/.claude/skills/` + `ClaudeAgentOptions.skills=[names]` |
 
 **REST:** `GET/POST/DELETE /simagix/skills` — see [RCA_BACKEND.md](RCA_BACKEND.md).
 
@@ -147,18 +151,38 @@ backend/app/simagix/llm/
 ├── mcp/
 │   ├── specs.py          # McpServerSpec, bare-tool server names
 │   ├── connectors.py     # WorkArea registry (registry.json)
-│   ├── registry.py       # build_mcp_server_specs(), to_cursor_sdk_servers(), to_adk_mcp_toolsets()
+│   ├── registry.py       # build_mcp_server_specs(), to_cursor_sdk_servers(), to_adk_mcp_toolsets(), to_agent_sdk_servers()
 │   └── servers/          # @mcp.tool() source of truth (evidence, graylog, hatchet)
 ├── skills/
-│   └── registry.py       # operator skill catalog; Cursor copytree + ADK SkillToolset
+│   └── registry.py       # operator skill catalog; Cursor copytree + ADK SkillToolset + Claude Agent SDK copytree
+├── subagents.py          # provider-neutral sub-agent specs (finding-analyzer, log-investigator, doc-researcher)
 ├── providers/
 │   ├── cursor/provider.py
 │   ├── adk/{provider,runner}.py
+│   ├── claude/provider.py
 │   └── mock.py
 └── service.py            # get_llm_provider() → providers/*
 ```
 
-Both Cursor and ADK call `build_mcp_server_specs(session, settings, enabled_mcp_ids=...)`. `adk_evidence_tools.py` is removed; legacy paths re-export or raise.
+All three providers call `build_mcp_server_specs(session, settings, enabled_mcp_ids=...)`. `adk_evidence_tools.py` is removed; legacy paths re-export or raise.
+
+## Sub-agents
+
+All three providers define sub-agents for tool-using phases (investigation, final_rca, chatbot). Specs live in `subagents.py`; each provider converts them to its SDK format.
+
+| Sub-agent | MCP servers | What it produces | Max turns |
+|-----------|-------------|------------------|-----------|
+| `finding-analyzer` | `simagix-evidence` | Per-finding deep dive: Tier 2+3 metrics, charts, evidence_citations | 20 |
+| `log-investigator` | `graylog`, `hatchet-evidence` | Log evidence, timeline events, ruled-out hypotheses | 15 |
+| `doc-researcher` | `web-fetch` | safe_fixes, reference_urls, web evidence citations | 10 |
+
+Sub-agents are filtered by available MCP servers — e.g. `log-investigator` only appears when graylog or hatchet is configured.
+
+| SDK | Mechanism | Parent invokes via |
+|-----|-----------|-------------------|
+| Claude Agent SDK | `ClaudeAgentOptions.agents` → `AgentDefinition` | Built-in `Agent` tool |
+| Cursor SDK | `AgentOptions.agents` → `AgentDefinition` + `AgentDefinitionMcpServer.named()` | Built-in Agent tool |
+| Gemini ADK | `AgentTool(Agent(...))` added to parent's `tools` list | Model calls the agent-tool by name |
 
 ## Mentor Q&A — Cursor vs Gemini ADK layout, MCP client, and WorkArea (v1)
 
@@ -1098,6 +1122,7 @@ Storage and UI are shared; **recording** differs per provider:
 |----------|----------------|-------|
 | Cursor SDK | `cursor_provider.py` → `ToolTraceCollector.record_sdk_message()` | Parses streamed `tool_call` messages; `resolve_tool_identity()` unwraps `"mcp"` payloads |
 | Gemini ADK | `adk_runner.py` → `after_tool_callback` + `record_grounding_metadata` | Evidence tools as MCP; `GoogleSearchTool` + grounding metadata as **web** (`google_search`) |
+| Claude Agent SDK | `claude/provider.py` → `_record_tool_uses()` + `record_sdk_message()` | Iterates `AssistantMessage.content` for `ToolUseBlock`; `web_fetch` traced via in-process SDK MCP server |
 | Mock | `write_mock_tool_trace()` | Deterministic demo rows |
 
 All paths write to the same `tool_trace.json` under the active LLM folder. The API and **Agent Tool Activity** panel only read the normalized entries — no separate trace viewer per provider.

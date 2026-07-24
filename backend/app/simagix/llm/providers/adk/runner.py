@@ -20,16 +20,19 @@ from backend.app.simagix.llm.tool_trace import (
     adk_tool_trace_status,
     record_grounding_metadata,
 )
+from backend.app.simagix.llm.subagents import available_subagents
 from backend.app.simagix.llm.web_fetch import build_web_fetch_tool
 
 try:
     from google.adk import Agent
     from google.adk.runners import InMemoryRunner
+    from google.adk.tools.agent_tool import AgentTool
     from google.adk.tools.base_tool import BaseTool
     from google.adk.tools.tool_context import ToolContext
 except ImportError:  # pragma: no cover - optional dependency
     Agent = None  # type: ignore[assignment,misc]
     InMemoryRunner = None  # type: ignore[assignment,misc]
+    AgentTool = None  # type: ignore[assignment,misc]
     BaseTool = Any  # type: ignore[assignment,misc]
     ToolContext = Any  # type: ignore[assignment,misc]
 
@@ -50,6 +53,12 @@ def _apply_google_env(settings: Settings) -> None:
         os.environ["GOOGLE_API_KEY"] = settings.google_api_key
     if settings.google_genai_use_vertexai:
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "TRUE"
+        if settings.google_cloud_project:
+            os.environ["GOOGLE_CLOUD_PROJECT"] = settings.google_cloud_project
+        if settings.google_cloud_location:
+            os.environ["GOOGLE_CLOUD_LOCATION"] = settings.google_cloud_location
+        if settings.google_application_credentials:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
     else:
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
 
@@ -181,6 +190,22 @@ async def _run_adk_async(
         tools.append(build_web_fetch_tool(settings))
         await _ensure_adk_mcp_toolsets_ready(mcp_toolsets)
 
+    sub_agent_tools: list[Any] = []
+    if include_tools and phase in ("investigation", "final_rca", "chatbot") and AgentTool is not None:
+        active_ids = {s.server_id for s in specs}
+        active_ids.add("web-fetch")
+        for sa_spec in available_subagents(active_ids):
+            sub_agent_tools.append(
+                AgentTool(
+                    agent=Agent(
+                        name=sa_spec.name.replace("-", "_"),
+                        model=settings.google_model,
+                        instruction=sa_spec.prompt,
+                        tools=list(tools),
+                    ),
+                )
+            )
+
     try:
         agent = Agent(
             name=_AGENT_NAME,
@@ -191,7 +216,7 @@ async def _run_adk_async(
                 "Use web_fetch for HTTPS documentation when prompts ask to fetch URLs. "
                 "Follow the user message format exactly, especially JSON output requirements."
             ),
-            tools=tools,
+            tools=tools + sub_agent_tools,
             after_tool_callback=_make_after_tool_callback(trace, phase) if include_tools else None,
         )
         runner = InMemoryRunner(agent=agent, app_name=_ADK_APP_NAME)

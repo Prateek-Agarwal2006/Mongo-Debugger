@@ -57,16 +57,53 @@ spec:
                 secretKeyRef:
                   name: mongo-debugger-secrets
                   key: GOOGLE_API_KEY
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-debugger-secrets
+                  key: ANTHROPIC_API_KEY
+                  optional: true
             - name: DAYTONA_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: mongo-debugger-secrets
                   key: DAYTONA_API_KEY
+            - name: GOOGLE_CLOUD_PROJECT
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-debugger-secrets
+                  key: GOOGLE_CLOUD_PROJECT
+                  optional: true
+            - name: GOOGLE_CLOUD_LOCATION
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-debugger-secrets
+                  key: GOOGLE_CLOUD_LOCATION
+                  optional: true
+            {{- if .Values.vertex.enabled }}
+            - name: GOOGLE_GENAI_USE_VERTEXAI
+              value: "TRUE"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: {{ .Values.vertex.credentialsMountPath | quote }}
+            {{- end }}
           volumeMounts:
             - name: scratch
               mountPath: /data
+            {{- if .Values.vertex.enabled }}
+            - name: gcp-sa
+              mountPath: {{ .Values.vertex.credentialsMountDir | quote }}
+              readOnly: true
+            {{- end }}
 
       volumes:
         - name: scratch
           emptyDir:
             sizeLimit: {{ .Values.worker.scratchSizeLimit }}
+        {{- if .Values.vertex.enabled }}
+        - name: gcp-sa
+          secret:
+            secretName: mongo-debugger-secrets
+            items:
+              - key: {{ .Values.vertex.credentialsSecretKey }}
+                path: {{ .Values.vertex.credentialsFileName }}
+        {{- end }}

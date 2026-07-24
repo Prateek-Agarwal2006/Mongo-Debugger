@@ -49,6 +49,7 @@ env:
   PIPELINE_WORKER_POLL_SECONDS: "2.0"
   LLM_PROVIDER: "cursor"
   cursorModel: "grok-4.5"
+  anthropicModel: "claude-opus-4-8"
   GRAFANA_URL: "http://localhost:3030"
   # Effectively unbounded tool budgets for Kind demos / long investigations.
   PHASE2_INVESTIGATION_MAX_TOOL_CALLS: "1000000"
@@ -59,7 +60,20 @@ env:
 secrets:
   cursorApiKey: ""
   googleApiKey: ""
+  anthropicApiKey: ""          # Claude provider (claude-agent-sdk)
   daytonaApiKey: ""            # sandbox for LLM-authored chart scripts (execute_plot_script)
   # DATABASE_URL is auto-constructed from postgres.* above; override here if
   # pointing at an external PG instance.
   databaseUrlOverride: ""
+  # Vertex AI — set all three in values-local.yaml to use Vertex instead of API key.
+  googleCloudProject: ""
+  googleCloudLocation: ""
+  gcpSaJson: ""                # contents of GCP service-account JSON file
+
+# Vertex AI SA JSON mount — set enabled=true in values-local.yaml when using Vertex.
+vertex:
+  enabled: false
+  credentialsMountDir: /var/secrets
+  credentialsFileName: gcp-sa.json
+  credentialsMountPath: /var/secrets/gcp-sa.json
+  credentialsSecretKey: GCP_SA_JSON

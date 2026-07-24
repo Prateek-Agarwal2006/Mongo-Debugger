@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     daytona_api_key: str | None = None
     google_model: str = "gemini-2.5-flash"
     google_genai_use_vertexai: bool = False
+    google_cloud_project: str | None = None
+    google_cloud_location: str | None = None
+    google_application_credentials: str | None = None
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-opus-4-8"
     phase2_investigation_max_tool_calls: int = 1_000_000
     phase2_rca_max_tool_calls: int = 1_000_000
     phase2_max_clarifying_questions: int = 10

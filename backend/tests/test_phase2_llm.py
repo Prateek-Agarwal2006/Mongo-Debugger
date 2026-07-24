@@ -577,7 +577,7 @@ def test_llm_providers_api() -> None:
     body = resp.json()
     assert "options" in body
     ids = {opt["id"] for opt in body["options"]}
-    assert ids == {"default", "cursor", "gemini", "mock"}
+    assert ids == {"default", "cursor", "gemini", "claude", "mock"}
 
 
 def test_chatbot_404_without_report(fixture_run_id: str) -> None:

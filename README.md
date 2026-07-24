@@ -1,6 +1,6 @@
 # Mongo Debugger
 
-**AI-powered MongoDB FTDC analyzer** — upload `diagnostic.data`, run deterministic analysis with [simagix/mongo-ftdc](https://github.com/simagix/mongo-ftdc), optionally parse **MongoDB logs with Hatchet**, store metrics in **Postgres**, then generate **agentic root-cause reports** via a 3-phase LLM workflow (Cursor SDK / Gemini ADK + MCP evidence tools).
+**AI-powered MongoDB FTDC analyzer** — upload `diagnostic.data`, run deterministic analysis with [simagix/mongo-ftdc](https://github.com/simagix/mongo-ftdc), optionally parse **MongoDB logs with Hatchet**, store metrics in **Postgres**, then generate **agentic root-cause reports** via a 3-phase LLM workflow (Cursor SDK / Gemini ADK / Claude Agent SDK + MCP evidence tools).
 
 ```text
 Browser → ui nginx (:8000) → api FastAPI (ClusterIP)
@@ -25,7 +25,7 @@ Upload → Postgres job queue → worker (baked Go binaries)
 | **MongoDB logs (Hatchet)** | Optional `mongod.log` upload on the run page → `summary.json`; Phase 2 waits when logs present |
 | **Agentic RCA** | Investigation → clarifying questions → final report with citations |
 | **Post-report chatbot** | Agentic follow-up (markdown, mermaid, copy); disk transcript + summarize/replay memory |
-| **Multi-LLM** | Per-slot artifacts (`cursor`, `gemini`, `mock`); switch LLM without cross-contamination |
+| **Multi-LLM** | Per-slot artifacts (`cursor`, `gemini`, `claude`, `mock`); switch LLM without cross-contamination |
 | **Evidence-first** | Tier-1 findings authoritative; LLM fetches metric slices via MCP, not raw dumps |
 | **Metric charts in reports** | LLM authors a matplotlib script; it runs in a **Daytona sandbox** (CSV in → PNG out, no DB/network); chart embedded in Report tab and downloadable HTML |
 | **Grafana charts** | Helm Grafana + SimpleJSON over Postgres (`/grafana/simple`); Anomaly View + All Metrics |
@@ -35,7 +35,7 @@ Upload → Postgres job queue → worker (baked Go binaries)
 
 ## Architecture (runtime)
 
-Same layout style as the Latency Dashboard: **UI nginx is the sole entry**, API and worker are separate pods, durable state is Postgres. Deterministic Phase 1 runs on the **worker**; Phase 2 reasoning runs on the **API** (Cursor SDK or Gemini ADK). For both LLM slots, **MCP stdio servers are subprocesses on the API pod** — vendor clouds are model-only.
+Same layout style as the Latency Dashboard: **UI nginx is the sole entry**, API and worker are separate pods, durable state is Postgres. Deterministic Phase 1 runs on the **worker**; Phase 2 reasoning runs on the **API** (Cursor SDK, Gemini ADK, or Claude Agent SDK). For all LLM slots, **MCP stdio servers are subprocesses on the API pod** — vendor clouds are model-only.
 
 Grafana NodePort `:3030` is **Kind playground only**, not a production exposure pattern.
 
@@ -57,11 +57,12 @@ flowchart LR
     Phase2API["Phase 2 HTTP | investigate | clarify | RCA | chatbot"]
     Pool["phase2 ThreadPoolExecutor | max_workers=4"]
     Specs["build_mcp_server_specs | same list for cursor and gemini"]
-    Provider["LLMProvider | cursor or gemini or mock"]
+    Provider["LLMProvider | cursor or gemini or claude or mock"]
 
     subgraph agentRuntime [Agent runtime in this pod]
       CursorSDK["Cursor SDK | Agent.create + tool loop"]
       ADK["Gemini ADK | InMemoryRunner + McpToolset"]
+      ClaudeSDK["Claude Agent SDK | query() + NDJSON subprocess"]
     end
 
     subgraph mcpLocal [MCP stdio — always local to API pod]
@@ -69,7 +70,7 @@ flowchart LR
     end
 
     subgraph modelCloud [Vendor cloud — model only]
-      Cloud["Cursor Cloud or Gemini API | tokens in/out | never spawns MCP | never opens Postgres"]
+      Cloud["Cursor Cloud / Gemini API / Anthropic API | tokens in/out | never spawns MCP | never opens Postgres"]
     end
   end
 
@@ -90,18 +91,21 @@ flowchart LR
 
   subgraph k8s [Kubernetes deploy]
     Helm["Helm mongo-debugger | ui api worker postgres"]
-    Secret["Secret | DB password | CURSOR_API_KEY | GEMINI_API_KEY | DAYTONA_API_KEY"]
+    Secret["Secret | DB password | CURSOR_API_KEY | GEMINI_API_KEY | ANTHROPIC_API_KEY | DAYTONA_API_KEY"]
   end
 
   Operator --> Web --> Nginx -->|"proxy /simagix/*"| FastAPI
   FastAPI --> Phase2API --> Pool --> Provider
   Provider --> CursorSDK
   Provider --> ADK
+  Provider --> ClaudeSDK
   Provider --> Specs
   Specs -->|"Cursor: AgentOptions.mcp_servers"| McpChild
   Specs -->|"Gemini: to_adk_mcp_toolsets StdioConnectionParams"| McpChild
+  Specs -->|"Claude: to_agent_sdk_servers McpStdioServerConfig"| McpChild
   CursorSDK <-->|"tool calls / model text"| Cloud
   ADK <-->|"tool calls / model text"| Cloud
+  ClaudeSDK <-->|"tool calls / model text"| Cloud
   McpChild -->|"SELECT slices / tier-1"| PG
   McpChild -->|"CSV in / PNG out"| Sandbox
   McpChild -->|"store chart PNG"| PG
@@ -138,7 +142,8 @@ flowchart LR
 |----------|-----------|-------------|
 | **Cursor** | SDK in API pod | stdio **subprocess on API pod** |
 | **Gemini** | ADK in API pod | same specs → **stdio subprocess on API pod** |
-| **Either cloud** | model only | does **not** run MCP |
+| **Claude** | Agent SDK subprocess in API pod | same specs → **stdio subprocess on API pod** |
+| **All clouds** | model inference only | does **not** run MCP |
 
 HTTP WorkArea connectors call a remote URL from the API pod (not a local subprocess). Phase 2 concurrency is `ThreadPoolExecutor(max_workers=4)` on the API — separate from Phase 1 worker replicas.
 
@@ -157,10 +162,10 @@ HTTP WorkArea connectors call a remote URL from the API pod (not a local subproc
 | Layer | Role |
 |-------|------|
 | **ui nginx** | Serves SPA + stitch assets; sole browser entry; proxies API paths |
-| **api** | Upload, catalog, Phase 2, SimpleJSON; hosts Cursor/ADK + MCP children |
+| **api** | Upload, catalog, Phase 2, SimpleJSON; hosts Cursor/ADK/Claude + MCP children |
 | **worker** | Claims jobs; baked `llm-export` / Hatchet subprocess; ingests metrics |
 | **Postgres (+ PVC)** | Durable jobs, FTDC metrics, chart PNGs, operator skills/MCP registry |
-| **Cursor SDK / Gemini ADK** | Agent runtime in API pod; shared `build_mcp_server_specs` |
+| **Cursor SDK / Gemini ADK / Claude Agent SDK** | Agent runtime in API pod; shared `build_mcp_server_specs` |
 | **Daytona sandbox** | Runs `execute_plot_script` matplotlib outside the cluster |
 | **Phase 2** | Investigate → clarify once → final RCA → chatbot |
 | **Grafana** | Optional charts over Postgres SimpleJSON |
@@ -217,7 +222,7 @@ curl -sS http://localhost:3030/api/health || kubectl port-forward svc/grafana 30
 
 1. **Upload** → `http://localhost:8000/upload` (zip of `diagnostic.data` or `metrics.*`)
 2. Redirect to **`/runs/{run_id}`** — SPA shows **Decoding** / **Loading metrics** until Phase 1 succeeds
-3. **Run RCA** (Mock works without keys; Cursor/Gemini need `.env` / secrets in Helm)
+3. **Run RCA** (Mock works without keys; Cursor/Gemini/Claude need `.env` / secrets in Helm)
 4. Optional: **MCP WorkArea** / **Skill WorkArea**; enable MCP checkboxes on the run page
 5. **Grafana** links on Evidence tab (time range from capture window)
 
@@ -252,7 +257,7 @@ git clone https://github.com/Prateek-Agarwal2006/Mongo-Debugger.git mongo-debugg
 cd mongo-debugger
 uv python install 3.11
 uv sync --extra dev --extra llm
-cp .env.example .env   # CURSOR_API_KEY / GEMINI_API_KEY optional
+cp .env.example .env   # CURSOR_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY optional
 ```
 
 ### 2. Simagix toolchain (Docker images for pipeline)
@@ -324,6 +329,7 @@ simagix-workspace/
 | `DATABASE_URL` | Postgres (required for catalog, jobs, metrics, skills) |
 | `DATA_ROOT` | Workspace root (Kind: `/data`; local: repo root) |
 | `CURSOR_API_KEY` / `CURSOR_MODEL` | Live Cursor Phase 2 |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Claude Agent SDK slot |
 | `GEMINI_API_KEY` | Optional Gemini ADK slot |
 | `DAYTONA_API_KEY` | Sandbox for LLM-authored matplotlib charts (get at daytona.io) |
 | `PHASE2_*_MAX_TOOL_CALLS` | MCP budget per phase |
@@ -356,7 +362,7 @@ Full list: [.env.example](.env.example) · [docs/OPERATIONS.md](docs/OPERATIONS.
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System map + zoom diagrams |
 | [PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md) | K8s decisions (Postgres-only, baked binaries, …) |
 | [OPERATIONS.md](docs/OPERATIONS.md) | Kind rebuild, upload, Grafana, Postgres probes |
-| [PHASE2_LLM.md](docs/PHASE2_LLM.md) | Cursor / ADK, MCP, 3-phase RCA, WorkAreas |
+| [PHASE2_LLM.md](docs/PHASE2_LLM.md) | Cursor / ADK / Claude, MCP, sub-agents, 3-phase RCA, WorkAreas |
 | [RCA_BACKEND.md](docs/RCA_BACKEND.md) | REST + catalog API |
 | [DESIGN_NOTES.md](docs/DESIGN_NOTES.md) | Demo / interview · **§14 tradeoffs** |
 | [export_contract.md](docs/export_contract.md) | Evidence bundle schema |

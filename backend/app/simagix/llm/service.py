@@ -13,7 +13,12 @@ from backend.app.simagix.llm.state import (
     load_state,
     save_state,
 )
-from backend.app.simagix.llm.providers import CursorLLMProvider, GeminiAdkLLMProvider, MockLLMProvider
+from backend.app.simagix.llm.providers import (
+    ClaudeLLMProvider,
+    CursorLLMProvider,
+    GeminiAdkLLMProvider,
+    MockLLMProvider,
+)
 from backend.app.simagix.llm.chatbot_attachments import (
     format_user_content_with_attachments,
     materialize_attachments,
@@ -36,7 +41,7 @@ from backend.app.simagix.output_schema import (
     InvestigationSummary,
 )
 
-LLM_PROVIDER_IDS = frozenset({"default", "cursor", "gemini", "mock"})
+LLM_PROVIDER_IDS = frozenset({"default", "cursor", "gemini", "claude", "mock"})
 
 
 def normalize_llm_provider_choice(llm_provider: str | None, settings: Settings | None = None) -> str:
@@ -52,7 +57,19 @@ def llm_provider_options(settings: Settings | None = None) -> list[dict[str, obj
     return [
         {"id": "mock", "label": "Mock (no API key)", "available": True},
         {"id": "cursor", "label": "Cursor SDK", "available": bool(settings.cursor_api_key)},
-        {"id": "gemini", "label": "Gemini ADK", "available": bool(settings.google_api_key)},
+        {
+            "id": "gemini",
+            "label": "Gemini ADK",
+            "available": bool(
+                settings.google_api_key
+                or (
+                    settings.google_genai_use_vertexai
+                    and settings.google_cloud_project
+                    and settings.google_cloud_location
+                )
+            ),
+        },
+        {"id": "claude", "label": "Claude (Anthropic)", "available": bool(settings.anthropic_api_key)},
         {"id": "default", "label": f"Default ({default})", "available": True},
     ]
 
@@ -116,6 +133,8 @@ def get_llm_provider(
         return MockLLMProvider()
     if provider == "gemini":
         return GeminiAdkLLMProvider(settings)
+    if provider == "claude":
+        return ClaudeLLMProvider(settings)
     if provider == "cursor":
         if settings.cursor_api_key:
             return CursorLLMProvider(settings)
@@ -125,7 +144,11 @@ def get_llm_provider(
             )
         return MockLLMProvider()
 
-    if settings.google_api_key:
+    if settings.google_api_key or (
+        settings.google_genai_use_vertexai
+        and settings.google_cloud_project
+        and settings.google_cloud_location
+    ):
         return GeminiAdkLLMProvider(settings)
     if settings.cursor_api_key:
         return CursorLLMProvider(settings)

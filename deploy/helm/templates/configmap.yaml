@@ -9,6 +9,8 @@ data:
   PIPELINE_WORKER_POLL_SECONDS: {{ .Values.env.PIPELINE_WORKER_POLL_SECONDS | quote }}
   LLM_PROVIDER: {{ .Values.env.LLM_PROVIDER | quote }}
   CURSOR_MODEL: {{ .Values.env.cursorModel | quote }}
+  GOOGLE_MODEL: {{ .Values.env.googleModel | default "gemini-2.5-flash" | quote }}
+  ANTHROPIC_MODEL: {{ .Values.env.anthropicModel | default "claude-opus-4-8" | quote }}
   GRAFANA_URL: {{ .Values.env.GRAFANA_URL | quote }}
   PHASE2_INVESTIGATION_MAX_TOOL_CALLS: {{ .Values.env.PHASE2_INVESTIGATION_MAX_TOOL_CALLS | quote }}
   PHASE2_RCA_MAX_TOOL_CALLS: {{ .Values.env.PHASE2_RCA_MAX_TOOL_CALLS | quote }}

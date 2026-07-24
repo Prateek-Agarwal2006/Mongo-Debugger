@@ -35,6 +35,7 @@ _LLM_LABELS = {
     "mock": "Mock",
     "cursor": "Cursor SDK",
     "gemini": "Gemini ADK",
+    "claude": "Claude (Anthropic)",
 }
 
 
@@ -50,6 +51,11 @@ def _llm_context_options(settings) -> list[dict[str, object]]:
             "id": "gemini",
             "label": _LLM_LABELS["gemini"],
             "available": bool(settings.google_api_key),
+        },
+        {
+            "id": "claude",
+            "label": _LLM_LABELS["claude"],
+            "available": bool(settings.anthropic_api_key),
         },
     ]
 
